@@ -76,6 +76,7 @@ def walk(ctx: click.Context, document_dir: str, output_dir: str):
         document_dir (str): Path to the directory containing PDFs to analyze.
         output_dir (str): Path to the directory to save results to.
     """
+    model = ctx.obj["model"]
     # Build a queue of PDFs to process.
     queue = list[tuple[str, str]]()
     for root, dirs, files in os.walk(document_dir):
@@ -87,6 +88,7 @@ def walk(ctx: click.Context, document_dir: str, output_dir: str):
                 # as `output_dir/foo/bar.json`.
                 output_path = os.path.join(
                     output_dir,
+                    model,
                     os.path.relpath(
                         file_path,
                         document_dir,
@@ -100,7 +102,7 @@ def walk(ctx: click.Context, document_dir: str, output_dir: str):
         # Ensure that the directory exists.
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         # Run analysis
-        result = analyze_document(file_path, model=ctx.obj["model"])
+        result = analyze_document(file_path, model=model)
         # Save result
         with open(output_path, "w") as f:
             save_result(result, f)
