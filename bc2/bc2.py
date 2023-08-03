@@ -1,9 +1,12 @@
+import os
+
 import click
 from azure.ai.formrecognizer import AnalyzeResult
 from azure.ai.formrecognizer._models import DocumentField
 
 from document_analysis import analyze_document, get_output_path
 import llm
+import render
 
 
 def extract_narrative_fields(analysis: list[AnalyzeResult]) -> list[DocumentField]:
@@ -33,24 +36,46 @@ def get_narrative(fields: list[DocumentField]) -> str:
     """
     narrative = ""
     for field in fields:
-        if field.value:
+        if field.content:
             if narrative:
                 narrative += "\n\n"
-            narrative += field.value
+            narrative += field.content
     return narrative
 
 
-def redact_text(text: str) -> str:
+def redact_text(text: str, cached: str | None = None) -> str:
     """Redact sensitive information from text.
 
     Args:
         text (str): Text to redact.
+        cached (str | None): Path to the cached results.
 
     Returns:
         str: Redacted text.
     """
-    max_len = len(text) * 1.1
-    return llm.redact(text, temperature=0, top_p=0.5, max_tokens=max_len)
+    narr_name = "narrative.txt"
+    cache_name = "redacted.txt"
+    cache_path = os.path.join(cached, cache_name) if cached is not None else None
+    narr_path = os.path.join(cached, narr_name) if cached is not None else None
+    if cache_path:
+        # Check if the input is actually the same before using cached result
+        og_narr = ""
+        if os.path.exists(narr_path):
+            with open(narr_path, "r") as f:
+                og_narr = f.read()
+        # Only return cached result if it's valid
+        if text == og_narr and os.path.exists(cache_path):
+            with open(cache_path, "r") as f:
+                return f.read()
+
+    redaction = llm.redact_with_chat(text)
+    if cache_path:
+        with open(narr_path, "w") as f:
+            f.write(text)
+        with open(cache_path, "w") as f:
+            f.write(redaction)
+
+    return redaction
 
 
 @click.command()
@@ -71,8 +96,8 @@ def run(path: str, model: str, document_root: str, cache_dir: str | None = None)
     analysis = analyze_document(path, model=model, cached=cached)
     fields = extract_narrative_fields(analysis)
     narrative = get_narrative(fields)
-    redacted = redact_text(narrative)
-    print(redacted)
+    redacted = redact_text(narrative, cached=cached)
+    render.pdf(os.path.join(cached, "redacted.pdf"), redacted)
 
 
 if __name__ == "__main__":
