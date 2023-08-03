@@ -14,6 +14,7 @@ class Config(BaseSettings):
     openai_api_type: str
     openai_api_base: str
     openai_api_version: str
+    openai_api_chat_version: str
     openai_api_key: str
     openai_engine: str
 
