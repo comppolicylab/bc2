@@ -54,7 +54,7 @@ def redact_text(text: str, cached: str | None = None) -> str:
         str: Redacted text.
     """
     narr_name = "narrative.txt"
-    cache_name = "redacted.txt"
+    cache_name = f"redacted_{llm.get_model_slug()}.txt"
     cache_path = os.path.join(cached, cache_name) if cached is not None else None
     narr_path = os.path.join(cached, narr_name) if cached is not None else None
     if cache_path:

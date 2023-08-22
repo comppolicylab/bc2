@@ -20,6 +20,21 @@ openai.api_base = config.openai_api_base
 openai.api_key = config.openai_api_key
 
 
+def get_model_slug() -> str:
+    """Get a descriptive text name for the model specified in the config.
+
+    Returns:
+        str: The model name.
+    """
+    base = openai.api_base
+    # Extract the deployment name from the URL, which is specified in a URL
+    # in the format: https://{deployment}.openai.azure.com/
+    deployment = base.split(".")[0].split("//")[1]
+
+    # Join the deployment name with the engine name
+    return f"{deployment}_{config.openai_engine}"
+
+
 def redact_with_chat(narrative: str,
                      system_prompt: str = DEFAULT_PROMPT,
                      **kwargs) -> str:
