@@ -8,3 +8,5 @@ htmlcov/
 .coverage
 coverage.xml
 badge.svg
+config.toml
+.DS_Store
