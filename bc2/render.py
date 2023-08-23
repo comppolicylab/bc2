@@ -1,6 +1,13 @@
+from difflib import SequenceMatcher
 from functools import partial
+import re
 
-from reportlab.platypus import Frame, PageTemplate, Paragraph, SimpleDocTemplate
+from reportlab.platypus import (
+        Frame,
+        PageTemplate,
+        Paragraph,
+        SimpleDocTemplate,
+        )
 from reportlab.lib.styles import ParagraphStyle, StyleSheet1
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
@@ -24,7 +31,15 @@ def _escape_for_platypus(text: str) -> str:
     Returns:
         The escaped text.
     """
-    return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br/><br/>')
+    replacements = [
+            ('&', '&amp;'),
+            ('<', '&lt;'),
+            ('>', '&gt;'),
+            ('\n', '<br/><br/>'),
+            ]
+    for old, new in replacements:
+        text = text.replace(old, new)
+    return text
 
 
 def layout(canvas, doc, *, styles, line_margin=5, line_thickness=0.5) -> None:
@@ -34,7 +49,6 @@ def layout(canvas, doc, *, styles, line_margin=5, line_thickness=0.5) -> None:
         canvas: The canvas to layout.
         doc: The document to layout.
     """
-    print(canvas, '\n', canvas.__dict__)
     canvas.saveState()
 
     # Lines to separate header/footer from content
@@ -43,7 +57,9 @@ def layout(canvas, doc, *, styles, line_margin=5, line_thickness=0.5) -> None:
     canvas.setLineWidth(line_thickness)
 
     # Draw the header.
-    header_text = Paragraph("Blind Charging - Redacted Narrative", styles["Header"])
+    header_text = Paragraph(
+            "Blind Charging - Redacted Narrative",
+            styles["Header"])
     w, h = header_text.wrap(doc.width, doc.topMargin)
     header_text_y = doc.height + (doc.topMargin / 2) + doc.bottomMargin - h
     header_text_x = doc.leftMargin
@@ -68,7 +84,7 @@ def layout(canvas, doc, *, styles, line_margin=5, line_thickness=0.5) -> None:
     canvas.restoreState()
 
 
-def get_styles():
+def get_styles() -> StyleSheet1:
     """Get nice-looking report styles for the PDF."""
     styles = StyleSheet1()
     styles.add(ParagraphStyle(name='Header',
@@ -82,15 +98,90 @@ def get_styles():
                               fontName='Times-Italic', fontSize=10))
     styles.add(ParagraphStyle(name='Footer', parent=styles['Normal'],
                               fontSize=10))
+    styles.add(ParagraphStyle(name='Redaction', parent=styles['Normal'],
+                              fontName='Courier', fontSize=12,
+                              color="orange"))
+    styles.add(ParagraphStyle(name='RedactError', parent=styles['Redaction'],
+                              fontName='Courier-Bold',
+                              color='red'))
     return styles
 
 
-def pdf(out: str, narrative: str) -> None:
+def styled(styles: StyleSheet1, text: str, style: str) -> str:
+    """Style span of text for display.
+
+    Args:
+        text: The text to color.
+        style: The name of the style to use.
+
+    Returns:
+        The styled text.
+    """
+    s = styles[style]
+    color = s.color
+    face = s.fontName
+    return f"<font color='{color}' face='{face}'>{text}</font>"
+
+
+def format_narrative(styles: StyleSheet1,
+                     narrative: str,
+                     original: str | None = None) -> str:
+    """Format a narrative for display.
+
+    Args:
+        narrative: The narrative to format.
+        original: The original narrative, if available.
+
+    Returns:
+        The formatted narrative.
+    """
+    final = narrative
+    style = partial(styled, styles)
+
+    # Compute diff between original and redacted narrative
+    if original:
+        final = ""
+        edit_stack = 0
+        matcher = SequenceMatcher(None,
+                                  original,
+                                  narrative,
+                                  autojunk=False)
+        diff = matcher.get_opcodes()
+
+        for opcode, i1, i2, j1, j2 in diff:
+            if opcode == 'delete':
+                continue
+
+            string = narrative[j1:j2]
+            if string[0] == '<':
+                edit_stack += 1
+
+            escaped = _escape_for_platypus(string)
+            
+            if opcode == 'equal':
+                if edit_stack > 0:
+                    final += style(escaped, 'Redaction')
+                else:
+                    final += escaped
+            elif opcode in {'replace', 'insert'}:
+                if edit_stack > 0:
+                    final += style(escaped, 'Redaction')
+                else:
+                    final += style(escaped, 'RedactError')
+
+            if string[-1] == '>':
+                edit_stack = max(0, edit_stack - 1)
+
+    return final
+
+
+def pdf(out: str, narrative: str, original: str | None = None) -> None:
     """Render a narrative to PDF.
 
     Args:
         out: The path to the output file.
         narrative: The narrative to render
+        original: The original narrative, if available.
     """
     styles = get_styles()
 
@@ -102,12 +193,15 @@ def pdf(out: str, narrative: str) -> None:
     frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height,
                   id='normal')
 
-    tpl = PageTemplate(id='report', frames=[frame], onPage=partial(layout, styles=styles))
+    tpl = PageTemplate(
+            id='report',
+            frames=[frame],
+            onPage=partial(layout, styles=styles))
     doc.addPageTemplates([tpl])
 
     doc.build([
             Paragraph(DISCLAIMER, styles['Italic']),
-            Paragraph(_escape_for_platypus(narrative), styles['Normal']),
+            Paragraph(format_narrative(styles, narrative, original), styles['Normal']),
             ],
             onFirstPage=partial(layout, styles=styles),
             onLaterPages=partial(layout, styles=styles))

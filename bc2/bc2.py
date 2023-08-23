@@ -97,7 +97,10 @@ def run(path: str, model: str, document_root: str, cache_dir: str | None = None)
     fields = extract_narrative_fields(analysis)
     narrative = get_narrative(fields)
     redacted = redact_text(narrative, cached=cached)
-    render.pdf(os.path.join(cached, "redacted.pdf"), redacted)
+    render.pdf(
+            os.path.join(cached, "redacted.pdf"),
+            redacted,
+            original=narrative)
 
 
 if __name__ == "__main__":

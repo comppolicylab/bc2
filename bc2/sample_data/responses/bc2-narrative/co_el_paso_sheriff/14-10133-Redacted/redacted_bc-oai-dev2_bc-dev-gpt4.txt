@@ -1,0 +1,3 @@
+Cleared by Arrest
+
+<date> <time> <(S1)> <case number>
