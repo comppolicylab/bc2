@@ -153,7 +153,8 @@ def format_narrative(styles: StyleSheet1,
                 continue
 
             string = narrative[j1:j2]
-            if string[0] == '<':
+            stripped = string.strip()
+            if stripped and stripped[0] == '<':
                 edit_stack += 1
 
             escaped = _escape_for_platypus(string)
@@ -169,7 +170,7 @@ def format_narrative(styles: StyleSheet1,
                 else:
                     final += style(escaped, 'RedactError')
 
-            if string[-1] == '>':
+            if stripped and stripped[-1] == '>':
                 edit_stack = max(0, edit_stack - 1)
 
     return final
