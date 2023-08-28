@@ -5,11 +5,12 @@ import click
 from azure.ai.formrecognizer import AnalyzeResult
 from azure.ai.formrecognizer._models import DocumentField
 
+from config import config
 from document_analysis import analyze_document, get_output_path
 import llm
 import render
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=config.log_level)
 logger = logging.getLogger(__name__)
 
 
@@ -89,10 +90,13 @@ def redact_text(text: str, cached: str | None = None) -> str:
 
 @click.command()
 @click.argument("path")
-@click.option("--model", default="bc2-narrative")
-@click.option("--document-root", default=".")  # TODO - refactor cache so that this is not needed
-@click.option("--cache-dir", default=None)
-def run(path: str, model: str, document_root: str, cache_dir: str | None = None):
+@click.option("--model", default=config.bc2.document_model)
+@click.option("--document-root", default=config.bc2.document_root)
+@click.option("--cache-dir", default=config.bc2.cache_dir)
+def run(path: str,
+        model: str,
+        document_root: str,
+        cache_dir: str | None = None):
     """Run document analysis on a PDF.
 
     Args:

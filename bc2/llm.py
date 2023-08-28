@@ -15,9 +15,9 @@ with open(EXAMPLES_PATH, 'r') as f:
 
 
 # Configure OpenAI with values from config
-openai.api_type = config.openai_api_type
-openai.api_base = config.openai_api_base
-openai.api_key = config.openai_api_key
+openai.api_type = config.openai.api.type
+openai.api_base = config.openai.api.base
+openai.api_key = config.openai.api.key
 
 
 def get_model_slug() -> str:
@@ -32,7 +32,7 @@ def get_model_slug() -> str:
     deployment = base.split(".")[0].split("//")[1]
 
     # Join the deployment name with the engine name
-    return f"{deployment}_{config.openai_engine}"
+    return f"{deployment}_{config.openai.engine}"
 
 
 def redact_with_chat(narrative: str,
@@ -49,9 +49,9 @@ def redact_with_chat(narrative: str,
     Returns:
         The redacted narrative.
     """
-    openai.api_version = config.openai_api_chat_version
+    openai.api_version = config.openai.api.chat_version
     settings = dict(
-            engine=config.openai_engine,
+            engine=config.openai.engine,
             messages=[
                 {"role": "system", "content": system_prompt}] + EXAMPLES + [
                 {"role": "user", "content": narrative},
@@ -82,9 +82,9 @@ def redact_with_completion(narrative: str,
     Returns:
         The redacted narrative.
     """
-    openai.api_version = config.openai_api_version
+    openai.api_version = config.openai.api.version
     settings = dict(
-            engine=config.openai_engine,
+            engine=config.openai.engine,
             prompt=prompt,
             max_tokens=int(math.ceil(len(narrative) * 1.1)),
             top_p=0.5,

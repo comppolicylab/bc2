@@ -11,8 +11,8 @@ from config import config
 
 
 document_analysis_client = DocumentAnalysisClient(
-    endpoint=config.azure_endpoint,
-    credential=AzureKeyCredential(config.azure_key),
+    endpoint=config.azure.endpoint,
+    credential=AzureKeyCredential(config.azure.key),
     )
 
 
