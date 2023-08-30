@@ -49,6 +49,7 @@ def analyze_document(
         document_path: str,
         model: str = "prebuilt-read",
         cached: str | None = None,
+        use_cache: bool = True,
         ) -> list[AnalyzeResult]:
     """Run a PDF through Azure document analysis.
 
