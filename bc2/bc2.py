@@ -92,38 +92,64 @@ def redact_text(text: str, cached: str | None = None) -> str:
 @click.argument("path")
 @click.option("--model", default=config.bc2.document_model)
 @click.option("--document-root", default=config.bc2.document_root)
+@click.option("--cache/--no-cache", default=True)
 @click.option("--cache-dir", default=config.bc2.cache_dir)
+@click.option("--output", default=None)
+@click.option("--renderer", default=config.bc2.renderer)
 def run(path: str,
         model: str,
         document_root: str,
-        cache_dir: str | None = None):
+        cache: bool,
+        cache_dir: str | None = None,
+        output: str | None = None,
+        renderer: str = "pdf") -> None:
     """Run document analysis on a PDF.
 
     Args:
         path (str): Path to the PDF to analyze.
         model (str): Model to use for analysis.
         document_root (str): Path to the root of the document.
+        cache (bool): Whether to cache results / use cached results.
         cache_dir (str | None): Path to the directory to cache results in.
+        output (str | None): Path to save the redacted PDF to.
+        renderer (str): Renderer(s) to use for output. To use multiple, separate with commas.
     """
     logger.info("Loading Blind Charging redaction tool ...")
-    cached = get_output_path(path, document_root, cache_dir, model)
+    if cache and not cache_dir:
+        logger.warning("No cache directory specified, disabling cache.")
+        cached = None
+    cached = None if not cache else get_output_path(path, document_root, cache_dir, model)
+
     logger.info(f"Running analysis on {path} with model {model} ...")
     analysis = analyze_document(path, model=model, cached=cached)
+
     logger.info("Inspecting analysis result to find narrative(s) ...")
     fields = extract_narrative_fields(analysis)
     if not fields:
         logger.warning("No narrative found in document!")
         return
     narrative = get_narrative(fields)
+
     logger.info("Redacting narrative with language model ...")
     redacted = redact_text(narrative, cached=cached)
+
     logger.info("Rendering redacted narrative ...")
-    redact_path = os.path.join(cached, "redacted.pdf")
-    render.pdf(
-            redact_path,
-            redacted,
-            original=narrative)
-    logger.info(f"Redacted narrative saved to {redact_path}")
+
+    # Output location can be either string or file-like stream
+    redact_path = "redacted.pdf"
+    if output:
+        redact_path = output
+    else:
+        if cached:
+            redact_path = os.path.join(cached, "redacted.pdf")
+        logger.warning("No output location specified, using default: %s", redact_path)
+
+    for fmt in renderer.split(","):
+        # Make sure that the extension is correct, fixing it if necessary
+        render_path = render.ensure_filename_matches_format(fmt, redact_path)
+        logger.info(f"Rendering redacted narrative as {fmt} to {render_path} ...")
+        render.render(fmt, render_path, redacted, original=narrative)
+
     logger.info("Done!")
 
 

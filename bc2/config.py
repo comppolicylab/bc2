@@ -36,6 +36,7 @@ class BC2Settings(BaseSettings):
     document_model: str
     cache_dir: str
     document_root: str
+    renderer: str = Field("pdf")
 
 
 class Config(BaseSettings):

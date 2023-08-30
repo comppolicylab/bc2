@@ -11,8 +11,14 @@ Information that might convey race includes:
  - Racial slurs
 And more.
 
+The names of all individuals should be redacted, including suspects, victims, officers, witnesses, and others.
+
+The badge number of all officers should be redacted, for example "Officer Jones #1234" should be redacted to "Officer <[O1]>".
+
 You should respond with the input narrative text edited so that race-related information is replaced with generic strings that describe the type of information that was redacted.
 
-For example, if the source text reads "a Black man," the redacted text should read "a <race/ethnicity> man."
+For example, if the source text reads "a Black man," the redacted text should read "a <[race/ethnicity]> man."
+
+Never redact colors if they are not used as part of a physical description of an individual. For example, "a black car" should not be redacted.
 
 Apart from the redactions, the source text should be unchanged.
