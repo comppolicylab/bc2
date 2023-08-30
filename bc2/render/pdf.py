@@ -90,7 +90,11 @@ def apply_platypus_style(styles: StyleSheet1, text: str, style: str) -> str:
     s = styles[style]
     color = s.color
     face = s.fontName
-    return f"<font color='{color}' face='{face}'>{text}</font>"
+
+    # Format each line separately, so that when we apply paragraph breaks they
+    # don't interfere with the font tags.
+    return "\n".join(f"<font color='{color}' face='{face}'>{t}</font>"
+                     for t in text.splitlines())
 
 
 def format_platypus_paragraph(text: str) -> str:
