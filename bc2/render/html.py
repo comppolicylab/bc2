@@ -17,6 +17,11 @@ tpl = Template("""
         margin: 2rem 4rem;
     }
 
+    a {
+        color: #1E90FF;
+        text-decoration: none;
+    }
+
     .Header {
         font-size: 16pt;
         font-weight: bold;
