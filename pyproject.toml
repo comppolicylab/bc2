@@ -7,7 +7,7 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.10"
 azure-ai-formrecognizer = "^3.2.1"
 pydantic = "^2.1.0"
 pydantic-settings = "^2.0.2"
