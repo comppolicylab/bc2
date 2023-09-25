@@ -1,14 +1,17 @@
 import os
+import sys
+import json
 import logging
 
 import click
 from azure.ai.formrecognizer import AnalyzeResult
 from azure.ai.formrecognizer._models import DocumentField
 
-from config import config
-from document_analysis import analyze_document, get_output_path
-import llm
-import render
+from .config import config
+from .document_analysis import analyze_document, get_output_path
+from .infer import infer_annotations
+import bc2.llm as llm
+import bc2.render as render
 
 logging.basicConfig(level=config.log_level)
 logger = logging.getLogger(__name__)
@@ -88,7 +91,36 @@ def redact_text(text: str, cached: str | None = None) -> str:
     return redaction
 
 
-@click.command()
+@click.group()
+def cli() -> None:
+    """Redact text using the Blind Charging language model."""
+    pass
+
+
+@cli.command('redact')
+@click.argument("path", required=False, default=None)
+@click.option("--json/--no-json", "return_json", default=False)
+def redact(path: str | None, return_json: bool) -> None:
+    """Redact text, either from a file or stdin.
+
+    Args:
+        path (str | None): Path to the file to redact. If None, use stdin.
+    """
+    text = ""
+    if path is None:
+        text = sys.stdin.read()
+    else:
+        with open(path, "r") as f:
+            text = f.read()
+    redacted = redact_text(text)
+    if return_json:
+        annotations = infer_annotations(text, redacted)
+        sys.stdout.write(json.dumps(annotations))
+    else:
+        sys.stdout.write(redacted)
+
+
+@cli.command('run')
 @click.argument("path")
 @click.option("--model", default=config.bc2.document_model)
 @click.option("--document-root", default=config.bc2.document_root)
@@ -154,4 +186,4 @@ def run(path: str,
 
 
 if __name__ == "__main__":
-    run()
+    cli()

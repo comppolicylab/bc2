@@ -7,7 +7,7 @@ import click
 from pypdf import PdfReader
 from tqdm import tqdm
 
-from config import config
+from .config import config
 
 
 document_analysis_client = DocumentAnalysisClient(
