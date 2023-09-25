@@ -1,15 +1,21 @@
 import openai
 import math
 import json
+import pathlib
+import os
 
-from config import config
+from .config import config
 
 
-DEFAULT_PROMPT_PATH = "prompts/redact.txt"
+ROOT_PATH = pathlib.Path(os.path.dirname(os.path.abspath(__file__)))
+
+PROMPTS_DIR = ROOT_PATH / "prompts"
+
+DEFAULT_PROMPT_PATH = PROMPTS_DIR / "redact.txt"
 with open(DEFAULT_PROMPT_PATH, 'r') as f:
     DEFAULT_PROMPT = f.read()
 
-EXAMPLES_PATH = "prompts/examples.jsonl"
+EXAMPLES_PATH = PROMPTS_DIR / "examples.jsonl"
 with open(EXAMPLES_PATH, 'r') as f:
     EXAMPLES = [json.loads(line) for line in f.readlines()]
 
