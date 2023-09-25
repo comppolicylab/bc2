@@ -1,7 +1,7 @@
 import difflib
 
 
-def infer_annotations(original_narrative, redacted_narrative):
+def infer_annotations(original_narrative: str, redacted_narrative: str):
     """Generate a list of annotations that the LLM applied.
 
     This function computes the delta between the original narrative text and
