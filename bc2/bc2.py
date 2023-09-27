@@ -114,7 +114,7 @@ def redact(path: str | None, return_json: bool) -> None:
             text = f.read()
     redacted = redact_text(text)
     if return_json:
-        annotations = infer_annotations(text, redacted)
+        annotations = list(infer_annotations(text, redacted))
         sys.stdout.write(json.dumps(annotations))
     else:
         sys.stdout.write(redacted)
