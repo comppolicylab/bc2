@@ -1,15 +1,11 @@
 from functools import partial
-from reportlab.platypus import (
-        Frame,
-        PageTemplate,
-        Paragraph,
-        SimpleDocTemplate,
-        )
-from reportlab.lib.styles import ParagraphStyle, StyleSheet1
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.units import inch
 
-from .common import format_narrative, TITLE, DISCLAIMER, Renderer, escape_for_xml
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle, StyleSheet1
+from reportlab.lib.units import inch
+from reportlab.platypus import Frame, PageTemplate, Paragraph, SimpleDocTemplate
+
+from .common import DISCLAIMER, TITLE, Renderer, escape_for_xml, format_narrative
 
 
 def layout_pdf(canvas, doc, *, styles, line_margin=5, line_thickness=0.5) -> None:
@@ -27,9 +23,7 @@ def layout_pdf(canvas, doc, *, styles, line_margin=5, line_thickness=0.5) -> Non
     canvas.setLineWidth(line_thickness)
 
     # Draw the header.
-    header_text = Paragraph(
-            TITLE,
-            styles["Header"])
+    header_text = Paragraph(TITLE, styles["Header"])
     w, h = header_text.wrap(doc.width, doc.topMargin)
     header_text_y = doc.height + (doc.topMargin / 2) + doc.bottomMargin - h
     header_text_x = doc.leftMargin
@@ -40,8 +34,7 @@ def layout_pdf(canvas, doc, *, styles, line_margin=5, line_thickness=0.5) -> Non
     canvas.line(line_x0, header_line_y, line_x1, header_line_y)
 
     # Draw the footer
-    footer_text = Paragraph(f"Page {doc.page}",
-                            styles["Footer"])
+    footer_text = Paragraph(f"Page {doc.page}", styles["Footer"])
     w, h = footer_text.wrap(doc.width, doc.bottomMargin)
     footer_text_y = h
     footer_text_x = doc.leftMargin
@@ -57,23 +50,41 @@ def layout_pdf(canvas, doc, *, styles, line_margin=5, line_thickness=0.5) -> Non
 def get_pdf_styles() -> StyleSheet1:
     """Get nice-looking report styles for the PDF."""
     styles = StyleSheet1()
-    styles.add(ParagraphStyle(name='Header',
-                              fontName='Times-Bold',
-                              fontSize=10,
-                              leading=14))
-    styles.add(ParagraphStyle(name='Normal',
-                              fontName='Times-Roman', fontSize=12,
-                              leading=14, spaceAfter=10))
-    styles.add(ParagraphStyle(name='Italic', parent=styles['Normal'],
-                              fontName='Times-Italic', fontSize=10))
-    styles.add(ParagraphStyle(name='Footer', parent=styles['Normal'],
-                              fontSize=10))
-    styles.add(ParagraphStyle(name='Redaction', parent=styles['Normal'],
-                              fontName='Courier', fontSize=12,
-                              color="orange"))
-    styles.add(ParagraphStyle(name='RedactError', parent=styles['Redaction'],
-                              fontName='Courier-Bold',
-                              color='red'))
+    styles.add(
+        ParagraphStyle(name="Header", fontName="Times-Bold", fontSize=10, leading=14)
+    )
+    styles.add(
+        ParagraphStyle(
+            name="Normal",
+            fontName="Times-Roman",
+            fontSize=12,
+            leading=14,
+            spaceAfter=10,
+        )
+    )
+    styles.add(
+        ParagraphStyle(
+            name="Italic", parent=styles["Normal"], fontName="Times-Italic", fontSize=10
+        )
+    )
+    styles.add(ParagraphStyle(name="Footer", parent=styles["Normal"], fontSize=10))
+    styles.add(
+        ParagraphStyle(
+            name="Redaction",
+            parent=styles["Normal"],
+            fontName="Courier",
+            fontSize=12,
+            color="orange",
+        )
+    )
+    styles.add(
+        ParagraphStyle(
+            name="RedactError",
+            parent=styles["Redaction"],
+            fontName="Courier-Bold",
+            color="red",
+        )
+    )
     return styles
 
 
@@ -93,8 +104,9 @@ def apply_platypus_style(styles: StyleSheet1, text: str, style: str) -> str:
 
     # Format each line separately, so that when we apply paragraph breaks they
     # don't interfere with the font tags.
-    return "\n".join(f"<font color='{color}' face='{face}'>{t}</font>"
-                     for t in text.splitlines())
+    return "\n".join(
+        f"<font color='{color}' face='{face}'>{t}</font>" for t in text.splitlines()
+    )
 
 
 def format_platypus_paragraph(text: str) -> str:
@@ -120,36 +132,38 @@ def render_pdf(out: str, narrative: str, original: str | None = None) -> None:
     styles = get_pdf_styles()
     style = partial(apply_platypus_style, styles)
 
-    doc = SimpleDocTemplate(out, pagesize=letter,
-                            rightMargin=inch / 2,
-                            leftMargin=inch / 2,
-                            topMargin=inch / 2,
-                            bottomMargin=inch / 2)
-    frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height,
-                  id='normal')
+    doc = SimpleDocTemplate(
+        out,
+        pagesize=letter,
+        rightMargin=inch / 2,
+        leftMargin=inch / 2,
+        topMargin=inch / 2,
+        bottomMargin=inch / 2,
+    )
+    frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id="normal")
 
     tpl = PageTemplate(
-            id='report',
-            frames=[frame],
-            onPage=partial(layout_pdf, styles=styles))
+        id="report", frames=[frame], onPage=partial(layout_pdf, styles=styles)
+    )
     doc.addPageTemplates([tpl])
 
-    formatted = format_narrative(style,
-                                 format_platypus_paragraph,
-                                 escape_for_xml,
-                                 narrative,
-                                 original)
+    formatted = format_narrative(
+        style, format_platypus_paragraph, escape_for_xml, narrative, original
+    )
     # Split the paragraphs generated by the formatter.
     # TODO there's probably a better way to do this? maybe just generate an
     # entire document as RML and render that, instead of using this weird
     # SimpleDocTemplate builder?
-    paras = [p + '</para>' for p in formatted.split('</para>') if p]
+    paras = [p + "</para>" for p in formatted.split("</para>") if p]
 
-    doc.build([
-            Paragraph(DISCLAIMER, styles['Italic']),
-            ] + [Paragraph(p, styles['Normal']) for p in paras],
-            onFirstPage=partial(layout_pdf, styles=styles),
-            onLaterPages=partial(layout_pdf, styles=styles))
+    doc.build(
+        [
+            Paragraph(DISCLAIMER, styles["Italic"]),
+        ]
+        + [Paragraph(p, styles["Normal"]) for p in paras],
+        onFirstPage=partial(layout_pdf, styles=styles),
+        onLaterPages=partial(layout_pdf, styles=styles),
+    )
 
 
 pdf = Renderer("pdf", "pdf", render_pdf)
