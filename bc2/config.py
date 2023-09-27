@@ -1,7 +1,7 @@
-import tomllib
 import os
-
+import tomllib
 from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
@@ -41,7 +41,7 @@ class BC2Settings(BaseSettings):
 
 class Config(BaseSettings):
     """Blind Charging config."""
-    
+
     log_level: str = Field("INFO", env="LOG_LEVEL")
 
     azure: AzureSettings
@@ -49,6 +49,6 @@ class Config(BaseSettings):
     bc2: BC2Settings
 
 
-_config_path = os.environ.get('CONFIG_PATH', "config.toml")
+_config_path = os.environ.get("CONFIG_PATH", "config.toml")
 
 config = Config.parse_obj(tomllib.loads(Path(_config_path).read_text()))

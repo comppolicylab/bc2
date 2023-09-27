@@ -1,22 +1,22 @@
-import openai
-import math
 import json
-import pathlib
+import math
 import os
+import pathlib
+
+import openai
 
 from .config import config
-
 
 ROOT_PATH = pathlib.Path(os.path.dirname(os.path.abspath(__file__)))
 
 PROMPTS_DIR = ROOT_PATH / "prompts"
 
 DEFAULT_PROMPT_PATH = PROMPTS_DIR / "redact.txt"
-with open(DEFAULT_PROMPT_PATH, 'r') as f:
+with open(DEFAULT_PROMPT_PATH, "r") as f:
     DEFAULT_PROMPT = f.read()
 
 EXAMPLES_PATH = PROMPTS_DIR / "examples.jsonl"
-with open(EXAMPLES_PATH, 'r') as f:
+with open(EXAMPLES_PATH, "r") as f:
     EXAMPLES = [json.loads(line) for line in f.readlines()]
 
 
@@ -41,9 +41,9 @@ def get_model_slug() -> str:
     return f"{deployment}_{config.openai.engine}"
 
 
-def redact_with_chat(narrative: str,
-                     system_prompt: str = DEFAULT_PROMPT,
-                     **kwargs) -> str:
+def redact_with_chat(
+    narrative: str, system_prompt: str = DEFAULT_PROMPT, **kwargs
+) -> str:
     """Redact a narrative using the OpenAI Chat API.
 
     Args:
@@ -57,27 +57,28 @@ def redact_with_chat(narrative: str,
     """
     openai.api_version = config.openai.api.chat_version
     settings = dict(
-            engine=config.openai.engine,
-            messages=[
-                {"role": "system", "content": system_prompt}] + EXAMPLES + [
-                {"role": "user", "content": narrative},
-                ],
-            temperature=0.0,
-            top_p=0.95,
-            max_tokens=int(math.ceil(len(narrative) * 1.1)),
-            **kwargs,
-            )
+        engine=config.openai.engine,
+        messages=[{"role": "system", "content": system_prompt}]
+        + EXAMPLES
+        + [
+            {"role": "user", "content": narrative},
+        ],
+        temperature=0.0,
+        top_p=0.95,
+        max_tokens=int(math.ceil(len(narrative) * 1.1)),
+        **kwargs,
+    )
     # Create the completion
     completion = openai.ChatCompletion.create(**settings)
 
     # Get the returned message
     message = completion.choices[0].message
-    return message['content']
+    return message["content"]
 
 
-def redact_with_completion(narrative: str,
-                           prompt: str = DEFAULT_PROMPT,
-                           **kwargs) -> str:
+def redact_with_completion(
+    narrative: str, prompt: str = DEFAULT_PROMPT, **kwargs
+) -> str:
     """Redact a narrative using the OpenAI Completion API.
 
     Args:
@@ -90,12 +91,12 @@ def redact_with_completion(narrative: str,
     """
     openai.api_version = config.openai.api.version
     settings = dict(
-            engine=config.openai.engine,
-            prompt=prompt,
-            max_tokens=int(math.ceil(len(narrative) * 1.1)),
-            top_p=0.5,
-            temperature=0.0,
-            **kwargs,
-            )
+        engine=config.openai.engine,
+        prompt=prompt,
+        max_tokens=int(math.ceil(len(narrative) * 1.1)),
+        top_p=0.5,
+        temperature=0.0,
+        **kwargs,
+    )
     completion = openai.Completion.create(**settings)
     return completion.choices[0].text

@@ -1,18 +1,13 @@
 from .backends import get_renderer, register
-
-from .pdf import pdf
 from .html import html
+from .pdf import pdf
 from .text import text
-
 
 for renderer in [pdf, html, text]:
     register(renderer)
 
 
-def render(fmt: str,
-           out: str,
-           narrative: str,
-           original: str | None = None) -> None:
+def render(fmt: str, out: str, narrative: str, original: str | None = None) -> None:
     """Render a narrative to a file.
 
     Args:

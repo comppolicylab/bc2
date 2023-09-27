@@ -2,7 +2,6 @@ from typing import Callable, NamedTuple
 
 import bc2.infer as infer
 
-
 Styler = Callable[[str, str], str]
 
 Grafer = Callable[[str], str]
@@ -14,6 +13,7 @@ Render = Callable[[str, str, str | None], str]
 
 class Renderer(NamedTuple):
     """A renderer for a specific format."""
+
     name: str
     extension: str
     render: Render
@@ -41,20 +41,22 @@ def escape_for_xml(text: str) -> str:
         The escaped text.
     """
     replacements = [
-            ('&', '&amp;'),
-            ('<', '&lt;'),
-            ('>', '&gt;'),
-            ]
+        ("&", "&amp;"),
+        ("<", "&lt;"),
+        (">", "&gt;"),
+    ]
     for old, new in replacements:
         text = text.replace(old, new)
     return text
 
 
-def format_narrative(style: Styler,
-                     p: Grafer,
-                     escape: Escaper,
-                     narrative: str,
-                     original: str | None = None) -> str:
+def format_narrative(
+    style: Styler,
+    p: Grafer,
+    escape: Escaper,
+    narrative: str,
+    original: str | None = None,
+) -> str:
     """Format a narrative for display as an HTML-style document.
 
     Args:
