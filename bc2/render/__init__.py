@@ -1,7 +1,6 @@
-from .render import render, ensure_filename_matches_format
-
+from .render import ensure_filename_matches_format, render
 
 __all__ = [
-    'render',
-    'ensure_filename_matches_format',
-    ]
+    "render",
+    "ensure_filename_matches_format",
+]

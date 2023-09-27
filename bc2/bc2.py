@@ -1,26 +1,26 @@
-import os
-import sys
 import json
 import logging
+import os
+import sys
 
 import click
 from azure.ai.formrecognizer import AnalyzeResult
 from azure.ai.formrecognizer._models import DocumentField
 
+import bc2.llm as llm
+import bc2.render as render
+
 from .config import config
 from .document_analysis import analyze_document, get_output_path
 from .infer import infer_annotations
-import bc2.llm as llm
-import bc2.render as render
 
 logging.basicConfig(level=config.log_level)
 logger = logging.getLogger(__name__)
 
 
 def extract_narrative_fields(
-        analysis: list[AnalyzeResult],
-        min_confidence: float = 0.04
-        ) -> list[DocumentField]:
+    analysis: list[AnalyzeResult], min_confidence: float = 0.04
+) -> list[DocumentField]:
     """Extract the narrative from the analysis results.
 
     Args:
@@ -32,7 +32,7 @@ def extract_narrative_fields(
     for page in analysis:
         for doc in page.documents:
             narrative = doc.fields.get("narrative")
-            confidence = getattr(narrative, 'confidence', 0.) or 0.
+            confidence = getattr(narrative, "confidence", 0.0) or 0.0
             if narrative and confidence >= min_confidence:
                 narratives.append(narrative)
     return narratives
@@ -73,16 +73,16 @@ def redact_text(text: str, cached: str | None = None) -> str:
     if cache_path:
         # Check if the input is actually the same before using cached result
         og_narr = ""
-        if os.path.exists(narr_path):
+        if narr_path and os.path.exists(narr_path):
             with open(narr_path, "r") as f:
                 og_narr = f.read()
         # Only return cached result if it's valid
-        if text == og_narr and os.path.exists(cache_path):
+        if text == og_narr and cache_path and os.path.exists(cache_path):
             with open(cache_path, "r") as f:
                 return f.read()
 
     redaction = llm.redact_with_chat(text)
-    if cache_path:
+    if cache_path and narr_path:
         with open(narr_path, "w") as f:
             f.write(text)
         with open(cache_path, "w") as f:
@@ -97,7 +97,7 @@ def cli() -> None:
     pass
 
 
-@cli.command('redact')
+@cli.command("redact")
 @click.argument("path", required=False, default=None)
 @click.option("--json/--no-json", "return_json", default=False)
 def redact(path: str | None, return_json: bool) -> None:
@@ -120,7 +120,7 @@ def redact(path: str | None, return_json: bool) -> None:
         sys.stdout.write(redacted)
 
 
-@cli.command('run')
+@cli.command("run")
 @click.argument("path")
 @click.option("--model", default=config.bc2.document_model)
 @click.option("--document-root", default=config.bc2.document_root)
@@ -128,13 +128,15 @@ def redact(path: str | None, return_json: bool) -> None:
 @click.option("--cache-dir", default=config.bc2.cache_dir)
 @click.option("--output", default=None)
 @click.option("--renderer", default=config.bc2.renderer)
-def run(path: str,
-        model: str,
-        document_root: str,
-        cache: bool,
-        cache_dir: str | None = None,
-        output: str | None = None,
-        renderer: str = "pdf") -> None:
+def run(
+    path: str,
+    model: str,
+    document_root: str,
+    cache: bool,
+    cache_dir: str | None = None,
+    output: str | None = None,
+    renderer: str = "pdf",
+) -> None:
     """Run document analysis on a PDF.
 
     Args:
@@ -150,7 +152,9 @@ def run(path: str,
     if cache and not cache_dir:
         logger.warning("No cache directory specified, disabling cache.")
         cached = None
-    cached = None if not cache else get_output_path(path, document_root, cache_dir, model)
+    cached = (
+        None if not cache else get_output_path(path, document_root, cache_dir, model)
+    )
 
     logger.info(f"Running analysis on {path} with model {model} ...")
     analysis = analyze_document(path, model=model, cached=cached)

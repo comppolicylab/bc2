@@ -1,27 +1,32 @@
-from typing import Generator, NamedTuple
 import difflib
 import re
+from typing import Generator, NamedTuple
+
+TextSpan = NamedTuple(
+    "TextSpan",
+    [
+        ("start", int),
+        ("end", int),
+        ("text", str),
+    ],
+)
 
 
-TextSpan = NamedTuple("TextSpan", [
-    ("start", int),
-    ("end", int),
-    ("text", str),
-    ])
-
-
-TextSegment = NamedTuple("TextSegment", [
-    ("original", TextSpan),
-    ("redacted", TextSpan),
-    ("is_edit", bool),
-    ("is_valid", bool),
-    ])
+TextSegment = NamedTuple(
+    "TextSegment",
+    [
+        ("original", TextSpan),
+        ("redacted", TextSpan),
+        ("is_edit", bool),
+        ("is_valid", bool),
+    ],
+)
 
 
 def segment(
-        original: str,
-        redacted: str,
-        ) -> Generator[TextSegment, None, None]:
+    original: str,
+    redacted: str,
+) -> Generator[TextSegment, None, None]:
     """Visit text segments in the redacted narrative.
 
     This function computes the delta between the original narrative text and
@@ -45,7 +50,7 @@ def segment(
     """
     edit_stack = 0
     matcher = difflib.SequenceMatcher(None, original, redacted, autojunk=False)
-    
+
     op_seq_start = ("equal", 0, 0, 0, 0)
     for op in matcher.get_opcodes():
         opcode, i1, i2, j1, j2 = op
@@ -68,7 +73,7 @@ def segment(
                     TextSpan(j1, j2, mask),
                     False,
                     True,
-                    )
+                )
         elif opcode in {"insert", "replace", "delete"}:
             if edit_stack == 0:
                 yield TextSegment(
@@ -76,7 +81,7 @@ def segment(
                     TextSpan(j1, j2, mask),
                     True,
                     False,
-                    )
+                )
 
         if closer:
             edit_stack = max(0, edit_stack - 1)
@@ -95,7 +100,7 @@ def segment(
                     TextSpan(j1, j2, mask),
                     True,
                     True,
-                    )
+                )
 
 
 def infer_annotations(original: str, redacted: str) -> Generator[dict, None, None]:
@@ -114,4 +119,4 @@ def infer_annotations(original: str, redacted: str) -> Generator[dict, None, Non
                 "start": seg.original.start,
                 "end": seg.original.end,
                 "content": seg.redacted.text,
-                }
+            }

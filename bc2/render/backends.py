@@ -1,6 +1,5 @@
 from .common import Renderer
 
-
 _REGISTRY: dict[str, Renderer] = {}
 
 

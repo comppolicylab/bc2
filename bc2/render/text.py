@@ -1,6 +1,6 @@
 import re
 
-from .common import Renderer, format_narrative, TITLE, DISCLAIMER
+from .common import DISCLAIMER, TITLE, Renderer, format_narrative
 
 
 def render_text(out: str, narrative: str, original: str | None = None) -> None:
@@ -19,11 +19,11 @@ def render_text(out: str, narrative: str, original: str | None = None) -> None:
         f.write("\n\n")
         f.write("=== NARRATIVE ===\n")
         # TODO: might want to add some formatting for the diff
-        f.write(format_narrative(lambda x, y: x,
-                                 lambda x: f"{x}\n\n",
-                                 lambda x: x,
-                                 narrative,
-                                 original))
+        f.write(
+            format_narrative(
+                lambda x, y: x, lambda x: f"{x}\n\n", lambda x: x, narrative, original
+            )
+        )
         f.write("=== END OF DOCUMENT ===\n")
 
 

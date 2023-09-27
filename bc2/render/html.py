@@ -1,9 +1,9 @@
 from jinja2 import Template
 
-from .common import Renderer, format_narrative, TITLE, DISCLAIMER, escape_for_xml
+from .common import DISCLAIMER, TITLE, Renderer, escape_for_xml, format_narrative
 
-
-tpl = Template("""
+tpl = Template(
+    """
 <!DOCTYPE html>
 <html>
 <head>
@@ -58,7 +58,8 @@ tpl = Template("""
     </div>
 </body>
 </html>
-""")
+"""
+)
 
 
 def apply_css_style(text: str, style: str) -> str:
@@ -83,7 +84,7 @@ def format_html_paragraph(text: str) -> str:
     Returns:
         The formatted text.
     """
-    return f'<p>{text}</p>'
+    return f"<p>{text}</p>"
 
 
 def render_html(out: str, narrative: str, original: str | None = None) -> None:
@@ -95,15 +96,19 @@ def render_html(out: str, narrative: str, original: str | None = None) -> None:
         original: The original narrative, if available.
     """
     with open(out, "w") as f:
-        f.write(tpl.render(
-            title=TITLE,
-            disclaimer=DISCLAIMER,
-            narrative=format_narrative(apply_css_style,
-                                       format_html_paragraph,
-                                       escape_for_xml,
-                                       narrative,
-                                       original)
-        ))
+        f.write(
+            tpl.render(
+                title=TITLE,
+                disclaimer=DISCLAIMER,
+                narrative=format_narrative(
+                    apply_css_style,
+                    format_html_paragraph,
+                    escape_for_xml,
+                    narrative,
+                    original,
+                ),
+            )
+        )
 
 
 html = Renderer("html", "html", render_html)
