@@ -126,8 +126,8 @@ def walk(ctx: click.Context, document_dir: str, output_dir: str):
     """
     model = ctx.obj["model"]
     # Build a queue of PDFs to process.
-    queue = list[tuple[str, str]]()
-    for root, dirs, files in os.walk(document_dir):
+    queue = list[tuple[str, str | None]]()
+    for root, _, files in os.walk(document_dir):
         for file in files:
             if file.endswith(".pdf"):
                 file_path = os.path.join(root, file)
@@ -142,7 +142,8 @@ def walk(ctx: click.Context, document_dir: str, output_dir: str):
     # Process the queue with a progress bar.
     for file_path, output_path in tqdm(queue):
         # Ensure that the directory exists.
-        os.makedirs(output_path, exist_ok=True)
+        if output_path:
+            os.makedirs(output_path, exist_ok=True)
         # Run analysis and cache result
         analyze_document(file_path, model=model, cached=output_path)
 
