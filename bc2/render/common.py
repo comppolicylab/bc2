@@ -1,5 +1,6 @@
 from typing import Callable, NamedTuple
-from difflib import SequenceMatcher
+
+import bc2.infer as infer
 
 
 Styler = Callable[[str, str], str]
@@ -71,37 +72,14 @@ def format_narrative(style: Styler,
     # Compute diff between original and redacted narrative
     if original:
         final = ""
-        edit_stack = 0
-        matcher = SequenceMatcher(None,
-                                  original,
-                                  narrative,
-                                  autojunk=False)
-        diff = matcher.get_opcodes()
 
-        for opcode, i1, i2, j1, j2 in diff:
-            if opcode == 'delete':
-                continue
-
-            string = narrative[j1:j2]
-            stripped = string.strip()
-            if stripped and stripped[0] == '<':
-                edit_stack += 1
-
-            escaped = escape(string)
-            
-            if opcode == 'equal':
-                if edit_stack > 0:
-                    final += style(escaped, 'Redaction')
-                else:
-                    final += escaped
-            elif opcode in {'replace', 'insert'}:
-                if edit_stack > 0:
-                    final += style(escaped, 'Redaction')
-                else:
-                    final += style(escaped, 'RedactError')
-
-            if stripped and stripped[-1] == '>':
-                edit_stack = max(0, edit_stack - 1)
+        for seg in infer.segment(original, narrative):
+            txt = escape(seg.original.text)
+            if seg.is_edit:
+                type_ = "Redaction" if seg.is_valid else "RedactError"
+                final += style(txt, type_)
+            else:
+                final += txt
 
     final = "".join(p(line) for line in final.splitlines())
 
