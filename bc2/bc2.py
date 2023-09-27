@@ -73,16 +73,16 @@ def redact_text(text: str, cached: str | None = None) -> str:
     if cache_path:
         # Check if the input is actually the same before using cached result
         og_narr = ""
-        if os.path.exists(narr_path):
+        if narr_path and os.path.exists(narr_path):
             with open(narr_path, "r") as f:
                 og_narr = f.read()
         # Only return cached result if it's valid
-        if text == og_narr and os.path.exists(cache_path):
+        if text == og_narr and cache_path and os.path.exists(cache_path):
             with open(cache_path, "r") as f:
                 return f.read()
 
     redaction = llm.redact_with_chat(text)
-    if cache_path:
+    if cache_path and narr_path:
         with open(narr_path, "w") as f:
             f.write(text)
         with open(cache_path, "w") as f:
