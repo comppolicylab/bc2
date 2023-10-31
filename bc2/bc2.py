@@ -4,56 +4,17 @@ import os
 import sys
 
 import click
-from azure.ai.formrecognizer import AnalyzeResult
-from azure.ai.formrecognizer._models import DocumentField
 
 import bc2.llm as llm
 import bc2.render as render
 
+from .cache import get_output_path
 from .config import config
-from .document_analysis import analyze_document, get_output_path
+from .extract import extract_narrative_from_pdf
 from .infer import infer_annotations
 
 logging.basicConfig(level=config.log_level)
 logger = logging.getLogger(__name__)
-
-
-def extract_narrative_fields(
-    analysis: list[AnalyzeResult], min_confidence: float = 0.04
-) -> list[DocumentField]:
-    """Extract the narrative from the analysis results.
-
-    Args:
-        analysis (list[AnalyzeResult]): Results, one for each page
-        min_confidence (float, optional): Minimum confidence to accept
-    """
-    narratives = list[str]()
-    # Look through each page of the analysis results and find any narratives.
-    for page in analysis:
-        for doc in page.documents:
-            narrative = doc.fields.get("narrative")
-            confidence = getattr(narrative, "confidence", 0.0) or 0.0
-            if narrative and confidence >= min_confidence:
-                narratives.append(narrative)
-    return narratives
-
-
-def get_narrative(fields: list[DocumentField]) -> str:
-    """Get the narrative from all the narrative fields.
-
-    Args:
-        fields (list[DocumentField]): List of narrative fields.
-
-    Returns:
-        str: The narrative.
-    """
-    narrative = ""
-    for field in fields:
-        if field.content:
-            if narrative:
-                narrative += "\n\n"
-            narrative += field.content
-    return narrative
 
 
 def redact_text(text: str, cached: str | None = None) -> str:
@@ -156,15 +117,10 @@ def run(
         None if not cache else get_output_path(path, document_root, cache_dir, model)
     )
 
-    logger.info(f"Running analysis on {path} with model {model} ...")
-    analysis = analyze_document(path, model=model, cached=cached)
-
-    logger.info("Inspecting analysis result to find narrative(s) ...")
-    fields = extract_narrative_fields(analysis)
-    if not fields:
-        logger.warning("No narrative found in document!")
+    narrative = extract_narrative_from_pdf(path, model=model, cached=cached)
+    if not narrative:
+        logger.error("Failed to extract narrative from PDF.")
         return
-    narrative = get_narrative(fields)
 
     logger.info("Redacting narrative with language model ...")
     redacted = redact_text(narrative, cached=cached)
