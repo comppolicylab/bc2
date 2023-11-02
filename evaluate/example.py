@@ -127,15 +127,54 @@ class ExampleDoc:
         return labels
 
     def text_region(self, page: int, box: BoundingBox) -> str:
-        """Extract text from a region of the OCR'd document."""
+        """Extract text from a region of the OCR'd document.
+
+        Args:
+            page: The page number to extract text from.
+            box: The bounding box of the region to extract.
+
+        Returns:
+            The text in the region.
+        """
         ocr_page = self._ocr_page(page)
         scaled = box.scale(ocr_page.width, ocr_page.height)
         words = list[str]()
+        spans = dict[int, int]()
+
+        # Find the words that are in the selected region
         for word in ocr_page.words:
             geom = BoundingBox.from_flat_list(word.polygon)
             if scaled | geom:
                 words.append(word.content)
-        return " ".join(words)
+                spans[word.span.offset] = len(words) - 1
+
+        paras = list[int]()
+        # Find where paragraph breaks are and insert '\n' characters
+        for para in self._ocr.analyze_result.paragraphs:
+            # Ignore paragraphs on different pages
+            if para.bounding_regions[0].page_number != page:
+                continue
+            offset = para.spans[0].offset
+            # Ignore paragraphs that don't have a word in the selected region
+            if offset not in spans:
+                continue
+            word_idx = spans[offset]
+            paras.append(word_idx)
+
+        # Build the string with paragraph breaks / spaces
+        s = ""
+        for i, word in enumerate(words):
+            space = ""
+            if paras and paras[0] == i:
+                paras.pop(0)
+                space = "\n"
+            else:
+                space = " "
+            if i > 0:
+                s += space
+            s += word
+
+        return s
 
     def _ocr_page(self, page: int) -> DocumentPage:
         """Get the OCR'd page by its number."""
