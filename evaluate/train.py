@@ -1,43 +1,29 @@
-from datetime import datetime
 import logging
 
-from azure.ai.formrecognizer import (
-        DocumentModelAdministrationClient,
-        ModelBuildMode
-        )
-from azure.identity import DefaultAzureCredential
-
+from azure.ai.formrecognizer import DocumentModelAdministrationClient, ModelBuildMode
 
 logger = logging.getLogger(__name__)
 
 
-def train(endpoint: str, train_set: str) -> str:
+def train_model(
+    admin_client: DocumentModelAdministrationClient, name: str, train_set: str
+) -> str:
     """Train a model with the documents at the given URL.
 
     Args:
-        endpoint: form recognizer endpoint
+        admin_client: DocumentModelAdministrationClient instance
+        name: name of the model
         train_set: blob storage path to documents
 
     Returns:
         Model ID
     """
-    credential = DefaultAzureCredential()
-    admin_client = DocumentModelAdministrationClient(
-        endpoint=endpoint,
-        credential=credential
-    )
-
-    # Come up with a unique name for the model based on the current time
-    # so we don't have to worry about name collisions.
-    ts = datetime.now().strftime("%Y%m%d%H%M%S")
-    model_name = f"bc-{ts}"
-
-    logger.info(f"Training model {model_name} with documents at {train_set}")
-    poller = admin_client.begin_build_model(
+    logger.info(f"Training model {name} with documents at {train_set}")
+    poller = admin_client.begin_build_document_model(
         description="Custom narrative extraction model",
-        model_name=model_name,
-        build_mode=ModelBuildMode.UNLABELLED,
-        source=train_set
+        model_id=name,
+        build_mode=ModelBuildMode.NEURAL,
+        blob_container_url=train_set,
     )
 
     logger.info("Waiting for training to complete...")
