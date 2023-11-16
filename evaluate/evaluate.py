@@ -2,7 +2,9 @@ import json
 import logging
 import queue
 import threading
+from dataclasses import dataclass
 from datetime import datetime
+from typing import TypedDict
 
 # from .example import ExampleDoc
 from .io import FileIO
@@ -127,14 +129,196 @@ def is_subdir(fr: FileIO, parent: str, child: str) -> bool:
     return parent_parts == child_parts[: len(parent_parts)]
 
 
-def evaluate(
+class FoldDetail(TypedDict):
+    """Details for a fold."""
+
+    id: str
+    path: str
+    train_path: str
+    test_path: str
+    train: list[str]
+    test: list[str]
+
+
+class ModelDetail(TypedDict):
+    """Details for a model."""
+
+    model_id: str
+    eval_id: str
+    test_path: str
+    train_path: str
+
+
+@dataclass
+class Metadata:
+    """Metadata for an evaluation run."""
+
+    eval_name: str
+    base_path: str
+    k: int
+    seed: int
+    folds: list[FoldDetail]
+    timestamp: str
+    files: list[str]
+
+
+def fold(
+    fr: FileIO,
+    doc_base_path: str,
+    eval_base_path: str,
+    k: int,
+    seed: int,
+    threads: int = 1,
+) -> str:
+    """Split the data into k folds for cross-validation.
+
+    Args:
+        fr: A FileIO instance.
+        doc_base_path: The base path to the data.
+        eval_base_path: The base path to the evaluation data.
+        k: The number of folds.
+        seed: The random seed.
+        threads: The number of threads to use.
+
+    Returns:
+        Name of the eval
+    """
+    # Generate a unique (but interprettable) name for this run.
+    eval_name = f"eval-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    eval_dir = fr.join(eval_base_path, eval_name)
+
+    files_to_process = get_labeled_files(fr, doc_base_path)
+
+    logger.info(f"Found {len(files_to_process)} files in {doc_base_path}")
+    kfold = KFoldCrossValidationSampler[str](k)
+
+    metadata = Metadata(
+        eval_name=eval_name,
+        base_path=doc_base_path,
+        k=k,
+        seed=seed,
+        folds=[],
+        timestamp=datetime.now().isoformat(),
+        files=files_to_process,
+    )
+
+    for i, (train, test) in enumerate(kfold(files_to_process, seed=seed)):
+        logger.info(f"Setting up fold {i + 1} / {k} ...")
+        # Save the training and testing sets in a new directory
+        fold_dir = fr.join(eval_dir, f"fold-{i}")
+        train_dir = fr.join(fold_dir, "train")
+        test_dir = fr.join(fold_dir, "test")
+        multi_copy_labeled_data(fr, train, train_dir, threads=threads)
+        multi_copy_labeled_data(fr, test, test_dir, threads=threads)
+        metadata.folds.append(
+            FoldDetail(
+                id=f"{eval_name}-fold-{i}",
+                path=fold_dir,
+                train_path=train_dir,
+                test_path=test_dir,
+                train=train,
+                test=test,
+            )
+        )
+
+    # Save the metadata
+    md_path = fr.join(eval_dir, "metadata.json")
+    fr.write(md_path, json.dumps(metadata))
+
+    return eval_name
+
+
+def train(
+    fr: FileIO,
+    trainer: ModelTrainer,
+    eval_base_path: str,
+    eval_id: str,
+    threads: int = 1,
+):
+    """Train the model described at the given eval_id.
+
+    Args:
+        fr: A FileIO instance.
+        trainer: The model trainer.
+        eval_base_path: The base path to the evaluation data.
+        eval_id: The evaluation id.
+        threads: The number of threads to use.
+    """
+    # Load the metadata
+    eval_dir = fr.join(eval_base_path, eval_id)
+    md_path = fr.join(eval_dir, "metadata.json")
+    metadata = Metadata(**json.loads(fr.read(md_path)))
+
+    # Run training procedure on each fold
+    q = queue.Queue[FoldDetail]()
+    finished = queue.Queue[ModelDetail]()
+
+    def worker():
+        while True:
+            try:
+                d = q.get(timeout=1)
+                train_dir = d["train_path"]
+                test_dir = d["test_path"]
+                model_name = d["id"]
+                logger.info(f"Training model for {model_name} ...")
+                model_id = trainer.train(model_name, train_dir)
+                finished.put(
+                    ModelDetail(
+                        model_id=model_id,
+                        eval_id=eval_id,
+                        test_path=test_dir,
+                        train_path=train_dir,
+                    )
+                )
+                q.task_done()
+            except queue.Empty:
+                break
+            except Exception as e:
+                logger.error(f"Error training model: {e}")
+                q.task_done()
+
+    for d in metadata.folds:
+        q.put(d)
+
+    tx = [threading.Thread(target=worker) for _ in range(threads)]
+    for t in tx:
+        t.start()
+
+    q.join()
+
+    # Collect the results
+    models = list[ModelDetail]()
+    while not finished.empty():
+        models.append(finished.get())
+
+    # Join the threads
+    for t in tx:
+        t.join()
+
+    # Save models data
+    fr.write(fr.join(eval_dir, "models.json"), json.dumps(models))
+
+
+def evaluate(fr: FileIO, eval_base_path: str, eval_id: str, threads: int = 1):
+    # Load models data
+    eval_dir = fr.join(eval_base_path, eval_id)
+    models_path = fr.join(eval_dir, "models.json")
+    models = list[ModelDetail](**json.loads(fr.read(models_path)))
+
+    for m in models:
+        logger.info(f"Evaluating model {m['model_id']} ...")
+        test_dir = m["test_path"]
+        print("TODO ... load test data from", test_dir)
+
+
+def run_all(
     fr: FileIO,
     trainer: ModelTrainer,
     doc_base_path: str,
     eval_base_path: str,
     k: int = 5,
     seed: int = 0,
-    threads: int = 4,
+    threads: int = 10,
 ):
     """Evaluate the model on the given data.
 
@@ -145,70 +329,17 @@ def evaluate(
         eval_base_path: The base path to store the evaluation data.
         k: The number of folds to use for cross validation.
         seed: The random seed to use for cross validation.
-        threads: The number of threads to use for copying data.
+        threads: The number of threads to use for parallelizing backend requests
     """
     # The eval path can't be a subdirectory of the doc path.
     if is_subdir(fr, doc_base_path, eval_base_path):
         raise ValueError("eval_base_path must not be a subdirectory of doc_base_path")
 
-    files_to_process = get_labeled_files(fr, doc_base_path)
+    # Split documents into K folds
+    eval_id = fold(fr, doc_base_path, eval_base_path, k, seed, threads=threads)
 
-    logger.info(f"Found {len(files_to_process)} files in {doc_base_path}")
-    kfold = KFoldCrossValidationSampler[str](k)
+    # Train the K models corresponding to the folds
+    train(fr, trainer, eval_base_path, eval_id, threads=threads)
 
-    # Generate a unique (but interprettable) name for this run.
-    eval_name = f"eval-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-    eval_dir = fr.join(eval_base_path, eval_name)
-
-    md_folds = list[dict[str, list[str]]]()
-    metadata = {
-        "eval_name": eval_name,
-        "base_path": doc_base_path,
-        "k": k,
-        "seed": seed,
-        "folds": md_folds,
-        "timestamp": datetime.now().isoformat(),
-        "files": files_to_process,
-    }
-
-    folds = list[str]()
-
-    for i, (train, test) in enumerate(kfold(files_to_process, seed=seed)):
-        logger.info(f"Setting up fold {i + 1} / {k} ...")
-        # Save the training and testing sets in a new directory
-        fold_dir = fr.join(eval_dir, f"fold-{i}")
-        train_dir = fr.join(fold_dir, "train")
-        test_dir = fr.join(fold_dir, "test")
-        multi_copy_labeled_data(fr, train, train_dir, threads=threads)
-        multi_copy_labeled_data(fr, test, test_dir, threads=threads)
-        folds.append(fold_dir)
-        md_folds.append({"train": train, "test": test})
-
-    # Save the metadata
-    fr.write(fr.join(eval_dir, "metadata.json"), json.dumps(metadata))
-
-    # Train cross validation models
-    validation = list[dict[str, str]]()
-    for i, d in enumerate(folds):
-        train_dir = fr.join(d, "train")
-        test_dir = fr.join(d, "test")
-        logger.info(f"Training model for fold {i + 1} / {k} ...")
-        model_name = f"{eval_name}-fold-{i}"
-        model_id = trainer.train(model_name, train_dir)
-        validation.append(
-            {
-                "model_id": model_id,
-                "test_dir": test_dir,
-                "train_dir": train_dir,
-            }
-        )
-
-    # Save models data
-    fr.write(fr.join(eval_dir, "models.json"), json.dumps(validation))
-
-    # Evaluate the models
-    for spec in validation:
-        model_id = spec["model_id"]
-        test_dir = spec["test_dir"]
-        logger.info(f"Evaluating model {model_id} ...")
-        # doc = ExampleDoc.load(fr, name)
+    # Compute results
+    evaluate(fr, eval_base_path, eval_id, threads=threads)

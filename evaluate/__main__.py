@@ -6,7 +6,7 @@ from azure.ai.formrecognizer import DocumentModelAdministrationClient
 from azure.core.credentials import AzureKeyCredential
 from azure.identity import DefaultAzureCredential
 
-from .evaluate import evaluate
+from .evaluate import run_all
 from .io import AzureFileIO
 from .train import AzureModelTrainer
 
@@ -51,7 +51,7 @@ def main(
         cred = AzureKeyCredential(formrecognizer_key)
     dm = DocumentModelAdministrationClient(endpoint=formrecognizer, credential=cred)
     trainer = AzureModelTrainer(dm, fr)
-    evaluate(fr, trainer, docpath, evalpath, k=k, seed=seed, threads=threads)
+    run_all(fr, trainer, docpath, evalpath, k=k, seed=seed, threads=threads)
 
 
 if __name__ == "__main__":
