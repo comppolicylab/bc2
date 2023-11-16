@@ -4,12 +4,10 @@ import queue
 import threading
 from datetime import datetime
 
-from azure.ai.formrecognizer import DocumentModelAdministrationClient
-
 # from .example import ExampleDoc
 from .io import FileIO
 from .sample import KFoldCrossValidationSampler
-from .train import train_model
+from .train import ModelTrainer
 
 logger = logging.getLogger(__name__)
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
@@ -89,7 +87,7 @@ def multi_copy_labeled_data(
                 name = q.get(timeout=1)
                 if name is None:
                     continue
-                logger.info(f"Copying {name} ...")
+                logger.debug(f"Copying {name} to {dest_dir} ...")
                 try:
                     copy_labeled_data(fr, name, dest_dir)
                 except KeyboardInterrupt:
@@ -131,7 +129,7 @@ def is_subdir(fr: FileIO, parent: str, child: str) -> bool:
 
 def evaluate(
     fr: FileIO,
-    dm: DocumentModelAdministrationClient,
+    trainer: ModelTrainer,
     doc_base_path: str,
     eval_base_path: str,
     k: int = 5,
@@ -196,7 +194,7 @@ def evaluate(
         test_dir = fr.join(d, "test")
         logger.info(f"Training model for fold {i + 1} / {k} ...")
         model_name = f"{eval_name}-fold-{i}"
-        model_id = train_model(dm, model_name, train_dir)
+        model_id = trainer.train(model_name, train_dir)
         validation.append(
             {
                 "model_id": model_id,

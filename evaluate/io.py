@@ -95,6 +95,11 @@ class AzureFileIO(FileIO):
         )
         self._container_client = self._blob_client.get_container_client(container)
 
+    @property
+    def container_url(self) -> str:
+        """Get the URL of the container."""
+        return self._container_client.url
+
     def read(self, name: str) -> str:
         """Read a file from Azure Blob Storage."""
         blob = self._container_client.download_blob(name, encoding="utf-8")
