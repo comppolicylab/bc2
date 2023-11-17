@@ -1,12 +1,13 @@
 import json
 import logging
+import math
 import queue
 import threading
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import TypedDict
 
-# from .example import ExampleDoc
+from .example import ExampleDoc
 from .io import FileIO
 from .model import ModelRunner, ModelTrainer
 from .sample import KFoldCrossValidationSampler
@@ -302,6 +303,75 @@ def train(
     fr.write(fr.join(eval_dir, "models.json"), json.dumps(models))
 
 
+@dataclass
+class ConfusionMatrix:
+    tp: int
+    tn: int
+    fp: int
+    fn: int
+
+    def precision(self) -> float:
+        try:
+            return self.tp / (self.tp + self.fp)
+        except ZeroDivisionError:
+            return math.nan
+
+    def recall(self) -> float:
+        try:
+            return self.tp / (self.tp + self.fn)
+        except ZeroDivisionError:
+            return math.nan
+
+    def __add__(self, other: "ConfusionMatrix") -> "ConfusionMatrix":
+        return ConfusionMatrix(
+            tp=self.tp + other.tp,
+            tn=self.tn + other.tn,
+            fp=self.fp + other.fp,
+            fn=self.fn + other.fn,
+        )
+
+    def __iadd__(self, other: "ConfusionMatrix") -> "ConfusionMatrix":
+        self.tp += other.tp
+        self.tn += other.tn
+        self.fp += other.fp
+        self.fn += other.fn
+        return self
+
+
+def get_fields(fr: FileIO, path: str) -> list[str]:
+    """Get the list of fields in the given path.
+
+    Args:
+        fr: A FileIO instance.
+        path: The path to the directory containing the fields.
+
+    Returns:
+        The list of fields.
+    """
+    fields_json = fr.join(path, "fields.json")
+    if not fr.exists(fields_json):
+        raise ValueError(f"Fields data not found at {fields_json}")
+    data = json.loads(fr.read(fields_json))
+    return [d["fieldKey"] for d in data["fields"]]
+
+
+@dataclass
+class ClassResult:
+    name: str
+    confusion_matrix: ConfusionMatrix
+    precision: float
+    recall: float
+
+
+@dataclass
+class ModelEvalResult:
+    model_id: str
+    model_detail: ModelDetail
+    labels: list[str]
+    results: list[ClassResult]
+    n: int
+
+
 def run_test(
     fr: FileIO, runner: ModelRunner, eval_base_path: str, eval_id: str, threads: int = 1
 ):
@@ -313,16 +383,79 @@ def run_test(
 
     models = [ModelDetail(**d) for d in json.loads(fr.read(models_path))]  # type: ignore[typeddict-item]
 
+    results = list[ModelEvalResult]()
     for m in models:
         model_id = m["model_id"]
         logger.info(f"Evaluating model {model_id} ...")
         test_dir = m["test_path"]
         test_files = [f for f in fr.list(test_dir) if f.endswith(".pdf")]
-        for f in test_files[:2]:
-            logger.info(f"Running model {m['model_id']} on {f} ...")
-            tags = runner.run(model_id, f)
-            print("TAGS", tags)
-            # TODO compare to ground truth using ExampleDoc
+        fields = get_fields(fr, m["train_path"])
+
+        scores = list[dict[str, ConfusionMatrix]]()
+
+        n = len(test_files)
+        logger.info(f"Running model {m['model_id']} on {n} file(s) ...")
+        for i, f in enumerate(test_files):
+            logger.info(f"Running model {m['model_id']} on {f} ({i + 1} / {n}) ...")
+            predicted_labels = runner.run(model_id, f)
+            true_labels = ExampleDoc.load(fr, f, fields).labels
+            doc_score = dict[str, ConfusionMatrix]()
+            for lbl in predicted_labels.keys() | true_labels.keys():
+                doc_score[lbl] = ConfusionMatrix(
+                    tp=0,
+                    tn=0,
+                    fp=0,
+                    fn=0,
+                )
+
+                if true_labels.has(lbl):
+                    # Either a true positive or a false negative
+                    if true_labels.equal(lbl, predicted_labels):
+                        doc_score[lbl].tp += 1
+                    else:
+                        doc_score[lbl].fn += 1
+                else:
+                    # Either a true negative or a false positive
+                    if predicted_labels.has(lbl):
+                        doc_score[lbl].fp += 1
+                    else:
+                        doc_score[lbl].tn += 1
+
+            scores.append(doc_score)
+
+        # Aggregate the matrices
+        agg = dict[str, ConfusionMatrix]()
+        for s in scores:
+            for lbl, cm in s.items():
+                if lbl not in agg:
+                    agg[lbl] = cm
+                else:
+                    agg[lbl] += cm
+
+        results.append(
+            ModelEvalResult(
+                model_id=model_id,
+                model_detail=m,
+                labels=fields,
+                n=len(scores),
+                results=[
+                    ClassResult(
+                        name=lbl,
+                        confusion_matrix=cm,
+                        precision=cm.precision(),
+                        recall=cm.recall(),
+                    )
+                    for lbl, cm in agg.items()
+                ],
+            )
+        )
+        nar_cm = agg["narrative"]
+        logger.info(
+            f"Narrative result: precision={nar_cm.precision()}, recall={nar_cm.recall()}"
+        )
+
+    results_path = fr.join(eval_dir, "results.json")
+    fr.write(results_path, json.dumps([asdict(r) for r in results]))
 
 
 def run_all(

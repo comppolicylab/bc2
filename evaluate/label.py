@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import NamedTuple
 
 Point = NamedTuple("Point", [("x", float), ("y", float)])
@@ -51,3 +52,61 @@ class BoundingBox:
 
     def __repr__(self) -> str:
         return f"BoundingBox({self._points})"
+
+
+@dataclass
+class Label:
+    name: str
+    value: str | None
+    bbox: BoundingBox | None
+
+
+class Labels:
+    def __init__(self):
+        self._labels = dict[str, list[Label]]()
+
+    def add(self, name: str, value: str | None, bbox: BoundingBox | None):
+        """Add a label to the collection.
+
+        Args:
+            name: The name of the label.
+            value: The value of the label.
+            bbox: The bounding box of the label.
+        """
+        if name not in self._labels:
+            self._labels[name] = []
+
+        if value is None and bbox is not None:
+            raise ValueError("Cannot have a bounding box without a value")
+
+        if bbox is None and value is not None:
+            raise ValueError("Cannot have a value without a bounding box")
+
+        if bbox is None and value is None:
+            return
+
+        self._labels[name].append(Label(name, value, bbox))
+
+    def __repr__(self) -> str:
+        return f"Labels({self._labels})"
+
+    def keys(self) -> set[str]:
+        """Return the set of keys in the labels."""
+        return set(self._labels.keys())
+
+    def has(self, label: str) -> bool:
+        """Return True if the label positively exists."""
+        v = self._labels.get(label, None)
+        if v:
+            return True
+        return False
+
+    def equal(self, label: str, other: "Labels") -> bool:
+        """Return True if the label has the given value."""
+        v0 = self._labels.get(label, None)
+        v1 = other._labels.get(label, None)
+        if not v0 and not v1:
+            return True
+        s0 = {v.value for v in v0}
+        s1 = {v.value for v in v1}
+        return s0 == s1

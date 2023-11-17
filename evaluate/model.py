@@ -1,6 +1,5 @@
 import logging
 from abc import abstractmethod
-from dataclasses import dataclass
 from typing import Protocol
 
 from azure.ai.formrecognizer import (
@@ -9,24 +8,17 @@ from azure.ai.formrecognizer import (
     ModelBuildMode,
 )
 
-from .bbox import BoundingBox
 from .io import AzureFileIO
+from .label import BoundingBox, Labels
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class Label:
-    name: str
-    value: str | None
-    bbox: BoundingBox | None
 
 
 class ModelRunner(Protocol):
     """Run a model."""
 
     @abstractmethod
-    def run(self, model_id: str, path: str) -> dict[str, Label | None]:
+    def run(self, model_id: str, path: str) -> Labels:
         """Run a model on the documents at the given path.
 
         Args:
@@ -45,7 +37,7 @@ class AzureModelRunner(ModelRunner):
         self.cli = cli
         self.store = store
 
-    def run(self, model_id: str, path: str) -> dict[str, Label | None]:
+    def run(self, model_id: str, path: str) -> Labels:
         """Run a model on the documents at the given path.
 
         Args:
@@ -72,19 +64,17 @@ class AzureModelRunner(ModelRunner):
         logger.info("Model run complete.")
         if len(result.documents) != 1:
             raise ValueError("Expected exactly one document in result")
-        labels = dict[str, Label | None]()
+        labels = Labels()
         for key, field in result.documents[0].fields.items():
             if not field.value:
-                labels[key] = None
+                labels.add(key, None, None)
             else:
                 polygon = field.bounding_regions[0].polygon
                 points = list[float]()
                 for point in polygon:
                     points.append(point.x)
                     points.append(point.y)
-                labels[key] = Label(
-                    name=key, value=field.value, bbox=BoundingBox.from_flat_list(points)
-                )
+                labels.add(key, str(field.content), BoundingBox.from_flat_list(points))
         return labels
 
 

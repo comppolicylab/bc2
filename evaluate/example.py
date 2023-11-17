@@ -5,14 +5,16 @@ from azure.ai.formrecognizer._generated.v2022_08_31.models import (
     DocumentPage,
 )
 
-from .bbox import BoundingBox
 from .io import FileIO
-from .labeled import LabeledDoc
+from .label import BoundingBox, Labels
+from .labeled_doc import LabeledDoc
 
 
-def load_labeled_doc(reader: FileIO, name: str) -> LabeledDoc:
+def load_labeled_doc(reader: FileIO, name: str) -> LabeledDoc | None:
     """Load a labeled document from a JSON file."""
     path = f"{name}.labels.json"
+    if not reader.exists(path):
+        return None
     d = reader.read(path)
     return LabeledDoc.from_json(d)
 
@@ -29,22 +31,30 @@ class ExampleDoc:
     """One sample labeled/OCR'd document."""
 
     @classmethod
-    def load(cls, reader: FileIO, name: str):
+    def load(cls, reader: FileIO, name: str, fields: list[str]):
+        # Note some docs might not have labels (true negatives)
         labeled = load_labeled_doc(reader, name)
         ocr = load_ocr_doc(reader, name)
-        return cls(name, labeled, ocr)
+        return cls(name, labeled, ocr, fields)
 
-    def __init__(self, name: str, labeled: LabeledDoc, ocr: AnalyzeResultOperation):
+    def __init__(
+        self,
+        name: str,
+        labeled: LabeledDoc | None,
+        ocr: AnalyzeResultOperation,
+        fields: list[str],
+    ):
         self._name = name
         self._labeled = labeled
         self._ocr = ocr
+        self._fields = fields
 
     @property
     def name(self) -> str:
         return self._name
 
     @property
-    def labeled(self) -> LabeledDoc:
+    def labeled(self) -> LabeledDoc | None:
         return self._labeled
 
     @property
@@ -52,7 +62,7 @@ class ExampleDoc:
         return self._ocr
 
     @property
-    def labels(self) -> dict[str, list[str]]:
+    def labels(self) -> Labels:
         """Infer labels from label boxes and OCR'd text.
 
         Extracts OCR'd text from the labeled bounding boxes.
@@ -60,16 +70,20 @@ class ExampleDoc:
         Returns:
             A dictionary of label names to their values.
         """
-        labels = {}
+        labels = Labels()
+        for field in self._fields:
+            labels.add(field, None, None)
+
+        if not self._labeled:
+            return labels
 
         for label in self._labeled.labels:
-            texts = list[str]()
+            label_name = str(label.label)
             for value in label.value:
                 for box in value.boundingBoxes:
                     bbox = BoundingBox.from_flat_list(box)
                     extract = self.text_region(value.page, bbox)
-                    texts.append(extract)
-            labels[str(label.label)] = texts
+                    labels.add(label_name, extract, bbox)
 
         return labels
 
