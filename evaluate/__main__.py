@@ -1,6 +1,7 @@
 import functools
 import logging
 import os
+from pprint import pprint
 from typing import Callable
 
 import click
@@ -82,7 +83,8 @@ def test(ctx: click.Context, eval_id):
     evalpath = ctx.obj["evalpath"]
     threads = ctx.obj["threads"]
     runner = AzureModelRunner(ctx.obj["da_client"], fr)
-    run_test(fr, runner, evalpath, eval_id, threads=threads)
+    results = run_test(fr, runner, evalpath, eval_id, threads=threads)
+    pprint(results)
 
 
 @cli.command()
@@ -103,7 +105,10 @@ def run(
     threads = ctx.obj["threads"]
     trainer = AzureModelTrainer(dma_client, fr)
     runner = AzureModelRunner(ctx.obj["da_client"], fr)
-    run_all(fr, trainer, runner, docpath, evalpath, k=k, seed=seed, threads=threads)
+    results = run_all(
+        fr, trainer, runner, docpath, evalpath, k=k, seed=seed, threads=threads
+    )
+    pprint(results)
 
 
 if __name__ == "__main__":

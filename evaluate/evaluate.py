@@ -64,7 +64,7 @@ def run_all(
     k: int = 5,
     seed: int = 0,
     threads: int = 10,
-):
+) -> CrossValidationResult:
     """Evaluate the model on the given data.
 
     Args:
@@ -76,6 +76,9 @@ def run_all(
         k: The number of folds to use for cross validation.
         seed: The random seed to use for cross validation.
         threads: The number of threads to use for parallelizing backend requests
+
+    Returns:
+        The results of the evaluation.
     """
     # The eval path can't be a subdirectory of the doc path.
     if is_subdir(fr, doc_base_path, eval_base_path):
@@ -88,4 +91,4 @@ def run_all(
     train(fr, trainer, eval_base_path, eval_id, threads=threads)
 
     # Compute results
-    run_test(fr, runner, eval_base_path, eval_id, threads=threads)
+    return run_test(fr, runner, eval_base_path, eval_id, threads=threads)

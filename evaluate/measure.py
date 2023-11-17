@@ -198,7 +198,9 @@ def validate(
     def worker():
         while True:
             try:
-                task = task_q.get()
+                task = task_q.get(timeout=1)
+                if not task:
+                    continue
                 predicted_labels = runner.run(task.model_id, task.file)
                 true_labels = ExampleDoc.load(fr, task.file, task.fields).labels
                 doc_score = dict[str, ConfusionMatrix]()
@@ -224,12 +226,13 @@ def validate(
                             doc_score[lbl].tn += 1
 
                 results_q.put(EvaluationTaskResult(task.model_id, doc_score))
+                task_q.task_done()
             except queue.Empty:
                 break
             except Exception as e:
                 logger.error(f"Error in worker: {e}")
-            finally:
                 task_q.task_done()
+                # TODO: retry
 
     # Start the workers
     tx = [threading.Thread(target=worker) for _ in range(threads)]
