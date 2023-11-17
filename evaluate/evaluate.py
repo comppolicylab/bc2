@@ -2,14 +2,14 @@ import json
 import logging
 import queue
 import threading
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import TypedDict
 
 # from .example import ExampleDoc
 from .io import FileIO
+from .model import ModelRunner, ModelTrainer
 from .sample import KFoldCrossValidationSampler
-from .train import ModelTrainer
 
 logger = logging.getLogger(__name__)
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
@@ -186,6 +186,7 @@ def fold(
     # Generate a unique (but interprettable) name for this run.
     eval_name = f"eval-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     eval_dir = fr.join(eval_base_path, eval_name)
+    logger.info(f"Creating evaluation directory {eval_dir} ...")
 
     files_to_process = get_labeled_files(fr, doc_base_path)
 
@@ -223,7 +224,7 @@ def fold(
 
     # Save the metadata
     md_path = fr.join(eval_dir, "metadata.json")
-    fr.write(md_path, json.dumps(metadata))
+    fr.write(md_path, json.dumps(asdict(metadata)))
 
     return eval_name
 
@@ -247,6 +248,8 @@ def train(
     # Load the metadata
     eval_dir = fr.join(eval_base_path, eval_id)
     md_path = fr.join(eval_dir, "metadata.json")
+    if not fr.exists(md_path):
+        raise ValueError(f"Metadata file {md_path} does not exist")
     metadata = Metadata(**json.loads(fr.read(md_path)))
 
     # Run training procedure on each fold
@@ -299,21 +302,33 @@ def train(
     fr.write(fr.join(eval_dir, "models.json"), json.dumps(models))
 
 
-def evaluate(fr: FileIO, eval_base_path: str, eval_id: str, threads: int = 1):
+def run_test(
+    fr: FileIO, runner: ModelRunner, eval_base_path: str, eval_id: str, threads: int = 1
+):
     # Load models data
     eval_dir = fr.join(eval_base_path, eval_id)
     models_path = fr.join(eval_dir, "models.json")
-    models = list[ModelDetail](**json.loads(fr.read(models_path)))
+    if not fr.exists(models_path):
+        raise ValueError(f"Models data not found at {models_path}")
+
+    models = [ModelDetail(**d) for d in json.loads(fr.read(models_path))]  # type: ignore[typeddict-item]
 
     for m in models:
-        logger.info(f"Evaluating model {m['model_id']} ...")
+        model_id = m["model_id"]
+        logger.info(f"Evaluating model {model_id} ...")
         test_dir = m["test_path"]
-        print("TODO ... load test data from", test_dir)
+        test_files = [f for f in fr.list(test_dir) if f.endswith(".pdf")]
+        for f in test_files[:2]:
+            logger.info(f"Running model {m['model_id']} on {f} ...")
+            tags = runner.run(model_id, f)
+            print("TAGS", tags)
+            # TODO compare to ground truth using ExampleDoc
 
 
 def run_all(
     fr: FileIO,
     trainer: ModelTrainer,
+    runner: ModelRunner,
     doc_base_path: str,
     eval_base_path: str,
     k: int = 5,
@@ -324,7 +339,8 @@ def run_all(
 
     Args:
         fr: A FileIO instance.
-        dm: A DocumentModelAdministrationClient instance.
+        trainer: The model trainer.
+        runner: The model runner.
         doc_base_path: The base path to the data.
         eval_base_path: The base path to store the evaluation data.
         k: The number of folds to use for cross validation.
@@ -342,4 +358,4 @@ def run_all(
     train(fr, trainer, eval_base_path, eval_id, threads=threads)
 
     # Compute results
-    evaluate(fr, eval_base_path, eval_id, threads=threads)
+    run_test(fr, runner, eval_base_path, eval_id, threads=threads)
