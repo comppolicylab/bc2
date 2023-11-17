@@ -3,6 +3,7 @@ import shutil
 from abc import abstractmethod
 from typing import Generator, List, Protocol
 
+from azure.core.exceptions import ResourceExistsError
 from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient
 
@@ -15,7 +16,7 @@ class FileIO(Protocol):
         ...
 
     @abstractmethod
-    def write(self, name: str, contents: str) -> None:
+    def write(self, name: str, contents: str, overwrite: bool = False) -> None:
         ...
 
     @abstractmethod
@@ -54,7 +55,9 @@ class LocalFileIO(FileIO):
         with open(fp) as f:
             return f.read()
 
-    def write(self, name: str, contents: str) -> None:
+    def write(self, name: str, contents: str, overwrite: bool = False) -> None:
+        if not overwrite and self.exists(name):
+            raise FileExistsError(f"File {name} already exists")
         fp = os.path.join(self._root, name)
         os.makedirs(os.path.dirname(fp), exist_ok=True)
         with open(fp, "w") as f:
@@ -105,9 +108,14 @@ class AzureFileIO(FileIO):
         blob = self._container_client.download_blob(name, encoding="utf-8")
         return blob.readall()
 
-    def write(self, name: str, contents: str) -> None:
+    def write(self, name: str, contents: str, overwrite: bool = False) -> None:
         """Write a file to Azure Blob Storage."""
-        self._container_client.upload_blob(name, contents, encoding="utf-8")
+        try:
+            self._container_client.upload_blob(
+                name, contents, encoding="utf-8", overwrite=overwrite
+            )
+        except ResourceExistsError:
+            raise FileExistsError(f"File {name} already exists")
 
     def list(self, path: str) -> Generator[str, None, None]:
         """List files in a directory."""

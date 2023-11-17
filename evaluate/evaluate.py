@@ -225,7 +225,7 @@ def fold(
 
     # Save the metadata
     md_path = fr.join(eval_dir, "metadata.json")
-    fr.write(md_path, json.dumps(asdict(metadata)))
+    fr.write(md_path, json.dumps(asdict(metadata)), overwrite=True)
 
     return eval_name
 
@@ -300,7 +300,7 @@ def train(
         t.join()
 
     # Save models data
-    fr.write(fr.join(eval_dir, "models.json"), json.dumps(models))
+    fr.write(fr.join(eval_dir, "models.json"), json.dumps(models), overwrite=True)
 
 
 @dataclass
@@ -368,13 +368,79 @@ class ModelEvalResult:
     model_id: str
     model_detail: ModelDetail
     labels: list[str]
-    results: list[ClassResult]
+    results: dict[str, ClassResult]
     n: int
+
+
+@dataclass
+class MeanClassResult:
+    name: str
+    precision: float
+    recall: float
+    n: int
+
+
+@dataclass
+class CrossValidationResult:
+    mean_results: dict[str, MeanClassResult]
+    model_results: list[ModelEvalResult]
+
+
+def summarize_model_results(results: list[ModelEvalResult]) -> CrossValidationResult:
+    """Summarize the results of a model evaluation.
+
+    Args:
+        results: The list of results.
+
+    Returns:
+        The summarized results.
+    """
+    all_classes = set[str]()
+    for r in results:
+        all_classes |= set(r.labels)
+
+    mean_results = {c: MeanClassResult(c, math.nan, math.nan, 0) for c in all_classes}
+    for c, mcr in mean_results.items():
+        mcr.n = sum(m.n for m in results if c in m.results)
+        if mcr.n > 0:
+            mcr.precision = (
+                sum(
+                    m.results[c].precision * m.n
+                    for m in results
+                    if c in m.results and not math.isnan(m.results[c].precision)
+                )
+                / mcr.n
+            )
+            mcr.recall = (
+                sum(
+                    m.results[c].recall * m.n
+                    for m in results
+                    if c in m.results and not math.isnan(m.results[c].recall)
+                )
+                / mcr.n
+            )
+
+    return CrossValidationResult(
+        model_results=results,
+        mean_results=mean_results,
+    )
 
 
 def run_test(
     fr: FileIO, runner: ModelRunner, eval_base_path: str, eval_id: str, threads: int = 1
-):
+) -> CrossValidationResult:
+    """Run the evaluation procedure.
+
+    Args:
+        fr: A FileIO instance.
+        runner: A ModelRunner instance.
+        eval_base_path: The base path to the evaluation data.
+        eval_id: The ID of the evaluation run
+        threads: The number of threads to use for backend calls
+
+    Returns:
+        The results of the evaluation.
+    """
     # Load models data
     eval_dir = fr.join(eval_base_path, eval_id)
     models_path = fr.join(eval_dir, "models.json")
@@ -438,15 +504,15 @@ def run_test(
                 model_detail=m,
                 labels=fields,
                 n=len(scores),
-                results=[
-                    ClassResult(
+                results={
+                    lbl: ClassResult(
                         name=lbl,
                         confusion_matrix=cm,
                         precision=cm.precision(),
                         recall=cm.recall(),
                     )
                     for lbl, cm in agg.items()
-                ],
+                },
             )
         )
         nar_cm = agg["narrative"]
@@ -454,8 +520,10 @@ def run_test(
             f"Narrative result: precision={nar_cm.precision()}, recall={nar_cm.recall()}"
         )
 
+    result = summarize_model_results(results)
     results_path = fr.join(eval_dir, "results.json")
-    fr.write(results_path, json.dumps([asdict(r) for r in results]))
+    fr.write(results_path, json.dumps(asdict(result)), overwrite=True)
+    return result
 
 
 def run_all(
