@@ -1,6 +1,8 @@
 import json
 import logging
 import math
+import queue
+import threading
 from dataclasses import asdict, dataclass
 
 from .example import ExampleDoc
@@ -134,6 +136,27 @@ def summarize_model_results(results: list[ModelEvalResult]) -> CrossValidationRe
     )
 
 
+@dataclass
+class EvaluationTask:
+    model_id: str
+    file: str
+    fields: list[str]
+
+
+@dataclass
+class EvaluationTaskResult:
+    model_id: str
+    results: dict[str, ConfusionMatrix]
+
+
+@dataclass
+class ModelInfo:
+    model_id: str
+    fields: list[str]
+    detail: ModelDetail
+    test_samples: int
+
+
 def validate(
     fr: FileIO,
     runner: ModelRunner,
@@ -155,60 +178,91 @@ def validate(
     """
     results = list[ModelEvalResult]()
 
+    task_q = queue.Queue[EvaluationTask]()
+    results_q = queue.Queue[EvaluationTaskResult]()
+
+    model_info = dict[str, ModelInfo]()
+
+    # Generate tasks for every test file, for every model
     for m in models:
         model_id = m["model_id"]
         logger.info(f"Evaluating model {model_id} ...")
         test_dir = m["test_path"]
         test_files = [f for f in fr.list(test_dir) if f.endswith(".pdf")]
         fields = get_fields(fr, m["train_path"])
+        model_info[model_id] = ModelInfo(model_id, fields, m, len(test_files))
 
-        scores = list[dict[str, ConfusionMatrix]]()
+        for f in test_files:
+            task_q.put(EvaluationTask(model_id, f, fields))
 
-        n = len(test_files)
-        logger.info(f"Running model {m['model_id']} on {n} file(s) ...")
-        for i, f in enumerate(test_files):
-            logger.info(f"Running model {m['model_id']} on {f} ({i + 1} / {n}) ...")
-            predicted_labels = runner.run(model_id, f)
-            true_labels = ExampleDoc.load(fr, f, fields).labels
-            doc_score = dict[str, ConfusionMatrix]()
-            for lbl in predicted_labels.keys() | true_labels.keys():
-                doc_score[lbl] = ConfusionMatrix(
-                    tp=0,
-                    tn=0,
-                    fp=0,
-                    fn=0,
-                )
+    def worker():
+        while True:
+            try:
+                task = task_q.get()
+                predicted_labels = runner.run(task.model_id, task.file)
+                true_labels = ExampleDoc.load(fr, task.file, task.fields).labels
+                doc_score = dict[str, ConfusionMatrix]()
+                for lbl in predicted_labels.keys() | true_labels.keys():
+                    doc_score[lbl] = ConfusionMatrix(
+                        tp=0,
+                        tn=0,
+                        fp=0,
+                        fn=0,
+                    )
 
-                if true_labels.has(lbl):
-                    # Either a true positive or a false negative
-                    if true_labels.equal(lbl, predicted_labels):
-                        doc_score[lbl].tp += 1
+                    if true_labels.has(lbl):
+                        # Either a true positive or a false negative
+                        if true_labels.equal(lbl, predicted_labels):
+                            doc_score[lbl].tp += 1
+                        else:
+                            doc_score[lbl].fn += 1
                     else:
-                        doc_score[lbl].fn += 1
-                else:
-                    # Either a true negative or a false positive
-                    if predicted_labels.has(lbl):
-                        doc_score[lbl].fp += 1
-                    else:
-                        doc_score[lbl].tn += 1
+                        # Either a true negative or a false positive
+                        if predicted_labels.has(lbl):
+                            doc_score[lbl].fp += 1
+                        else:
+                            doc_score[lbl].tn += 1
 
-            scores.append(doc_score)
+                results_q.put(EvaluationTaskResult(task.model_id, doc_score))
+            except queue.Empty:
+                break
+            except Exception as e:
+                logger.error(f"Error in worker: {e}")
+            finally:
+                task_q.task_done()
 
-        # Aggregate the matrices
-        agg = dict[str, ConfusionMatrix]()
-        for s in scores:
-            for lbl, cm in s.items():
-                if lbl not in agg:
-                    agg[lbl] = cm
-                else:
-                    agg[lbl] += cm
+    # Start the workers
+    tx = [threading.Thread(target=worker) for _ in range(threads)]
+    for t in tx:
+        t.start()
 
+    # Wait for the tasks to complete
+    task_q.join()
+
+    # Stop the workers
+    for _ in tx:
+        t.join()
+
+    # Aggregate the results
+    agg_results = {m["model_id"]: dict[str, ConfusionMatrix]() for m in models}
+
+    while not results_q.empty():
+        score = results_q.get()
+        for lbl, cm in score.results.items():
+            if lbl not in agg_results[score.model_id]:
+                agg_results[score.model_id][lbl] = cm
+            else:
+                agg_results[score.model_id][lbl] += cm
+
+    # Compile results for each model
+    for model_id, agg in agg_results.items():
+        minfo = model_info[model_id]
         results.append(
             ModelEvalResult(
                 model_id=model_id,
-                model_detail=m,
-                labels=fields,
-                n=len(scores),
+                model_detail=minfo.detail,
+                labels=minfo.fields,
+                n=minfo.test_samples,
                 results={
                     lbl: ClassResult(
                         name=lbl,
@@ -220,12 +274,11 @@ def validate(
                 },
             )
         )
-        nar_cm = agg["narrative"]
-        logger.info(
-            f"Narrative result: precision={nar_cm.precision()}, recall={nar_cm.recall()}"
-        )
 
+    # Aggregate results over all models
     result = summarize_model_results(results)
+
+    # Save results to the storage backend
     results_path = fr.join(eval_dir, "results.json")
     fr.write(results_path, json.dumps(asdict(result)), overwrite=True)
     return result
