@@ -12,7 +12,7 @@ from azure.ai.formrecognizer import (
 from azure.core.credentials import AzureKeyCredential
 from azure.identity import DefaultAzureCredential
 
-from .evaluate import run_all, run_test
+from .evaluate import DEFAULT_FILE_NAME_PATTERN, run_all, run_test
 from .io import AzureFileIO
 from .model import AzureModelRunner, AzureModelTrainer
 
@@ -91,6 +91,11 @@ def test(ctx: click.Context, eval_id):
 @click.option("--k", default=5, help="Number of folds to use for cross validation")
 @click.option("--seed", default=0, help="Random seed to use for cross validation")
 @click.option("--docpath", prompt="Document path", help="Path to use")
+@click.option(
+    "--file-name-pattern",
+    default=DEFAULT_FILE_NAME_PATTERN,
+    help="Regex pattern to use to extract case number",
+)
 @form_recognizer
 @click.pass_context
 def run(
@@ -98,6 +103,7 @@ def run(
     k,
     seed,
     docpath,
+    file_name_pattern,
 ):
     fr = ctx.obj["file_io"]
     dma_client = ctx.obj["dma_client"]
@@ -106,7 +112,15 @@ def run(
     trainer = AzureModelTrainer(dma_client, fr)
     runner = AzureModelRunner(ctx.obj["da_client"], fr)
     results = run_all(
-        fr, trainer, runner, docpath, evalpath, k=k, seed=seed, threads=threads
+        fr,
+        trainer,
+        runner,
+        docpath,
+        evalpath,
+        k=k,
+        seed=seed,
+        threads=threads,
+        file_name_pattern=file_name_pattern,
     )
     pprint(results)
 

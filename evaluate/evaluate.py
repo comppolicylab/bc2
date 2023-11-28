@@ -14,6 +14,10 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
+DEFAULT_FILE_NAME_PATTERN = r"^(.*)_page_\d+\.pdf$"
+"""The default regex pattern to parse case number from file name."""
+
+
 def is_subdir(fr: FileIO, parent: str, child: str) -> bool:
     """Check if the child directory is a subdirectory of the parent directory.
 
@@ -64,6 +68,7 @@ def run_all(
     k: int = 5,
     seed: int = 0,
     threads: int = 10,
+    file_name_pattern: str = DEFAULT_FILE_NAME_PATTERN,
 ) -> CrossValidationResult:
     """Evaluate the model on the given data.
 
@@ -76,6 +81,7 @@ def run_all(
         k: The number of folds to use for cross validation.
         seed: The random seed to use for cross validation.
         threads: The number of threads to use for parallelizing backend requests
+        file_name_pattern: A regex pattern to parse case number from file name.
 
     Returns:
         The results of the evaluation.
@@ -85,7 +91,15 @@ def run_all(
         raise ValueError("eval_base_path must not be a subdirectory of doc_base_path")
 
     # Split documents into K folds
-    eval_id = fold(fr, doc_base_path, eval_base_path, k, seed, threads=threads)
+    eval_id = fold(
+        fr,
+        doc_base_path,
+        eval_base_path,
+        k,
+        seed,
+        threads=threads,
+        file_name_pattern=file_name_pattern,
+    )
 
     # Train the K models corresponding to the folds
     train(fr, trainer, eval_base_path, eval_id, threads=threads)

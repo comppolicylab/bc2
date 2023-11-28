@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import TypedDict
 
 from .io import FileIO
-from .sample import KFoldCrossValidationSampler
+from .sample import KFoldCrossValidationSampler, RegExMatchGrouper
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +138,7 @@ def fold(
     k: int,
     seed: int,
     threads: int = 1,
+    file_name_pattern: str = r"(.*)",
 ) -> str:
     """Split the data into k folds for cross-validation.
 
@@ -148,6 +149,7 @@ def fold(
         k: The number of folds.
         seed: The random seed.
         threads: The number of threads to use.
+        file_name_pattern: A regex pattern to parse case number from file name.
 
     Returns:
         Name of the eval
@@ -161,6 +163,7 @@ def fold(
 
     logger.info(f"Found {len(files_to_process)} files in {doc_base_path}")
     kfold = KFoldCrossValidationSampler[str](k)
+    case_name_grouper = RegExMatchGrouper(file_name_pattern)
 
     metadata = Metadata(
         eval_name=eval_name,
@@ -172,7 +175,9 @@ def fold(
         files=files_to_process,
     )
 
-    for i, (train, test) in enumerate(kfold(files_to_process, seed=seed)):
+    for i, (train, test) in enumerate(
+        kfold(files_to_process, seed=seed, grouper=case_name_grouper)
+    ):
         logger.info(f"Setting up fold {i + 1} / {k} ...")
         # Save the training and testing sets in a new directory
         fold_dir = fr.join(eval_dir, f"fold-{i}")
