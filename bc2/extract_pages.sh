@@ -19,7 +19,7 @@ dst_folder="$2"
 find "$src_folder" -type f -name "*.pdf" | while read -r file; do
 
     echo $file
- 
+
     # Get the relative path of the file, excluding the source folder path and the file extension
     relative_path="${file#$src_folder}"
     relative_path="${relative_path%.pdf}"
