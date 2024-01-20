@@ -1,56 +1,26 @@
 import json
 import os
 
-from azure.core.credentials import AzureKeyCredential
-from azure.ai.formrecognizer import DocumentAnalysisClient, AnalyzeResult
 import click
+from azure.ai.formrecognizer import AnalyzeResult, DocumentAnalysisClient
+from azure.core.credentials import AzureKeyCredential
 from pypdf import PdfReader
 from tqdm import tqdm
 
-from config import config
-
+from .cache import get_output_path
+from .config import config
 
 document_analysis_client = DocumentAnalysisClient(
     endpoint=config.azure.endpoint,
     credential=AzureKeyCredential(config.azure.key),
-    )
-
-
-def get_output_path(
-        document_path: str,
-        document_dir: str,
-        output_dir: str | None,
-        model: str,
-        ) -> str | None:
-    """Get the path to save the analysis result to.
-
-    Args:
-        document_path (str): Path to the PDF to analyze.
-        document_dir (str): Path to the directory containing the PDF.
-        output_dir (str | None): Path to the directory to save results to.
-        model (str): Model to use for analysis.
-
-    Returns:
-        str | None: Path to save the analysis result to.
-    """
-    if output_dir is None:
-        return None
-    return os.path.join(
-        output_dir,
-        model,
-        os.path.relpath(
-            document_path,
-            document_dir,
-        ).replace(".pdf", ""),
-    )
+)
 
 
 def analyze_document(
-        document_path: str,
-        model: str = "prebuilt-read",
-        cached: str | None = None,
-        use_cache: bool = True,
-        ) -> list[AnalyzeResult]:
+    document_path: str,
+    model: str = "prebuilt-read",
+    cached: str | None = None,
+) -> list[AnalyzeResult]:
     """Run a PDF through Azure document analysis.
 
     Args:
@@ -89,7 +59,7 @@ def analyze_document(
                     document=f,
                     locale="en-US",
                     pages=f"{i + 1}",
-                    )
+                )
                 results[i] = poller.result()
             if cached is not None:
                 page_path = os.path.join(cached, f"{i + 1}.json")
@@ -127,21 +97,24 @@ def walk(ctx: click.Context, document_dir: str, output_dir: str):
     """
     model = ctx.obj["model"]
     # Build a queue of PDFs to process.
-    queue = list[tuple[str, str]]()
-    for root, dirs, files in os.walk(document_dir):
+    queue = list[tuple[str, str | None]]()
+    for root, _, files in os.walk(document_dir):
         for file in files:
             if file.endswith(".pdf"):
                 file_path = os.path.join(root, file)
                 # Mimic the same directory structure from `document_dir` in
                 # `output_dir`. E.g. `document_dir/foo/bar.pdf` will be saved
                 # as `output_dir/foo/bar.json`.
-                output_path = get_output_path(file_path, document_dir, output_dir, model)
+                output_path = get_output_path(
+                    file_path, document_dir, output_dir, model
+                )
                 queue.append((file_path, output_path))
 
     # Process the queue with a progress bar.
     for file_path, output_path in tqdm(queue):
         # Ensure that the directory exists.
-        os.makedirs(output_path, exist_ok=True)
+        if output_path:
+            os.makedirs(output_path, exist_ok=True)
         # Run analysis and cache result
         analyze_document(file_path, model=model, cached=output_path)
 

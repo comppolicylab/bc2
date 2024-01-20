@@ -1,67 +1,122 @@
 import difflib
+import re
+from typing import Generator, NamedTuple
+
+TextSpan = NamedTuple(
+    "TextSpan",
+    [
+        ("start", int),
+        ("end", int),
+        ("text", str),
+    ],
+)
 
 
-def infer_annotations(original_narrative, redacted_narrative):
-    """Generate a list of annotations that the LLM applied.
+TextSegment = NamedTuple(
+    "TextSegment",
+    [
+        ("original", TextSpan),
+        ("redacted", TextSpan),
+        ("is_edit", bool),
+        ("is_valid", bool),
+    ],
+)
+
+
+def segment(
+    original: str,
+    redacted: str,
+) -> Generator[TextSegment, None, None]:
+    """Visit text segments in the redacted narrative.
 
     This function computes the delta between the original narrative text and
-    the redacted narrative texts. It inspects the delta to generate a list
-    of annotations that the LLM applied to the original narrative text.
-    Each annotation contains the following fields:
-      - start: The start index of the annotation in the original narrative text.
-      - end: The end index of the annotation in the original narrative text.
-      - content: The content of the annotation.
+    the redacted narrative texts. It inspects the delta to generate a sequence
+    of text segments. Some of these segments are masked annotations, some are
+    spurious edits (e.g., noise from the LLM), and some are segments that are
+    unmasked text shared between the original and redacted versions.
+
+    Each segment yielded looks like this:
+        - original: The text span in the original narrative (start, end, text).
+        - label: The text span in the redacted narrative (start, end, text).
+        - is_edit: Whether segment differs in the redacted from the original
+        - is_valid: Whether segment appears to be a correct annotation.
+
+    Note that the consuming code should check for the condition `is_edit` and
+    not `is_valid`, which indicates a spurious edit rather than a redaction.
+
+    Args:
+        original: The original narrative text.
+        redacted: The redacted narrative text.
     """
-    annotations = []
-    # Compute the delta between the original and redacted narrative.
-    delta = list(difflib.ndiff(original_narrative, redacted_narrative))
-    # Iterate over the delta to generate annotations.
-    ptr = -1
-    start = -1
-    content = ""
-    for i, diff in enumerate(delta):
-        type_, _, char = diff
+    edit_stack = 0
+    matcher = difflib.SequenceMatcher(None, original, redacted, autojunk=False)
 
-        # Increment pointer for same / subtractions
-        if type_ in ("-", " "):
-            ptr += 1
+    op_seq_start = ("equal", 0, 0, 0, 0)
+    for op in matcher.get_opcodes():
+        opcode, i1, i2, j1, j2 = op
 
-        # Accumulate content when inside annotation
-        if start > -1 and type_ in ("+", " "):
-            content += char
+        masked = original[i1:i2]
+        mask = redacted[j1:j2]
+        opener = re.search(r"^(\s*<)", mask)
+        closer = re.search(r"(>\s*)$", mask)
 
-        # Handle additions
-        if type_ == "+":
-            # If we are not currently in an annotation, start a new one.
-            if char == "<":
-                content = char
-                start = ptr + 1
+        if opener:
+            if edit_stack == 0:
+                offset = opener.end() - 1
+                op_seq_start = (opcode, i1 + offset, i2, j1 + offset, j2)
+            edit_stack += 1
 
-                # Look behind to cover preceding adjacent subtractions
-                lookbehind = i
-                while lookbehind > 0:
-                    lookbehind -= 1
-                    if delta[lookbehind][0] == "-":
-                        start -= 1
-                    else:
-                        break
-            elif char == ">":
-                end = ptr + 1
+        if opcode == "equal":
+            if edit_stack == 0:
+                yield TextSegment(
+                    TextSpan(i1, i2, masked),
+                    TextSpan(j1, j2, mask),
+                    False,
+                    True,
+                )
+        elif opcode in {"insert", "replace", "delete"}:
+            if edit_stack == 0:
+                yield TextSegment(
+                    TextSpan(i1, i2, masked),
+                    TextSpan(j1, j2, mask),
+                    True,
+                    False,
+                )
 
-                # Look-ahead to cover subsequent adjacent subtractions
-                lookahead = i
-                while lookahead < len(delta) - 1:
-                    lookahead += 1
-                    if delta[lookahead][0] == "-":
-                        end += 1
-                    else:
-                        break
+        if closer:
+            edit_stack = max(0, edit_stack - 1)
+            # Yield the final segment
+            if edit_stack == 0:
+                offset = closer.end() - closer.start() - 1
+                i1 = op_seq_start[1]
+                i2 = i2 - offset
+                j1 = op_seq_start[3]
+                j2 = j2 - offset
 
-                annotations.append({
-                    "start": start,
-                    "end": end,
-                    "content": content,
-                    })
-                start = -1
-                content = ""
-    return annotations
+                masked = original[i1:i2]
+                mask = redacted[j1:j2]
+                yield TextSegment(
+                    TextSpan(i1, i2, masked),
+                    TextSpan(j1, j2, mask),
+                    True,
+                    True,
+                )
+
+
+def infer_annotations(original: str, redacted: str) -> Generator[dict, None, None]:
+    """Segment the narrative and return a sequence of redactions.
+
+    Args:
+        original: The original narrative text.
+        redacted: The redacted narrative text.
+
+    Yields:
+        A sequence of redaction annotations.
+    """
+    for seg in segment(original, redacted):
+        if seg.is_edit and seg.is_valid:
+            yield {
+                "start": seg.original.start,
+                "end": seg.original.end,
+                "content": seg.redacted.text,
+            }

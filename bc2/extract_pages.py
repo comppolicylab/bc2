@@ -38,8 +38,8 @@ def extract_pages(pdf_path: str, output_dir: str, page_numbers: set[int] | None 
     "--page-numbers",
     type=click.STRING,
     help="The page numbers to extract. If not specified, all pages are extracted.",
-    default=None
-    )
+    default=None,
+)
 def main(pdf_path: str, output_path: str, page_numbers: str | None = None):
     """Explode a PDF into single pages.
 
@@ -48,10 +48,11 @@ def main(pdf_path: str, output_path: str, page_numbers: str | None = None):
         output_path: Directory to write the exploded pages to.
         page_numbers: The page numbers to extract. If None, all pages are extracted.
     """
+    pages: set[int] | None = None
     if page_numbers is not None:
-        page_numbers = set(int(x) for x in page_numbers.split(","))
+        pages = {int(x) for x in page_numbers.split(",")}
 
-    extract_pages(pdf_path, output_path, page_numbers)
+    extract_pages(pdf_path, output_path, pages)
 
 
 if __name__ == "__main__":
