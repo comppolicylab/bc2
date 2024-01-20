@@ -16,5 +16,5 @@ Azure configuration instructions:
     7. Click save.
     8. Give it up to 30 minutes to propogate (it won't appear in the list at first).
     9. Now in Form Recognizer you should be able to train a model using labeled documents on the relevant storage blob.
-   
+
 (these are very incomplete, ACW adding one specific step to start)
