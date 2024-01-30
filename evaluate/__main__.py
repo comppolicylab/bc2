@@ -5,16 +5,10 @@ from pprint import pprint
 from typing import Callable
 
 import click
-from azure.ai.formrecognizer import (
-    DocumentAnalysisClient,
-    DocumentModelAdministrationClient,
-)
-from azure.core.credentials import AzureKeyCredential
-from azure.identity import DefaultAzureCredential
 
 from .evaluate import DEFAULT_FILE_NAME_PATTERN, run_all, run_test
 from .io import AzureFileIO
-from .model import AzureModelRunner, AzureModelTrainer
+from .model import AzureModelClient, AzureModelRunner, AzureModelTrainer
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
@@ -56,18 +50,11 @@ def form_recognizer(f: Callable) -> Callable:
         """Take the formrecognizer args from CLI and instantiate client in context."""
         ctx = click.get_current_context()
         formrecognizer = kwargs.pop("formrecognizer")
-        formrecognizer_key = kwargs.pop("formrecognizer_key")
+        formrecognizer_key = kwargs.pop("formrecognizer_key", "")
 
-        # Use default credential unless a specific API key was passed.
-        cred = DefaultAzureCredential()
-        if formrecognizer_key:
-            cred = AzureKeyCredential(formrecognizer_key)
-        dma_client = DocumentModelAdministrationClient(
-            endpoint=formrecognizer, credential=cred
-        )
-        da_client = DocumentAnalysisClient(endpoint=formrecognizer, credential=cred)
-        ctx.obj["dma_client"] = dma_client
-        ctx.obj["da_client"] = da_client
+        amc = AzureModelClient(formrecognizer, formrecognizer_key)
+        ctx.obj["dma_client"] = amc.dmac
+        ctx.obj["da_client"] = amc.dac
 
         return f(*args, **kwargs)
 

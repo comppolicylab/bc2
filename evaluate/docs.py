@@ -1,16 +1,27 @@
 import logging
 import queue
 import threading
+from dataclasses import dataclass
 
 from .io import FileIO
 
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class Doc:
+    name: str
+    has_ocr: bool
+    has_labels: bool
+
+
 def list_docs(
-    fr: FileIO, base_path: str, ocr: bool = False, labels: bool = True
-) -> list[str]:
-    """Get a list of files that have labels and OCR.
+    fr: FileIO, base_path: str, ocr: bool = False, labels: bool = False
+) -> list[Doc]:
+    """Get a list of files, optionally filtering by OCR and labels.
+
+    Careful with setting the `labels` feature to True, as it will ignore
+    files that positively have no labels.
 
     Args:
         fr: A FileIO instance.
@@ -24,6 +35,7 @@ def list_docs(
     all_files = list(fr.list(base_path))
 
     # Process all the files in the directory
+    # (TODO - rewrite to simplify)
     pdfs = set[str]()
     has_labels = set[str]()
     has_ocr = set[str]()
@@ -45,8 +57,8 @@ def list_docs(
     if labels:
         pdfs = pdfs.intersection(has_labels)
 
-    # Return names of PDFs
-    return list(pdfs)
+    # Return documents
+    return [Doc(name, name in has_ocr, name in has_labels) for name in pdfs]
 
 
 def copy_doc(fr: FileIO, name: str, dest_dir: str):

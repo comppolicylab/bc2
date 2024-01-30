@@ -63,7 +63,7 @@ def fold(
     eval_dir = fr.join(eval_base_path, eval_name)
     logger.info(f"Creating evaluation directory {eval_dir} ...")
 
-    files_to_process = list_docs(fr, doc_base_path, ocr=True, labels=True)
+    files_to_process = [d.name for d in list_docs(fr, doc_base_path, ocr=True)]
 
     logger.info(f"Found {len(files_to_process)} files in {doc_base_path}")
     kfold = KFoldCrossValidationSampler[str](k)

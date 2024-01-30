@@ -1,5 +1,7 @@
 import logging
 from abc import abstractmethod
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 
 from azure.ai.formrecognizer import (
@@ -7,11 +9,62 @@ from azure.ai.formrecognizer import (
     DocumentModelAdministrationClient,
     ModelBuildMode,
 )
+from azure.core.credentials import AzureKeyCredential
+from azure.identity import DefaultAzureCredential
 
 from .io import AzureFileIO
 from .label import BoundingBox, Labels
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ModelInfo:
+    """Information about a model."""
+
+    model_id: str
+    description: str | None
+    tags: dict[str, str] | None
+    created_on: datetime
+    expires_on: datetime | None
+    api_version: str | None
+
+
+class AzureModelClient:
+    def __init__(self, endpoint: str, key: str = ""):
+        """Initialize the client.
+
+        Args:
+            endpoint: endpoint URL
+            key: API key
+        """
+        cred = DefaultAzureCredential() if not key else AzureKeyCredential(key)
+        self.dmac = DocumentModelAdministrationClient(
+            endpoint=endpoint, credential=cred
+        )
+        self.dac = DocumentAnalysisClient(endpoint=endpoint, credential=cred)
+
+    def runner(self, store: AzureFileIO) -> "AzureModelRunner":
+        """Get a model runner."""
+        return AzureModelRunner(self.dac, store)
+
+    def trainer(self, store: AzureFileIO) -> "AzureModelTrainer":
+        """Get a model trainer."""
+        return AzureModelTrainer(self.dmac, store)
+
+    def list_models(self) -> list[ModelInfo]:
+        """List models."""
+        return [
+            ModelInfo(
+                model_id=m.model_id,
+                description=m.description,
+                tags=m.tags,
+                created_on=m.created_on,
+                expires_on=m.expires_on,
+                api_version=m.api_version,
+            )
+            for m in self.dmac.list_document_models()
+        ]
 
 
 class ModelRunner(Protocol):
