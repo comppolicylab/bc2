@@ -3,6 +3,7 @@ library(dplyr)
 library(purrr)
 library(tibble)
 library(stringr)
+library(tidyr)
 
 dataclasses <- reticulate::import("dataclasses")
 
@@ -91,19 +92,23 @@ list_extraction_models <- function() {
 
 #' Train a model with the given document names.
 #'
-#' @param docs List of documents to use for training.
-#' @return Model definition.
-train_extraction_model <- function(name, docs) {
-    # TODO
-}
-
-
-#' Load an existing extraction model by name.
-#'
-#' @param name Name of extraction model.
-#' @return Model definition.
-load_extraction_model <- function(name) {
-    # TODO
+#' @param name Name for the model (must be unique in your FormRecognizer account).
+#' @param docs List of documents to use for training from the blob store.
+#' @param description Optional text describing this model
+#' @param tags Optional key/value tags to help identify this model
+#' @return Model name
+#' @examples
+#' train_extraction_model("my-new-model", filter(docs, has_labels)$name)
+train_extraction_model <- function(name,
+                                   docs,
+                                   description = "Custom extraction model",
+                                   tags = NULL) {
+    ensure_az_clients()
+    if (az_fr_client$model_exists(name)) {
+        stop(str_c("Model already exists with name ", name, "!"))
+    }
+    trainer <- az_fr_client$trainer(az_blob_client)
+    trainer$train(name=name, docs=docs, description=description, tags=tags)
 }
 
 
@@ -112,8 +117,31 @@ load_extraction_model <- function(name) {
 #' @param model Model definition to use.
 #' @param doc_or_docs Document or list of documents to run extraction on.
 #' @return Result of running model on documents.
-run_extraction_model <- function(model, doc_or_docs) {
-    # TODO
+run_extraction_model <- function(model, doc_or_docs, threads = 4) {
+    ensure_az_clients()
+    if (!az_fr_client$model_exists(model)) {
+        stop(str_c("No model exists with name ", model, "!"))
+    }
+    runner <- az_fr_client$runner(az_blob_client)
+    result <- runner$multi_run(model, as.list(doc_or_docs), threads=threads)
+    tbl <- do.call(rbind, lapply(result, function(x) { parse_py_table(x$flat()) })) %>%
+        rownames_to_column("file")
+    # Get a reasonable representation of bounding box -- not sure what's most useful.
+    tbl$bbox <- lapply(tbl$bbox, function(x) { x['__repr__']() })
+    tbl %>%
+        unnest(c("name", "value", "bbox")) %>%
+        rename(label=name,
+               content=value)
+}
+
+
+#' Load true labels for a document.
+#'
+#' @param doc Path to document to load
+#' @return Tibble with one row and columns for each label.
+load_true_labels <- function(doc) {
+    ensure_az_clients()
+    evaluate$get_true_labels(az_blob_client, doc)
 }
 
 

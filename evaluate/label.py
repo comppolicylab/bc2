@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import NamedTuple
 
 Point = NamedTuple("Point", [("x", float), ("y", float)])
@@ -89,6 +89,14 @@ class Labels:
 
     def __repr__(self) -> str:
         return f"Labels({self._labels})"
+
+    def as_dict(self) -> dict[str, list[dict]]:
+        """Return the labels as a dictionary."""
+        return {k: [asdict(v) for v in vs] for k, vs in self._labels.items()}
+
+    def flat(self) -> list[Label]:
+        """Return the labels as a list of rows."""
+        return [v for vs in self._labels.values() for v in vs]
 
     def keys(self) -> set[str]:
         """Return the set of keys in the labels."""

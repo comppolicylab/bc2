@@ -1,9 +1,13 @@
+import functools
+import json
 import logging
 import queue
 import threading
 from dataclasses import dataclass
 
+from .example import ExampleDoc
 from .io import FileIO
+from .label import Labels
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +17,39 @@ class Doc:
     name: str
     has_ocr: bool
     has_labels: bool
+
+
+@functools.lru_cache(maxsize=None)
+def get_fields(fr: FileIO, path: str) -> list[str]:
+    """Get the list of fields in the given path.
+
+    Args:
+        fr: A FileIO instance.
+        path: The path to the directory containing the fields.
+
+    Returns:
+        The list of fields.
+    """
+    fields_json = fr.join(path, "fields.json")
+    if not fr.exists(fields_json):
+        raise ValueError(f"Fields data not found at {fields_json}")
+    data = json.loads(fr.read(fields_json))
+    return [d["fieldKey"] for d in data["fields"]]
+
+
+def get_true_labels(fr: FileIO, path: str, fields_json: str = "fields.json") -> Labels:
+    """Get the true labels for the given path.
+
+    Args:
+        fr: A FileIO instance.
+        path: The path to the directory containing the labels.
+        fields_json: The name of the fields JSON file.
+
+    Returns:
+        The true labels.
+    """
+    fields = get_fields(fr, fields_json)
+    return ExampleDoc.load(fr, path, fields).labels
 
 
 def list_docs(
