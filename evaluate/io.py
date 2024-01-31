@@ -43,6 +43,15 @@ class FileIO(Protocol):
     def splitpath(self, name: str) -> List[str]:
         ...
 
+    @abstractmethod
+    def delete(self, name: str) -> None:
+        ...
+
+    @abstractmethod
+    def __hash__(self) -> int:
+        """Client should be hashable for caching."""
+        ...
+
 
 class LocalFileIO(FileIO):
     """Read/write files from the local filesystem."""
@@ -85,6 +94,12 @@ class LocalFileIO(FileIO):
 
     def splitpath(self, name: str) -> List[str]:
         return name.split(os.path.sep)
+
+    def delete(self, name: str) -> None:
+        os.remove(os.path.join(self._root, name))
+
+    def __hash__(self) -> int:
+        return hash(self._root)
 
 
 class AzureFileIO(FileIO):
@@ -145,3 +160,10 @@ class AzureFileIO(FileIO):
     def splitpath(self, name: str) -> List[str]:
         """Split a path into its parts."""
         return name.split("/")
+
+    def delete(self, name: str) -> None:
+        """Delete a file."""
+        self._container_client.delete_blob(name, delete_snapshots="include")
+
+    def __hash__(self) -> int:
+        return hash((self._account_url, self._container))
