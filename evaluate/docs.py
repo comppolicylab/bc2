@@ -3,6 +3,7 @@ import json
 import logging
 import queue
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 
 from .example import ExampleDoc
@@ -20,36 +21,53 @@ class Doc:
 
 
 @functools.lru_cache(maxsize=None)
-def get_fields(fr: FileIO, path: str) -> list[str]:
+def get_fields(fr: FileIO, fields_json: str) -> list[str]:
     """Get the list of fields in the given path.
 
     Args:
         fr: A FileIO instance.
-        path: The path to the directory containing the fields.
+        fields_json: The name of the fields JSON file.
 
     Returns:
         The list of fields.
     """
-    fields_json = fr.join(path, "fields.json")
     if not fr.exists(fields_json):
         raise ValueError(f"Fields data not found at {fields_json}")
     data = json.loads(fr.read(fields_json))
     return [d["fieldKey"] for d in data["fields"]]
 
 
-def get_true_labels(fr: FileIO, path: str, fields_json: str = "fields.json") -> Labels:
+def get_true_labels(
+    fr: FileIO, docs: list[str], fields_json: str = "fields.json", threads: int = 4
+) -> dict[str, Labels]:
     """Get the true labels for the given path.
 
     Args:
         fr: A FileIO instance.
-        path: The path to the directory containing the labels.
+        docs: The list of documents to fetch labels for.
         fields_json: The name of the fields JSON file.
+        threads: The number of threads to use.
 
     Returns:
-        The true labels.
+        The true labels for each document.
     """
     fields = get_fields(fr, fields_json)
-    return ExampleDoc.load(fr, path, fields).labels
+
+    result: dict[str, Labels] = {}
+
+    def _run(path: str) -> Labels:
+        return ExampleDoc.load(fr, path, fields).labels
+
+    with ThreadPoolExecutor(max_workers=threads) as executor:
+        futures = {executor.submit(_run, path): path for path in docs}
+        for future in as_completed(futures):
+            path = futures[future]
+            try:
+                result[path] = future.result()
+            except Exception as e:
+                logger.warning(f"Failed to load labels for {path}: {e}")
+
+    return result
 
 
 def list_docs(

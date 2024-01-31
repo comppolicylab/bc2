@@ -56,8 +56,8 @@ connect_to_az <- function(
     form_api_key = ""
 ) {
     az_blob_client <<- evaluate$AzureFileIO(
-        account_url="https://blindchargingdev.blob.core.windows.net/",
-        container="bcdev"
+        account_url=blob_account_url,
+        container=blob_container
     )
     az_fr_client <<- evaluate$AzureModelClient(endpoint=form_endpoint, key=form_api_key)
 }
@@ -115,33 +115,35 @@ train_extraction_model <- function(name,
 #' Run extraction on a set of documents.
 #'
 #' @param model Model definition to use.
-#' @param doc_or_docs Document or list of documents to run extraction on.
-#' @return Result of running model on documents.
+#' @param doc_or_docs Document(s) to run extraction on.
+#' @param threads Number of threads to use for loading data.
+#' @return Tibble with extracted labels for each document.
+#' @examples
+#' run_extraction_model("my-new-model",
+#'                      c("doc-num-1.pdf",
+#'                        "doc-num-2.pdf"))
 run_extraction_model <- function(model, doc_or_docs, threads = 4) {
     ensure_az_clients()
     if (!az_fr_client$model_exists(model)) {
         stop(str_c("No model exists with name ", model, "!"))
     }
     runner <- az_fr_client$runner(az_blob_client)
-    result <- runner$multi_run(model, as.list(doc_or_docs), threads=threads)
-    tbl <- do.call(rbind, lapply(result, function(x) { parse_py_table(x$flat()) })) %>%
-        rownames_to_column("file")
-    # Get a reasonable representation of bounding box -- not sure what's most useful.
-    tbl$bbox <- lapply(tbl$bbox, function(x) { x['__repr__']() })
-    tbl %>%
-        unnest(c("name", "value", "bbox")) %>%
-        rename(label=name,
-               content=value)
+    runner$multi_run(model, as.list(doc_or_docs), threads=threads) %>%
+        parse_py_labels_map
 }
 
 
 #' Load true labels for a document.
 #'
-#' @param doc Path to document to load
-#' @return Tibble with one row and columns for each label.
-load_true_labels <- function(doc) {
+#' @param doc_or_docs Document(s) to load true labels for.
+#' @param threads Number of threads to use for loading data.
+#' @return Tibble with true labels for documents
+#' @examples
+#' load_true_labels("my-labeled-doc.pdf")
+load_true_labels <- function(doc_or_docs, threads = 4) {
     ensure_az_clients()
-    evaluate$get_true_labels(az_blob_client, doc)
+    evaluate$get_true_labels(az_blob_client, as.list(doc_or_docs), threads=threads) %>%
+        parse_py_labels_map
 }
 
 
@@ -166,4 +168,21 @@ py_dc_to_vector <- function(dc) {
 parse_py_table <- function(X) {
     df <- do.call(rbind, lapply(X, py_dc_to_vector))
     as_tibble(df)
+}
+
+
+#' Parse a labels map from Python.
+#'
+#' @param X Python dictionary mapping filenames to Labels.
+#' @return Tibble containing all labels
+#' @keywords internal
+parse_py_labels_map <- function(X) {
+    tbl <- do.call(rbind, lapply(X, function(x) { parse_py_table(x$flat()) })) %>%
+        rownames_to_column("file")
+    # Get a reasonable representation of bounding box -- not sure what's most useful.
+    tbl$bbox <- lapply(tbl$bbox, function(x) { x['__repr__']() })
+    tbl %>%
+        unnest(c("name", "value", "bbox")) %>%
+        rename(label=name,
+               content=value)
 }
