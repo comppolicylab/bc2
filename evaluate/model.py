@@ -204,6 +204,9 @@ class AzureModelRunner(ModelRunner):
         if len(result.documents) != 1:
             raise ValueError("Expected exactly one document in result")
         labels = Labels()
+
+        doc_width = result.pages[0].width
+        doc_height = result.pages[0].height
         for key, field in result.documents[0].fields.items():
             if not field.value:
                 labels.add(key, None, None)
@@ -213,7 +216,8 @@ class AzureModelRunner(ModelRunner):
                 for point in polygon:
                     points.append(point.x)
                     points.append(point.y)
-                labels.add(key, str(field.content), BoundingBox.from_flat_list(points))
+                bbox = BoundingBox.from_flat_list(points)
+                labels.add(key, str(field.content), bbox.norm(doc_width, doc_height))
         return labels
 
     def multi_run(

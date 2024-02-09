@@ -17,12 +17,22 @@ class BoundingBox:
             Point(coords[6], coords[7]),
         )
 
-    def __init__(self, p0: Point, p1: Point, p2: Point, p3: Point):
-        self._points = (p0, p1, p2, p3)
+    def __init__(self, *args):
+        if len(args) == 1:
+            self._points = args[0]
+        elif len(args) == 4:
+            self._points = args
+        else:
+            raise ValueError("Expected 1 or 4 arguments")
 
     def scale(self, w: float, h: float) -> "BoundingBox":
         """Scale the bounding box by the given width and height."""
         new_pts = [Point(p.x * w, p.y * h) for p in self._points]
+        return BoundingBox(*new_pts)
+
+    def norm(self, w: float, h: float) -> "BoundingBox":
+        """Normalize the bounding box by the given width and height."""
+        new_pts = [Point(p.x / w, p.y / h) for p in self._points]
         return BoundingBox(*new_pts)
 
     def overlaps(self, other: "BoundingBox") -> bool:
@@ -34,6 +44,14 @@ class BoundingBox:
             if self.contains(p):
                 return True
         return False
+
+    def rect(self) -> list[float]:
+        """Return the upper left and lower right corners of the bounding box."""
+        min_x = min(p.x for p in self._points)
+        min_y = min(p.y for p in self._points)
+        max_x = max(p.x for p in self._points)
+        max_y = max(p.y for p in self._points)
+        return [min_x, min_y, max_x, max_y]
 
     def contains(self, p: Point) -> bool:
         """Test if this bounding box contains the given point."""

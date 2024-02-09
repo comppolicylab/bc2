@@ -13,6 +13,10 @@ class FileIO(Protocol):
     """Read/write files from somewhere."""
 
     @abstractmethod
+    def read_binary(self, name: str) -> bytes:
+        ...
+
+    @abstractmethod
     def read(self, name: str) -> str:
         ...
 
@@ -59,6 +63,11 @@ class LocalFileIO(FileIO):
 
     def __init__(self, root: str = "."):
         self._root = root
+
+    def read_binary(self, name: str) -> bytes:
+        fp = os.path.join(self._root, name)
+        with open(fp, "rb") as f:
+            return f.read()
 
     def read(self, name: str) -> str:
         fp = os.path.join(self._root, name)
@@ -122,6 +131,11 @@ class AzureFileIO(FileIO):
     def container_url(self) -> str:
         """Get the URL of the container."""
         return self._container_client.url
+
+    def read_binary(self, name: str) -> bytes:
+        """Read a file from Azure Blob Storage as binary."""
+        blob = self._container_client.download_blob(name)
+        return blob.readall()
 
     def read(self, name: str) -> str:
         """Read a file from Azure Blob Storage."""

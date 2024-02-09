@@ -228,6 +228,24 @@ load_true_labels <- function(doc_or_docs, threads = 4) {
 }
 
 
+#' Visualize bounding boxes on the given document.
+#'
+#' @param doc Document to view (as a path in the Blob storage).
+#' @param ... Object(s) with a `bbox` field and optionally a `label` field.
+#' @return PNG
+#' @examples
+#' labeled <- load_true_labels("my-labeled-doc.pdf")
+#' show_bounds("my-labeled-doc.pdf", labeled[1,])
+show_bounds <- function(doc, ...) {
+    ensure_az_clients()
+
+    evaluate$render_bounds(az_blob_client, doc, ...) %>%
+        (base64enc::base64decode) %>%
+        (png::readPNG) %>%
+        (grid::grid.raster)
+}
+
+
 #' Convert a Python dataclass to an R vector.
 #'
 #' @param dc Original Python dataclass object.
