@@ -3,6 +3,7 @@ import shutil
 from abc import abstractmethod
 from typing import Generator, List, Protocol
 
+from azure.core.credentials import AzureNamedKeyCredential
 from azure.core.exceptions import ResourceExistsError
 from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient
@@ -105,12 +106,16 @@ class LocalFileIO(FileIO):
 class AzureFileIO(FileIO):
     """Read/write files from Azure Blob Storage."""
 
-    def __init__(self, account_url: str, container: str):
+    def __init__(self, account_url: str, container: str, key: str = ""):
         self._account_url = account_url
         self._container = container
-        self._blob_client = BlobServiceClient(
-            account_url=account_url, credential=DefaultAzureCredential()
-        )
+        cred = DefaultAzureCredential()
+        if key:
+            # Parse key name from account URL
+            # e.g. https://myaccount.blob.core.windows.net -> myaccount
+            name = account_url.split(".")[0].split("//")[-1]
+            cred = AzureNamedKeyCredential(name, key)
+        self._blob_client = BlobServiceClient(account_url=account_url, credential=cred)
         self._container_client = self._blob_client.get_container_client(container)
 
     @property
