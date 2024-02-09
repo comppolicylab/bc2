@@ -37,12 +37,16 @@ ensure_az_clients <- function() {
 
 #' Connect to the Azure services.
 #'
-#' Generally you should not need to worry about auth if you run `az login`
-#' in your terminal prior to using this script. We will try to pull credentials
-#' from the global config.
+#' You can pass API keys for the Blob Storage service and the
+#' Form Recognizer service directly here. If you do not, we will
+#' try to pull credentials from the global config. You can generally
+#' set the global authentication through the Azure Command Line tools,
+#' by running the `az login` command and signing in with an account
+#' that has the appropriate authorizations.
 #'
 #' @param blob_url The Blob Storage URL (copy from the Azure Portal).
 #' @param blob_container Container name within the Blob storage.
+#' @param blob_api_key The Blob storage API key, if needed.
 #' @param form_endpoint The FormRecognizer account endpoint.
 #' @param form_api_key The FormRecognizer API key, if needed.
 #' @examples
@@ -52,12 +56,14 @@ ensure_az_clients <- function() {
 connect_to_az <- function(
     blob_account_url = "",
     blob_container = "",
+    blob_api_key = "",
     form_endpoint = "",
     form_api_key = ""
 ) {
     az_blob_client <<- evaluate$AzureFileIO(
         account_url=blob_account_url,
-        container=blob_container
+        container=blob_container,
+        key=blob_api_key
     )
     az_fr_client <<- evaluate$AzureModelClient(endpoint=form_endpoint, key=form_api_key)
 }
@@ -88,6 +94,10 @@ list_extraction_models <- function() {
     models <- az_fr_client$list_models()
     parse_py_table(models)
 }
+
+list_classification_models <- function() {
+
+    }
 
 
 #' Train a model with the given document names.
