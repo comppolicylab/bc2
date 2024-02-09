@@ -1,13 +1,16 @@
 import functools
 import json
 import logging
+import os
 from abc import abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+from typing import Any, Literal, Protocol
 
 from azure.ai.formrecognizer import (
+    BlobFileListSource,
+    ClassifierDocumentTypeDetails,
     DocumentAnalysisClient,
     DocumentModelAdministrationClient,
     ModelBuildMode,
@@ -22,11 +25,19 @@ from .label import BoundingBox, Labels
 logger = logging.getLogger(__name__)
 
 
+ModelType = Literal["classifier", "extractor"]
+
+
+# Default number of threads to use for requests.
+DEFAULT_THREAD_COUNT = (os.cpu_count() or 1) + 4
+
+
 @dataclass
 class ModelInfo:
     """Information about a model."""
 
-    model_id: str
+    id: str
+    type: ModelType
     description: str | None
     tags: dict[str, str] | None
     created_on: datetime
@@ -56,33 +67,44 @@ class AzureModelClient:
         """Get a model trainer."""
         return AzureModelTrainer(self.dmac, store)
 
-    def list_models(self) -> list[ModelInfo]:
+    def list_models(self, type_: ModelType) -> list[ModelInfo]:
         """List models."""
+        models = (
+            self.dmac.list_document_models()
+            if type_ == "extractor"
+            else self.dmac.list_document_classifiers()
+        )
         return [
             ModelInfo(
-                model_id=m.model_id,
+                id=m.model_id if type_ == "extractor" else m.classifier_id,
+                type=type_,
                 description=m.description,
-                tags=m.tags,
+                tags=m.tags if type_ == "extractor" else None,
                 created_on=m.created_on,
                 expires_on=m.expires_on,
                 api_version=m.api_version,
             )
-            for m in self.dmac.list_document_models()
+            for m in models
         ]
 
-    def model_exists(self, model_id: str) -> bool:
+    def model_exists(self, type_: ModelType, id_: str) -> bool:
         """Check if a model exists."""
-        model = self.get_model(model_id)
+        model = self.get_model(type_, id_)
         return model is not None
 
-    def get_model(self, model_id: str) -> ModelInfo | None:
+    def get_model(self, type_: ModelType, id_: str) -> ModelInfo | None:
         """Get a model."""
         try:
-            m = self.dmac.get_document_model(model_id=model_id)
+            m = (
+                self.dmac.get_document_model(model_id=id_)
+                if type_ == "extractor"
+                else self.dmac.get_document_classifier(classifier_id=id_)
+            )
             return ModelInfo(
-                model_id=m.model_id,
+                id=m.model_id if type_ == "extractor" else m.classifier_id,
+                type=type_,
                 description=m.description,
-                tags=m.tags,
+                tags=m.tags if type_ == "extractor" else None,
                 created_on=m.created_on,
                 expires_on=m.expires_on,
                 api_version=m.api_version,
@@ -95,7 +117,20 @@ class ModelRunner(Protocol):
     """Run a model."""
 
     @abstractmethod
-    def run(self, model_id: str, path: str) -> Labels:
+    def classify(self, classifier_id: str, path: str) -> str:
+        """Run a model on the documents at the given path.
+
+        Args:
+            model_id: ID of the model
+            path: path to the documents
+
+        Returns:
+            Predicted document type
+        """
+        ...
+
+    @abstractmethod
+    def extract(self, model_id: str, path: str) -> Labels:
         """Run a model on the documents at the given path.
 
         Args:
@@ -114,7 +149,35 @@ class AzureModelRunner(ModelRunner):
         self.cli = cli
         self.store = store
 
-    def run(self, model_id: str, doc: str) -> Labels:
+    def classify(self, classifier_id: str, doc: str) -> str:
+        """Run a model on the documents at the given path.
+
+        Args:
+            classifier_id: ID of the model
+            doc: document path
+
+        Returns:
+            Predicted document type
+        """
+        logger.info(
+            f"Running model {classifier_id} on {doc} in " f"{self.store.container_url}"
+        )
+
+        url = self.store.join(self.store.container_url, doc)
+
+        poller = self.cli.begin_classify_document_from_url(
+            classifier_id=classifier_id,
+            document_url=url,
+        )
+
+        logger.info("Waiting for model run to complete...")
+        result = poller.result()
+        logger.info("Model run complete.")
+        if len(result.documents) != 1:
+            raise ValueError("Expected exactly one document in result")
+        return result.documents[0].doc_type
+
+    def extract(self, model_id: str, doc: str) -> Labels:
         """Run a model on the documents at the given path.
 
         Args:
@@ -154,20 +217,26 @@ class AzureModelRunner(ModelRunner):
         return labels
 
     def multi_run(
-        self, model_id: str, docs: list[str], threads: int = 4
-    ) -> dict[str, Labels]:
+        self,
+        type_: ModelType,
+        model_id: str,
+        docs: list[str],
+        threads: int = DEFAULT_THREAD_COUNT,
+    ) -> dict[str, Any]:
         """Run a model on the documents at the given path.
 
         Args:
+            type_: type of model
             model_id: ID of the model
             docs: list of document paths
             threads: number of threads to use
 
         Returns:
-            Fields identified in the documents
+            Result of running the model
         """
-        run = functools.partial(self.run, model_id)
-        results: dict[str, Labels] = {}
+        f = self.classify if type_ == "classifier" else self.extract
+        run = functools.partial(f, model_id)
+        results: dict[str, Any] = {}
 
         with ThreadPoolExecutor(max_workers=threads) as executor:
             futures = {executor.submit(run, doc): doc for doc in docs}
@@ -185,7 +254,7 @@ class ModelTrainer(Protocol):
     """Train a model."""
 
     @abstractmethod
-    def train(
+    def train_extractor(
         self,
         name: str,
         *,
@@ -202,6 +271,29 @@ class ModelTrainer(Protocol):
             path: path to the training data
             docs: list of documents to train on
             tags: tags to apply to the model
+
+        Returns:
+            Model ID
+        """
+        ...
+
+    @abstractmethod
+    def train_classifier(
+        self,
+        name: str,
+        *,
+        description: str,
+        files: list[str],
+        labels: list[str],
+    ) -> str:
+        """Train a model with the documents at the given path.
+
+        Args:
+            name: name of the model
+            description: description of the model
+            path: path to the training data
+            files: list of files to train on
+            labels: list of labels corresponding to files
 
         Returns:
             Model ID
@@ -228,7 +320,80 @@ class AzureModelTrainer(ModelTrainer):
         if not storage_client.exists(fields_json):
             raise ValueError("Missing fields.json file in storage container")
 
-    def train(
+    def train_classifier(
+        self,
+        name: str,
+        *,
+        description: str,
+        files: list[str],
+        labels: list[str],
+    ) -> str:
+        """Train a model with the documents at the given URLs.
+
+        Args:
+            name: name of the model
+            description: description of the model
+            files: list of document paths to use in training
+            labels: list of labels for the documents (in the same order)
+
+        Returns:
+            Model ID
+        """
+        logger.info(
+            f"Training extraction model {name} with documents in "
+            f"{self.storage_client.container_url}"
+        )
+
+        if files is None or labels is None:
+            raise ValueError("Both files and labels must be specified")
+
+        if len(files) != len(labels):
+            raise ValueError("Files and labels must be the same length")
+
+        # Write list of documents as a JSONL file.
+        labeled = dict[str, ClassifierDocumentTypeDetails]()
+
+        # Process labels to reduce into a dict of lists
+        docs = dict[str, list[str]]()
+        for doc, label in zip(files, [str(lbl) for lbl in labels]):
+            if label not in docs:
+                docs[label] = []
+            docs[label].append(doc)
+
+        # Now write lists of documents to JSONL files in the blob storage
+        for label, doclist in docs.items():
+            logger.info("Writing list of documents to JSONL file ...")
+            docf = f"{name}-{label}-classifier.train.jsonl"
+            self.storage_client.write(
+                docf, "\n".join(json.dumps({"file": d}) for d in doclist)
+            )
+            labeled[label] = ClassifierDocumentTypeDetails(
+                source=BlobFileListSource(
+                    container_url=self.storage_client.container_url,
+                    file_list=docf,
+                ),
+            )
+
+        # Train the model
+        try:
+            poller = self.admin_client.begin_build_document_classifier(
+                doc_types=labeled,
+                classifier_id=name,
+                description=description,
+            )
+
+            logger.info("Waiting for training to complete...")
+            model = poller.result()
+        except Exception as e:
+            logger.error("Training failed.")
+            # Clean up the files we created
+            for v in labeled.values():
+                self.storage_client.delete(v.source.file_list)
+            raise e
+        logger.info(f"Training complete. Model ID: {model.classifier_id}")
+        return model.classifier_id
+
+    def train_extractor(
         self,
         name: str,
         *,
@@ -250,8 +415,8 @@ class AzureModelTrainer(ModelTrainer):
             Model ID
         """
         logger.info(
-            f"Training model {name} with documents in "
-            f"{self.storage_client.container_url} at {path}"
+            f"Training extraction model {name} with documents in "
+            f"{self.storage_client.container_url}"
         )
 
         if path is None and docs is None:
@@ -273,7 +438,7 @@ class AzureModelTrainer(ModelTrainer):
         # Write list of documents as a JSONL file.
         # Format is not documented, but an example is here:
         # https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/concept-custom-classifier?view=doc-intel-4.0.0#training-a-model
-        doc_list = f"{name}.train.jsonl"
+        doc_list = f"{name}-extractor.train.jsonl"
         if docs:
             logger.info("Writing list of documents to JSONL file ...")
             self.storage_client.write(
