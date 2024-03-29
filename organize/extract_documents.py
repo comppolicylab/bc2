@@ -19,7 +19,7 @@ def process_pdf(case_id, filename, rows, source_folder, dest_folder):
             doc_id = row['Document_ID']
             doc_num = row['Document_Num']
 
-            output_filename = f"{case_id}_{doc_type}_{doc_id}_{doc_num}.pdf"
+            output_filename = f"{doc_type}_{case_id}_{doc_id}_{doc_num}.pdf"
             output_path = os.path.join(dest_folder, output_filename)
 
             pdf_writer = PdfWriter()
@@ -34,7 +34,7 @@ def process_pdf(case_id, filename, rows, source_folder, dest_folder):
 
         remaining_pages = set(range(total_pages)) - claimed_pages
         if remaining_pages:
-            output_filename = f"{case_id}_other.pdf"
+            output_filename = f"unlabeled_{case_id}.pdf"
             output_path = os.path.join(dest_folder, output_filename)
 
             pdf_writer = PdfWriter()
