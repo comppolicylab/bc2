@@ -16,7 +16,7 @@ def load_labeled_doc(reader: FileIO, name: str) -> LabeledDoc | None:
     if not reader.exists(path):
         return None
     d = reader.read(path)
-    return LabeledDoc.from_json(d)
+    return LabeledDoc.model_validate_json(d)
 
 
 def load_ocr_doc(reader: FileIO, name: str) -> AnalyzeResultOperation:
