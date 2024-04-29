@@ -1,13 +1,19 @@
 import os
+import re
 import shutil
 import argparse
 import pandas as pd
 
+def format_filename(text):
+    text = re.sub(r'[\s,]', '_', text.lower())
+    text = re.sub(r'[^a-z0-9_]', '', text)
+    return text
+
 def process_file(row, source_folder, dest_folder):
     case_id = row['Case_ID']
     filename = row['Filename']
-    referring_agency_state = row['Referring Agency State'].lower().replace(' ', '_')
-    referring_agency = row['Referring Agency'].lower().replace(' ', '_')
+    referring_agency_state = row['Referring_Agency_State'].lower()
+    referring_agency = format_filename(row['Referring_Agency'])
 
     base_folder = f"{referring_agency_state}_{referring_agency}"
 
