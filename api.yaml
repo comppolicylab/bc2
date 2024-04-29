@@ -202,10 +202,7 @@ components:
         caseId:
           type: string
         protocol:
-          type: string
-          enum:
-            - BLIND_REVIEW
-            - FINAL_REVIEW
+          $ref: "#/components/schemas/ReviewProtocol"
         redactedDocuments:
           type: array
           items:
