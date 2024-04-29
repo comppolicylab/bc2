@@ -1,15 +1,21 @@
 import os
+import re
 import argparse
 import pandas as pd
 from pypdf import PdfReader, PdfWriter
+
+def format_filename(text):
+    text = re.sub(r'[\s,]', '_', text.lower())
+    text = re.sub(r'[^a-z0-9_]', '', text)
+    return text
 
 def process_pdf(case_id, filename, agency, state,
                 rows, source_folder, dest_folder):
     
     redacted_filename = filename.replace(".pdf", "_r.pdf")
 
-    agency_folder = f"{state.lower()}_{agency.lower()}"
-    agency_folder = agency_folder.replace(" ", "_")
+    agency_filename = format_filename(agency)
+    agency_folder = f"{state.lower()}_{agency_filename}"
     pdf_path = os.path.join(source_folder, agency_folder,
                             str(case_id), str(redacted_filename))
 
@@ -60,6 +66,7 @@ def main(directory_path, groups, source_agency, source_folder, dest_folder):
                                                          regex=True) &
                      df['Authoring_Agency'].str.contains(source_agency, 
                                                          regex=True)]
+    print(len(filtered_df))
     grouped_df = filtered_df.groupby(['Case_ID', 'Filename', 
                                       'Referring_Agency', 
                                       'Referring_Agency_State'])
