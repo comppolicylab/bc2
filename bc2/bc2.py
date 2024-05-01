@@ -8,7 +8,7 @@ import click
 import bc2.llm as llm
 import bc2.render as render
 
-from .cache import get_output_path
+from .cache import get_cache_path
 from .config import config
 from .extract import extract_narrative_from_pdf
 from .infer import infer_annotations
@@ -84,40 +84,52 @@ def redact(path: str | None, return_json: bool) -> None:
 @cli.command("run")
 @click.argument("path")
 @click.option("--model", default=config.bc2.document_model)
-@click.option("--document-root", default=config.bc2.document_root)
+@click.option("--output-dir", default=config.bc2.output_dir)
 @click.option("--cache/--no-cache", default=True)
 @click.option("--cache-dir", default=config.bc2.cache_dir)
 @click.option("--output", default=None)
 @click.option("--renderer", default=config.bc2.renderer)
+@click.option("--narrative-field", default=config.bc2.extraction.narrative_field)
+@click.option("--min-confidence", default=config.bc2.extraction.min_confidence)
 def run(
     path: str,
     model: str,
-    document_root: str,
+    output_dir: str,
     cache: bool,
-    cache_dir: str | None = None,
+    cache_dir: str = "",
     output: str | None = None,
     renderer: str = "pdf",
+    narrative_field: str = "narrative",
+    min_confidence: float = 0.04,
 ) -> None:
     """Run document analysis on a PDF.
 
     Args:
         path (str): Path to the PDF to analyze.
         model (str): Model to use for analysis.
-        document_root (str): Path to the root of the document.
+        output_dir (str): Path to the directory to save results to.
         cache (bool): Whether to cache results / use cached results.
-        cache_dir (str | None): Path to the directory to cache results in.
+        cache_dir (str): Path to the directory to cache results in.
         output (str | None): Path to save the redacted PDF to.
         renderer (str): Renderer(s) to use for output. To use multiple, separate with commas.
+        narrative_field (str): Field to extract the narrative from.
+        min_confidence (float): Minimum confidence to accept for extraction.
     """
     logger.info("Loading Blind Charging redaction tool ...")
+    cached: str | None = None
     if cache and not cache_dir:
         logger.warning("No cache directory specified, disabling cache.")
         cached = None
-    cached = (
-        None if not cache else get_output_path(path, document_root, cache_dir, model)
-    )
+    elif cache:
+        cached = None if not cache else get_cache_path(cache_dir, path, model)
 
-    narrative = extract_narrative_from_pdf(path, model=model, cached=cached)
+    narrative = extract_narrative_from_pdf(
+        path,
+        model=model,
+        cached=cached,
+        narrative_field=narrative_field,
+        min_confidence=min_confidence,
+    )
     if not narrative:
         logger.error("Failed to extract narrative from PDF.")
         return
@@ -132,9 +144,17 @@ def run(
     if output:
         redact_path = output
     else:
-        if cached:
-            redact_path = os.path.join(cached, "redacted.pdf")
-        logger.warning("No output location specified, using default: %s", redact_path)
+        if output_dir:
+            # Ensure that the directory exists
+            os.makedirs(output_dir, exist_ok=True)
+            # Get a default filename with a `.redacted.pdf` suffix:
+            output_name = os.path.splitext(os.path.basename(path))[0] + ".redacted.pdf"
+            redact_path = os.path.join(output_dir, output_name)
+            logger.debug("Using output directory %s", output_dir)
+        else:
+            logger.warning(
+                "No output location specified, using default: %s", redact_path
+            )
 
     for fmt in renderer.split(","):
         # Make sure that the extension is correct, fixing it if necessary

@@ -7,7 +7,6 @@ from azure.core.credentials import AzureKeyCredential
 from pypdf import PdfReader
 from tqdm import tqdm
 
-from .cache import get_output_path
 from .config import config
 
 document_analysis_client = DocumentAnalysisClient(
@@ -105,9 +104,7 @@ def walk(ctx: click.Context, document_dir: str, output_dir: str):
                 # Mimic the same directory structure from `document_dir` in
                 # `output_dir`. E.g. `document_dir/foo/bar.pdf` will be saved
                 # as `output_dir/foo/bar.json`.
-                output_path = get_output_path(
-                    file_path, document_dir, output_dir, model
-                )
+                output_path = os.path.join(output_dir, root, model)
                 queue.append((file_path, output_path))
 
     # Process the queue with a progress bar.

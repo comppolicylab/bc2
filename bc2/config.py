@@ -30,13 +30,21 @@ class OpenAISettings(BaseSettings):
     engine: str
 
 
+class ExtractionSettings(BaseSettings):
+    """Blind Charging extraction parameters."""
+
+    min_confidence: float = Field(0.04)
+    narrative_field: str = Field("narrative")
+
+
 class BC2Settings(BaseSettings):
     """Blind Charging v2 settings."""
 
     document_model: str
     cache_dir: str
-    document_root: str
+    output_dir: str
     renderer: str = Field("pdf")
+    extraction: ExtractionSettings = Field(ExtractionSettings())
 
 
 class Config(BaseSettings):
