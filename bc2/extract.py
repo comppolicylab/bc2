@@ -9,7 +9,9 @@ logger = logging.getLogger(__name__)
 
 
 def extract_narrative_fields(
-    analysis: list[AnalyzeResult], min_confidence: float = 0.04
+    analysis: list[AnalyzeResult],
+    min_confidence: float = 0.04,
+    narrative_field: str = "narrative",
 ) -> list[DocumentField]:
     """Extract the narrative from the analysis results.
 
@@ -17,11 +19,17 @@ def extract_narrative_fields(
         analysis (list[AnalyzeResult]): Results, one for each page
         min_confidence (float, optional): Minimum confidence to accept
     """
+    logger.debug(
+        "Looking for narrative field `%s` with confidence >= %f ...",
+        narrative_field,
+        min_confidence,
+    )
+    print("ANALYSIS", analysis)
     narratives = list[str]()
     # Look through each page of the analysis results and find any narratives.
     for page in analysis:
         for doc in page.documents:
-            narrative = doc.fields.get("narrative")
+            narrative = doc.fields.get(narrative_field)
             confidence = getattr(narrative, "confidence", 0.0) or 0.0
             if narrative and confidence >= min_confidence:
                 narratives.append(narrative)
@@ -47,7 +55,7 @@ def get_narrative(fields: list[DocumentField]) -> str:
 
 
 def extract_narrative_from_pdf(
-    path: str, *, model: str, cached: str | None = None
+    path: str, *, model: str, cached: str | None = None, **kwargs
 ) -> str | None:
     """Extract the narrative from a PDF.
 
@@ -63,7 +71,7 @@ def extract_narrative_from_pdf(
     analysis = analyze_document(path, model=model, cached=cached)
 
     logger.info("Inspecting analysis result to find narrative(s) ...")
-    fields = extract_narrative_fields(analysis)
+    fields = extract_narrative_fields(analysis, **kwargs)
 
     if not fields:
         logger.warning("No narrative found in document!")
