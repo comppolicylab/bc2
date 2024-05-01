@@ -11,3 +11,6 @@ badge.svg
 config.toml
 .DS_Store
 .ipynb_checkpoints/
+config.toml
+config.*.toml
+*.ipynb
