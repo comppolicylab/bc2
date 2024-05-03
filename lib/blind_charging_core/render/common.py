@@ -1,6 +1,6 @@
 from typing import Callable, NamedTuple
 
-import bc2.infer as infer
+from ..infer import segment
 
 Styler = Callable[[str, str], str]
 
@@ -77,7 +77,7 @@ def format_narrative(
     if original:
         final = ""
 
-        for seg in infer.segment(original, narrative):
+        for seg in segment(original, narrative):
             txt = escape(seg.original.text)
             if seg.is_edit:
                 type_ = "Redaction" if seg.is_valid else "RedactError"
