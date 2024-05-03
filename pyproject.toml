@@ -32,8 +32,7 @@ jupyter = "^1.0.0"
 pymupdf = "^1.23.21"
 
 [tool.ruff.lint]
-# pyflakes, pycodestyle, isort
-select = ["F", "E", "W", "I001"]
+select = ["F", "E", "W", "I001", "C", "W", "B"]
 
 [build-system]
 requires = ["poetry-core"]
