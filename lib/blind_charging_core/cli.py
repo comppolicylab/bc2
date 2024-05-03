@@ -5,13 +5,12 @@ import sys
 
 import click
 
-import bc2.llm as llm
-import bc2.render as render
-
 from .cache import get_cache_path
 from .config import config
 from .extract import extract_narrative_from_pdf
 from .infer import infer_annotations
+from .llm import get_model_slug, redact_with_chat
+from .render import ensure_filename_matches_format, render
 
 logging.basicConfig(level=config.log_level)
 logger = logging.getLogger(__name__)
@@ -28,7 +27,7 @@ def redact_text(text: str, cached: str | None = None) -> str:
         str: Redacted text.
     """
     narr_name = "narrative.txt"
-    cache_name = f"redacted_{llm.get_model_slug()}.txt"
+    cache_name = f"redacted_{get_model_slug()}.txt"
     cache_path = os.path.join(cached, cache_name) if cached is not None else None
     narr_path = os.path.join(cached, narr_name) if cached is not None else None
     if cache_path:
@@ -42,7 +41,7 @@ def redact_text(text: str, cached: str | None = None) -> str:
             with open(cache_path, "r") as f:
                 return f.read()
 
-    redaction = llm.redact_with_chat(text)
+    redaction = redact_with_chat(text)
     if cache_path and narr_path:
         with open(narr_path, "w") as f:
             f.write(text)
@@ -158,9 +157,9 @@ def run(
 
     for fmt in renderer.split(","):
         # Make sure that the extension is correct, fixing it if necessary
-        render_path = render.ensure_filename_matches_format(fmt, redact_path)
+        render_path = ensure_filename_matches_format(fmt, redact_path)
         logger.info(f"Rendering redacted narrative as {fmt} to {render_path} ...")
-        render.render(fmt, render_path, redacted, original=narrative)
+        render(fmt, render_path, redacted, original=narrative)
 
     logger.info("Done!")
 
