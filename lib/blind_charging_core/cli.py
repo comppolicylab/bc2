@@ -110,7 +110,8 @@ def run(
         cache (bool): Whether to cache results / use cached results.
         cache_dir (str): Path to the directory to cache results in.
         output (str | None): Path to save the redacted PDF to.
-        renderer (str): Renderer(s) to use for output. To use multiple, separate with commas.
+        renderer (str): Renderer(s) to use for output. To use multiple,
+        separate with commas.
         narrative_field (str): Field to extract the narrative from.
         min_confidence (float): Minimum confidence to accept for extraction.
     """
