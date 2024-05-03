@@ -16,7 +16,7 @@ from .infer import infer_annotations
 Just a test narrative where there's nothing very interesting to redact.
 
 My dog Leopold and I were walking in Golden Gate Park last night, \
-        near 9th Avenue and Lincoln. \
+near 9th Avenue and Lincoln. \
 We passed a mother and her son speaking Russian together. \
 Leopold really wanted to clean their ears but I wouldn't let him.
 """,
