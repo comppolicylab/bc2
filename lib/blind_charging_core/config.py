@@ -1,7 +1,7 @@
 import os
-import tomllib
 from pathlib import Path
 
+import tomllib
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
