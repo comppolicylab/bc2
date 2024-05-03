@@ -133,6 +133,29 @@ def copy_doc(fr: FileIO, name: str, dest_dir: str):
             fr.copy(src, dst)
 
 
+def _multi_copy_worker(fr: FileIO, q: queue.Queue[str], dest_dir: str):
+    """Copy documents from queue (in a separate thread)."""
+    while True:
+        try:
+            name = q.get(timeout=1)
+            if name is None:
+                continue
+            logger.debug(f"Copying {name} to {dest_dir} ...")
+            try:
+                copy_doc(fr, name, dest_dir)
+            except KeyboardInterrupt:
+                logger.warning("Keyboard interrupt, exiting thread ...")
+                break
+            except Exception as e:
+                logger.warning(f"Failed to copy {name}: {e}, retrying ...")
+                # TODO: cap retries
+                q.put(name)
+            finally:
+                q.task_done()
+        except queue.Empty:
+            break
+
+
 def multi_copy_docs(fr: FileIO, files: list[str], dest_dir: str, threads: int = 1):
     """Copy all labeled data for the given files to the destination directory.
 
@@ -149,29 +172,11 @@ def multi_copy_docs(fr: FileIO, files: list[str], dest_dir: str, threads: int = 
     for name in files:
         q.put_nowait(name)
 
-    def worker():
-        while True:
-            try:
-                name = q.get(timeout=1)
-                if name is None:
-                    continue
-                logger.debug(f"Copying {name} to {dest_dir} ...")
-                try:
-                    copy_doc(fr, name, dest_dir)
-                except KeyboardInterrupt:
-                    logger.warning("Keyboard interrupt, exiting thread ...")
-                    break
-                except Exception as e:
-                    logger.warning(f"Failed to copy {name}: {e}, retrying ...")
-                    # TODO: cap retries
-                    q.put(name)
-                finally:
-                    q.task_done()
-            except queue.Empty:
-                break
-
     logger.debug(f"Starting {threads} threads to copy data ...")
-    tx = [threading.Thread(target=worker) for _ in range(threads)]
+    tx = [
+        threading.Thread(target=_multi_copy_worker, args=(fr, q, dest_dir))
+        for _ in range(threads)
+    ]
     for t in tx:
         t.start()
     q.join()

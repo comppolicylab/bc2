@@ -139,7 +139,7 @@ class AzureFileIO(FileIO):
                 name, contents, encoding="utf-8", overwrite=overwrite
             )
         except ResourceExistsError:
-            raise FileExistsError(f"File {name} already exists")
+            raise FileExistsError(f"File {name} already exists") from None
 
     def list(self, path: str) -> Generator[str, None, None]:
         """List files in a directory."""
