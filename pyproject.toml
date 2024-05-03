@@ -5,6 +5,9 @@ description = ""
 authors = ["Joe Nudell <jnudell@hks.harvard.edu>"]
 license = "MIT"
 readme = "README.md"
+packages = [
+    { include = "blind_charging_core", from = "lib" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.10"

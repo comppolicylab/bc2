@@ -8,7 +8,7 @@ library(tidyr)
 dataclasses <- reticulate::import("dataclasses")
 
 #' The local `evaluate` Python module.
-evaluate <- reticulate::import("evaluate")
+evaluate <- reticulate::import("dev.evaluate")
 
 
 #' Global / shared Azure Blob Storage client.
