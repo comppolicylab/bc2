@@ -81,10 +81,14 @@ connect_to_az <- function(
 list_docs <- function(base_path = "", has_ocr = TRUE) {
     ensure_az_clients()
     docs <- evaluate$list_docs(az_blob_client, base_path=base_path, ocr=has_ocr, labels=FALSE)
-    parse_py_table(docs) %>%
-        # Fix boolean columns ... there's probably a better way to do this!
-        mutate(has_ocr = str_equal(has_ocr, "TRUE"),
-               has_labels = str_equal(has_labels, "TRUE"))
+    if (length(docs) == 0) {
+        stop("No documents found in base_path!")
+    } else {
+      parse_py_table(docs) %>%
+          # Fix boolean columns ... there's probably a better way to do this!
+          mutate(has_ocr = str_equal(has_ocr, "TRUE"),
+                 has_labels = str_equal(has_labels, "TRUE"))
+    }
 }
 
 

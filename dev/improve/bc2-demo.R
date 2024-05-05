@@ -21,7 +21,7 @@ connect_to_az("https://blindcharginghks.blob.core.windows.net/",
 # https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-macos
 
 # Query to find which docs are available for training in the given directory.
-docs <- list_docs("autoeval")
+docs <- list_docs("public_police_reports")
 
 # Query to find available document models.
 models <- list_extraction_models()
