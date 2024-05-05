@@ -9,10 +9,11 @@ source("bc2-client.R")
 
 # Connect to the Azure services where the documents / models live.
 # We need both the Blob Storage service and also the Form Recognizer service.
-connect_to_az("https://blindchargingdev.blob.core.windows.net/",
-              "bcdev",
-              "https://bc-formr-dev.cognitiveservices.azure.com/",
-              Sys.getenv("API_KEY_FORM_RECOGNIZER_JNU"))
+connect_to_az("https://blindcharginghks.blob.core.windows.net/",
+              "bc-blob-hks",
+              Sys.getenv("API_KEY_BLOB_STORAGE_HKS"),
+              "https://blindcharging-di.cognitiveservices.azure.com/",
+              Sys.getenv("API_KEY_FORM_RECOGNIZER_HKS"))
 
 ## Example use of all the available functions.
 
@@ -37,3 +38,4 @@ extraction <- run_extraction_model("test-from-R",
 # Load ground-truth labeled documents.
 labeled <- load_true_labels(c("autoeval/17-182586_Assault_Rpt_R_page_4.pdf",
                               "autoeval/16-187153_Assault_Rpt_R_page_4.pdf"))
+
