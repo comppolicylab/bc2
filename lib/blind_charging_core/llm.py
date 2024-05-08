@@ -1,5 +1,4 @@
 import json
-import logging
 import math
 import os
 import pathlib
@@ -7,9 +6,6 @@ import pathlib
 import openai
 
 from .config import config
-
-logging.basicConfig(level=config.log_level)
-logger = logging.getLogger(__name__)
 
 ROOT_PATH = pathlib.Path(os.path.dirname(os.path.abspath(__file__)))
 
@@ -76,9 +72,8 @@ def redact_with_chat(
     completion = openai.ChatCompletion.create(**settings)
 
     # Get the returned message
-    message_content = completion.choices[0].message["content"]
-    logger.debug(f"Received redacted narrative: {message_content}")
-    return message_content
+    message = completion.choices[0].message
+    return message["content"]
 
 
 def redact_with_completion(
