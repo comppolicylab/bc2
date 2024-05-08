@@ -190,7 +190,7 @@ components:
             - LINK
         documentId:
           type: string
-        documentUrl:
+        url:
           type: string
           format: uri
 
@@ -199,7 +199,7 @@ components:
       required:
         - attachmentType
         - documentId
-        - text
+        - content
       properties:
         attachmentType:
           type: string
@@ -207,7 +207,7 @@ components:
             - TEXT
         documentId:
           type: string
-        text:
+        content:
           type: string
 
     ReviewMeta:
@@ -215,7 +215,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - documents
+        - redactedDocuments
         - protocol
       properties:
         jurisdictionId:
@@ -234,19 +234,18 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - documentId
-        - documentUrl
+        - inputDocument
+        - redactedDocument
         - status
       properties:
         jurisdictionId:
           type: string
         caseId:
           type: string
-        documentId:
-          type: string
-        documentUrl:
-          type: string
-          format: uri
+        inputDocument:
+          $ref: "#/components/schemas/DocumentLink"
+        redactedDocument:
+          $ref: "#/components/schemas/DocumentLink"
         status:
           type: string
           enum:
@@ -257,7 +256,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - documentId
+        - inputDocument
         - error
         - status
       properties:
@@ -265,8 +264,8 @@ components:
           type: string
         caseId:
           type: string
-        documentId:
-          type: string
+        inputDocument:
+          $ref: "#/components/schemas/DocumentLink"
         error:
           type: string
         status:
@@ -279,15 +278,15 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - documentId
+        - inputDocument
         - status
       properties:
         jurisdictionId:
           type: string
         caseId:
           type: string
-        documentId:
-          type: string
+        inputDocument:
+          $ref: "#/components/schemas/DocumentLink"
         status:
           type: string
           enum:
@@ -312,13 +311,13 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - documents
+        - requests
       properties:
         jurisdictionId:
           type: string
         caseId:
           type: string
-        documents:
+        requests:
           type: array
           items:
             $ref: "#/components/schemas/RedactionResult"
@@ -328,7 +327,6 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - documentId
         - document
         - callbackUrl
       properties:
