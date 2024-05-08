@@ -80,12 +80,13 @@ def format_narrative(
         final = ""
 
         for seg in segment(original, narrative):
-            txt = escape(seg.original.text)
+            original_txt = escape(seg.original.text)
+            redacted_txt = escape(seg.redacted.text)
             if seg.is_edit:
                 type_ = "Redaction" if seg.is_valid else "RedactError"
-                final += style(txt, type_)
+                final += style(redacted_txt, type_)
             else:
-                final += txt
+                final += original_txt
 
     final = "".join(p(line) for line in final.splitlines())
 
