@@ -11,8 +11,10 @@ logger = logging.getLogger(__name__)
 async def lifespan(_: FastAPI):
     """Create the database if it doesn't exist."""
     if not await config.db.driver.exists():
-        logger.warning("No database exists, creating a new one")
-        await config.db.driver.create()
+        logger.error(
+            "No database found. Please set up the database before running the app."
+        )
+        raise SystemExit(1)
 
     yield
 
