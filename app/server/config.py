@@ -1,3 +1,4 @@
+import logging
 import os
 from functools import cached_property
 from pathlib import Path
@@ -5,12 +6,14 @@ from typing import Literal, Union
 
 import tomllib
 from glowplug import MsSqlDriver
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 
 
 class MsSqlConfig(BaseSettings):
     dialect: Literal["mssql"]
-    odbc_driver: Literal["ODBC Driver 17 for SQL Server"]
+    odbc_driver: Literal["ODBC Driver 17 for SQL Server"] = (
+        "ODBC Driver 17 for SQL Server"
+    )
     host: str
     port: int
     user: str
@@ -31,6 +34,7 @@ DbConfig = Union[MsSqlConfig]
 
 
 class Config(BaseSettings):
+    debug: bool = False
     db: DbConfig
 
 
@@ -45,3 +49,6 @@ def _load_config(path: str = os.getenv("CONFIG_PATH", "config.toml")) -> Config:
 
 # The global app configuration
 config = _load_config()
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG if config.debug else logging.INFO)

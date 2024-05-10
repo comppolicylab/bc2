@@ -8,7 +8,7 @@ from .generated import app as generated_app
 logger = logging.getLogger(__name__)
 
 
-async def lifespan():
+async def lifespan(_: FastAPI):
     """Create the database if it doesn't exist."""
     if not await config.db.driver.exists():
         logger.warning("No database exists, creating a new one")
