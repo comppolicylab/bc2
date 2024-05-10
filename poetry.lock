@@ -2915,13 +2915,13 @@ cli = ["click (>=5.0)"]
 
 [[package]]
 name = "python-glowplug"
-version = "0.2.2"
+version = "0.2.5"
 description = ""
 optional = false
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "python_glowplug-0.2.2-py3-none-any.whl", hash = "sha256:c06a55755417cde74e0dda00e113a29bb746382226d5f823897bdb800364eec1"},
-    {file = "python_glowplug-0.2.2.tar.gz", hash = "sha256:7f52b1632afdf11df22fe1d41bab95ea61acab7a70fcddafb48bac3666753558"},
+    {file = "python_glowplug-0.2.5-py3-none-any.whl", hash = "sha256:f730ff93c840e19eb047514ba7f67f6fa207bf0c06d83894b2b7b71e3bc6b25b"},
+    {file = "python_glowplug-0.2.5.tar.gz", hash = "sha256:6c57c1f71753cacc19bc2e77043e76b7a09b146e5a5a87a6dbfd6373a9f88812"},
 ]
 
 [package.dependencies]
@@ -4299,4 +4299,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "f5397718d52c9282096b7a9bc59d95356953e4730aea072e89c53c653bd1a1b3"
+content-hash = "f816606f09ee5438d1197025dfaa5c6200eff8ae945ab105046c473556c842aa"

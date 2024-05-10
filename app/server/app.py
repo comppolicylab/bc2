@@ -26,10 +26,10 @@ async def begin_db_session(request: Request, call_next):
         request.state.db = session
         try:
             response = await call_next(request)
-            session.commit()
+            await session.commit()
             return response
         except Exception as e:
-            session.rollback()
+            await session.rollback()
             raise e
 
 
