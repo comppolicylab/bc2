@@ -22,6 +22,13 @@ reportlab = "^4.0.4"
 jinja2 = "^3.1.2"
 azure-storage-blob = "^12.18.3"
 azure-identity = "^1.15.0"
+sqlalchemy = "^2.0.30"
+aioodbc = "^0.5.0"
+pyodbc = "^5.1.0"
+fastapi = "^0.111.0"
+python-glowplug = "^0.3.1"
+typer = "^0.12.3"
+greenlet = "^3.0.3"
 
 
 [tool.poetry.group.dev.dependencies]
