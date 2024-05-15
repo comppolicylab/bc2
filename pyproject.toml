@@ -26,9 +26,10 @@ sqlalchemy = "^2.0.30"
 aioodbc = "^0.5.0"
 pyodbc = "^5.1.0"
 fastapi = "^0.111.0"
-python-glowplug = "^0.3.1"
+python-glowplug = "^0.3.2"
 typer = "^0.12.3"
 greenlet = "^3.0.3"
+uuid-utils = "^0.7.0"
 
 
 [tool.poetry.group.dev.dependencies]
