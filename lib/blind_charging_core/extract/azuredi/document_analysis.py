@@ -7,7 +7,7 @@ from azure.core.credentials import AzureKeyCredential
 from pypdf import PdfReader
 from tqdm import tqdm
 
-from .config import config
+from ...common.config import config
 
 document_analysis_client = DocumentAnalysisClient(
     endpoint=config.azure.endpoint,

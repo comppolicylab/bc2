@@ -1,6 +1,6 @@
 from typing import Callable, NamedTuple
 
-from ..infer import segment
+from ..common.infer import segment
 
 Styler = Callable[[str, str], str]
 

@@ -6,10 +6,10 @@ import sys
 import click
 
 from .cache import get_cache_path
-from .config import config
+from .common.config import config
+from .common.infer import infer_annotations
 from .extract import extract_narrative_from_pdf
-from .infer import infer_annotations
-from .llm import get_model_slug, redact_with_chat
+from .redact.openai import get_model_slug, redact_with_chat
 from .render import ensure_filename_matches_format, render
 
 logging.basicConfig(level=config.log_level)

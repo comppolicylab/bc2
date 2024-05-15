@@ -3,7 +3,7 @@ import logging
 from azure.ai.formrecognizer import AnalyzeResult
 from azure.ai.formrecognizer._models import DocumentField
 
-from .document_analysis import analyze_document
+from .extract.azuredi.document_analysis import analyze_document
 
 logger = logging.getLogger(__name__)
 
