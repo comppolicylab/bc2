@@ -1,0 +1,12 @@
+# BlindReviewInfo
+## Properties
+
+| Name | Type | Description | Notes |
+|------------ | ------------- | ------------- | -------------|
+| **jurisdictionId** | **String** |  | [default to null] |
+| **caseId** | **String** |  | [default to null] |
+| **blindReviewRequired** | **Boolean** |  | [default to null] |
+| **maskedDefendants** | [**List**](MaskedDefendant.md) |  | [default to null] |
+| **redactedDocuments** | [**List**](DocumentLink.md) |  | [default to null] |
+
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
