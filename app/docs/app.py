@@ -2,7 +2,7 @@ import os
 
 import aiohttp
 import jwt
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi_sso.sso.github import GithubSSO, OpenID
 
@@ -99,6 +99,11 @@ async def sso_github_callback(
 ):
     user = await github_sso.verify_and_process(request)
     can_see_bc2 = await check_repo_perm(user, "bc2")
+
+    if not can_see_bc2:
+        raise HTTPException(
+            status_code=403, detail="You do not have permission to access this page."
+        )
 
     # Set a signed cookie with the user's information
     token = jwt.encode(
