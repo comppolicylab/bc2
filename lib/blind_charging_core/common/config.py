@@ -2,6 +2,10 @@ from typing import Literal, Union
 
 from pydantic import BaseModel, Field
 
+from ..extract.azuredi import AzureDIExtractConfig
+from ..extract.openai import OpenAIExtractConfig
+from ..redact.openai import OpenAIRedactConfig
+
 
 class AzureBlobConfig(BaseModel):
     """Azure Blob config."""
@@ -10,16 +14,6 @@ class AzureBlobConfig(BaseModel):
     connection_string: str
     container: str
     prefix: str = Field("")
-
-
-class OpenAIApiConfig(BaseModel):
-    """OpenAI API settings."""
-
-    type: str
-    base: str
-    version: str
-    chat_version: str
-    key: str
 
 
 class AzureBlobInputConfig(BaseModel):
@@ -40,37 +34,7 @@ class LocalInputConfig(BaseModel):
 InputConfig = Union[AzureBlobInputConfig, LocalInputConfig]
 
 
-class AzureDIExtractConfig(BaseModel):
-    """Azure DI Extract config."""
-
-    engine: Literal["azuredi"]
-    endpoint: str
-    key: str
-    document_model: str
-    min_confidence: float = Field(0.04)
-    narrative_field: str = Field("narrative")
-
-
-class OpenAIExtractConfig(BaseModel):
-    """OpenAI Extract config."""
-
-    engine: Literal["openai"]
-    api: OpenAIApiConfig
-    model: str
-    prompt_file: str
-
-
 ExtractConfig = Union[AzureDIExtractConfig, OpenAIExtractConfig]
-
-
-class OpenAIRedactConfig(BaseModel):
-    """OpenAI Redact config."""
-
-    engine: Literal["openai"]
-    api: OpenAIApiConfig
-    model: str
-    completion_type: Literal["chat", "completion"] = "completion"
-    prompt_file: str
 
 
 RedactConfig = Union[OpenAIRedactConfig]
