@@ -1,40 +1,21 @@
-from typing import Literal, Union
+from typing import Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from ..extract.azuredi import AzureDIExtractConfig
 from ..extract.openai import OpenAIExtractConfig
+from ..input.azureblob import AzureBlobInputConfig
+from ..input.file import FileInputConfig
+from ..input.stdin import StdinInputConfig
+from ..output.azureblob import AzureBlobOutputConfig
+from ..output.file import FileOutputConfig
+from ..output.stdout import StdoutOutputConfig
 from ..redact.openai import OpenAIRedactConfig
 from ..render.html import HtmlRenderConfig
 from ..render.pdf import PdfRenderConfig
 from ..render.text import TextRenderConfig
 
-
-class AzureBlobConfig(BaseModel):
-    """Azure Blob config."""
-
-    engine: Literal["azureblob"]
-    connection_string: str
-    container: str
-    prefix: str = Field("")
-
-
-class AzureBlobInputConfig(BaseModel):
-    """Azure Blob input config."""
-
-    engine: Literal["azureblob"]
-    name: str
-    blob: AzureBlobConfig
-
-
-class LocalInputConfig(BaseModel):
-    """Local input config."""
-
-    engine: Literal["local"]
-    path: str
-
-
-InputConfig = Union[AzureBlobInputConfig, LocalInputConfig]
+InputConfig = Union[AzureBlobInputConfig, FileInputConfig, StdinInputConfig]
 
 
 ExtractConfig = Union[AzureDIExtractConfig, OpenAIExtractConfig]
@@ -46,22 +27,7 @@ RedactConfig = Union[OpenAIRedactConfig]
 RenderConfig = Union[PdfRenderConfig, HtmlRenderConfig, TextRenderConfig]
 
 
-class LocalOutputConfig(BaseModel):
-    """File output config."""
-
-    engine: Literal["local"]
-    path: str
-
-
-class AzureBlobOutputConfig(BaseModel):
-    """Azure Blob output config."""
-
-    engine: Literal["azureblob"]
-    name: str
-    blob: AzureBlobConfig
-
-
-OutputConfig = Union[LocalOutputConfig, AzureBlobOutputConfig]
+OutputConfig = Union[AzureBlobOutputConfig, FileOutputConfig, StdoutOutputConfig]
 
 
 class PipelineConfig(BaseModel):
