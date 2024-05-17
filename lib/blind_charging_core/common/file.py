@@ -1,15 +1,15 @@
-import tempfile
-from contextlib import contextmanager
-from typing import Iterable
+from io import BytesIO
 
 
-class Memoryfile:
-    def __init__(self, file: bytes):
-        self.bytes = file
+class MemoryFile:
+    def __init__(self, content: bytes = b""):
+        self.buffer = BytesIO(content)
 
-    @contextmanager
-    def materialize(self) -> Iterable[str]:
-        with tempfile.NamedTemporaryFile(delete_on_close=False) as f:
-            f.write(self.bytes)
-            f.close()
-            yield f.name
+    def content(self):
+        return self.buffer.getvalue()
+
+    def write(self, content: str, encoding: str = "utf-8") -> None:
+        self.buffer.write(content.encode(encoding))
+
+    def writeb(self, content: bytes) -> None:
+        self.buffer.write(content)

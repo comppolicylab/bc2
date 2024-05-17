@@ -1,6 +1,6 @@
 import logging
 
-from .config import PipelineConfig
+from .common.config import PipelineConfig
 
 logger = logging.getLogger(__name__)
 

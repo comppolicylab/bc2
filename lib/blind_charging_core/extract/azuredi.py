@@ -1,4 +1,5 @@
 import logging
+from io import BytesIO
 from typing import Literal
 
 from azure.ai.formrecognizer import AnalyzeResult, DocumentAnalysisClient
@@ -35,8 +36,7 @@ class AzureDIExtract(BaseExtractDriver):
         )
 
     def __call__(self, file: MemoryFile) -> Text:
-        with file.materialize() as path:
-            txt = self.extract_narrative_from_pdf(path)
+        txt = self.extract_narrative_from_pdf(file.buffer)
         if not txt:
             raise EmptyExtractionError("No narrative found in document!")
         return Text(txt)
@@ -84,16 +84,16 @@ class AzureDIExtract(BaseExtractDriver):
                 txt += field.content
         return txt
 
-    def extract_narrative_from_pdf(self, path: str) -> str | None:
+    def extract_narrative_from_pdf(self, doc: BytesIO) -> str | None:
         """Extract the narrative from a PDF.
 
         Args:
-            path (str): Path to pdf
+            doc (BytesIO): Stream containing the PDF.
 
         Returns:
             str: The narrative, if one was found.
         """
-        analysis = self.analyze_document(path)
+        analysis = self.analyze_document(doc)
         fields = self.extract_narrative_fields(analysis)
 
         if not fields:
@@ -104,35 +104,32 @@ class AzureDIExtract(BaseExtractDriver):
 
     def analyze_document(
         self,
-        document_path: str,
+        doc: BytesIO,
     ) -> list[AnalyzeResult]:
         """Run a PDF through Azure document analysis.
 
         Args:
-            document_path (str): Path to the PDF to analyze.
+            doc (BytesIO): The PDF to analyze.
 
         Returns:
             list[AnalyzeResult]: Results from Azure document analysis.
         """
-        logger.info(
-            f"Running analysis on {document_path} with model {self.config.document_model} ..."
-        )
+        logger.info(f"Running analysis with model {self.config.document_model} ...")
         # We analyze each page separately because the FormRecognizer API doesn't
         # currently fully support entire document analysis. It just analyzes two
         # pages at a time, even if you request more.
-        pages = len(PdfReader(document_path).pages)
+        pages = len(PdfReader(doc).pages)
         results: list[AnalyzeResult] = [None] * pages
 
         # Run analysis on the document using the remote service.
         for i in range(pages):
             if results[i] is None:
-                with open(document_path, "rb") as f:
-                    poller = self.document_analysis_client.begin_analyze_document(
-                        self.config.document_model,
-                        document=f,
-                        locale=self.config.locale,
-                        pages=f"{i + 1}",
-                    )
-                    results[i] = poller.result()
+                poller = self.document_analysis_client.begin_analyze_document(
+                    self.config.document_model,
+                    document=doc,
+                    locale=self.config.locale,
+                    pages=f"{i + 1}",
+                )
+                results[i] = poller.result()
 
         return results

@@ -2,12 +2,13 @@ import json
 import math
 import os
 import pathlib
+from typing import Literal
 
 import openai
-from pydantic import BaseModel, Field, Literal
+from pydantic import BaseModel, Field
 
 from ..common.openai import OpenAIApiConfig
-from ..common.text import Text
+from ..common.text import RedactedText, Text
 from .base import BaseRedactDriver
 
 ROOT_PATH = pathlib.Path(os.path.dirname(os.path.abspath(__file__)))
@@ -42,8 +43,9 @@ class OpenAIRedactDriver(BaseRedactDriver):
             api_base=config.api.base,
         )
 
-    def __call__(self, narrative: Text) -> Text:
-        return self.redact_with_completion(narrative.text, self.config.prompt_file)
+    def __call__(self, narrative: Text) -> RedactedText:
+        redacted = self.redact_with_completion(narrative.text, self.config.prompt_file)
+        return RedactedText(redacted, narrative.text)
 
     def get_model_slug(self) -> str:
         """Get a descriptive text name for the model specified in the config.

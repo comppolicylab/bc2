@@ -5,6 +5,9 @@ from pydantic import BaseModel, Field
 from ..extract.azuredi import AzureDIExtractConfig
 from ..extract.openai import OpenAIExtractConfig
 from ..redact.openai import OpenAIRedactConfig
+from ..render.html import HtmlRenderConfig
+from ..render.pdf import PdfRenderConfig
+from ..render.text import TextRenderConfig
 
 
 class AzureBlobConfig(BaseModel):
@@ -38,24 +41,6 @@ ExtractConfig = Union[AzureDIExtractConfig, OpenAIExtractConfig]
 
 
 RedactConfig = Union[OpenAIRedactConfig]
-
-
-class PdfRenderConfig(BaseModel):
-    """PDF Render config."""
-
-    engine: Literal["pdf"]
-
-
-class HtmlRenderConfig(BaseModel):
-    """HTML Render config."""
-
-    engine: Literal["html"]
-
-
-class TextRenderConfig(BaseModel):
-    """Text Render config."""
-
-    engine: Literal["text"]
 
 
 RenderConfig = Union[PdfRenderConfig, HtmlRenderConfig, TextRenderConfig]
