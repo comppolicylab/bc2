@@ -1,6 +1,10 @@
 Blind Charging (v2)
 ===
 
+TODO (jnu) write docs
+
+## Azure config instructions
+
 Uses Azure DocumentIntelligence and Azure OpenAI services to redact police narratives.
 
 (More instructions to come.)

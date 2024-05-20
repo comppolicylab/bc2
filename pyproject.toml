@@ -3,7 +3,7 @@ name = "bc2"
 version = "0.1.0"
 description = ""
 authors = ["Joe Nudell <jnudell@hks.harvard.edu>"]
-license = "MIT"
+license = ""
 readme = "README.md"
 packages = [
     { include = "blind_charging_core", from = "lib" }
@@ -29,20 +29,6 @@ pytest = "^7.4.2"
 python-jsonschema-objects = "^0.5.0"
 jupyter = "^1.0.0"
 pymupdf = "^1.23.21"
-
-[tool.poetry.group.server.dependencies]
-fastapi = "^0.111.0"
-uvicorn = "^0.29.0"
-gunicorn = "^22.0.0"
-jinja2 = "^3.1.2"
-greenlet = "^3.0.3"
-uuid-utils = "^0.7.0"
-fastapi-sso = "^0.14.2"
-pyjwt = "^2.8.0"
-python-glowplug = "^0.3.2"
-sqlalchemy = "^2.0.30"
-aioodbc = "^0.5.0"
-pyodbc = "^5.1.0"
 
 [tool.ruff]
 exclude = ["app/server/generated"]
