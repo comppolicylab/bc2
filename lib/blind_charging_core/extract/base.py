@@ -22,6 +22,6 @@ class BaseExtractDriver(ABC):
             Text: The extracted narrative.
 
         Raises:
-            EmptyExtractionError: If the extraction process results in an empty narrative.
+            EmptyExtractionError: When no narrative is found
         """
         ...
