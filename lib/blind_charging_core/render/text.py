@@ -1,30 +1,32 @@
 import re
+from typing import Literal
 
-from .common import DISCLAIMER, TITLE, Renderer, format_narrative
+from pydantic import BaseModel
+
+from ..common.file import MemoryFile
+from ..common.text import RedactedText
+from .base import BaseRenderer
 
 
-def render_text(out: str, narrative: str, original: str | None = None) -> None:
-    """Render a narrative to text.
+class TextRenderConfig(BaseModel):
+    """Text Render config."""
 
-    Args:
-        out: The path to the output file.
-        narrative: The narrative to render
-        original: The original narrative, if available.
-    """
-    with open(out, "w") as f:
-        f.write(TITLE)
+    engine: Literal["text"]
+
+
+class TextRenderer(BaseRenderer):
+    def __init__(self, config: TextRenderConfig) -> None:
+        self.config = config
+
+    def __call__(self, redaction: RedactedText) -> MemoryFile:
+        f = MemoryFile()
+        f.write(self.TITLE)
         f.write("\n\n")
         # Strip HTML tags from the normal disclaimer
-        f.write(re.sub(r"<[^>]*>", "", DISCLAIMER))
+        f.write(re.sub(r"<[^>]*>", "", self.DISCLAIMER))
         f.write("\n\n")
         f.write("=== NARRATIVE ===\n")
         # TODO: might want to add some formatting for the diff
-        f.write(
-            format_narrative(
-                lambda x, y: x, lambda x: f"{x}\n\n", lambda x: x, narrative, original
-            )
-        )
+        f.write(redaction.format(lambda x, y: x, lambda x: f"{x}\n\n", lambda x: x))
         f.write("=== END OF DOCUMENT ===\n")
-
-
-text = Renderer("text", "txt", render_text)
+        return f

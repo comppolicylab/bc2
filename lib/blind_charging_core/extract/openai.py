@@ -1,0 +1,25 @@
+from typing import Literal
+
+from pydantic import BaseModel
+
+from ..common.file import MemoryFile
+from ..common.openai import OpenAIApiConfig
+from ..common.text import Text
+from .base import BaseExtractDriver
+
+
+class OpenAIExtractConfig(BaseModel):
+    """OpenAI Extract config."""
+
+    engine: Literal["openai"]
+    api: OpenAIApiConfig
+    model: str
+    prompt_file: str
+
+
+class OpenAIExtractDriver(BaseExtractDriver):
+    def __init__(self, config: OpenAIExtractConfig):
+        self.config = config
+
+    def __call__(self, file: MemoryFile) -> Text:
+        raise NotImplementedError("OpenAIExtractDriver not implemented yet!")

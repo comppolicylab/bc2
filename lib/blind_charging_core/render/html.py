@@ -1,6 +1,18 @@
-from jinja2 import Template
+from typing import Literal
 
-from .common import DISCLAIMER, TITLE, Renderer, escape_for_xml, format_narrative
+from jinja2 import Template
+from pydantic import BaseModel
+
+from ..common.file import MemoryFile
+from ..common.text import RedactedText
+from .base import BaseRenderer
+
+
+class HtmlRenderConfig(BaseModel):
+    """HTML Render config."""
+
+    engine: Literal["html"]
+
 
 tpl = Template(
     """
@@ -87,28 +99,29 @@ def format_html_paragraph(text: str) -> str:
     return f"<p>{text}</p>"
 
 
-def render_html(out: str, narrative: str, original: str | None = None) -> None:
-    """Render a narrative to an HTML file.
+class HTMLRenderer(BaseRenderer):
+    def __init__(self, config: HtmlRenderConfig) -> None:
+        self.config = config
 
-    Args:
-        out: The path to the output file.
-        narrative: The narrative to render
-        original: The original narrative, if available.
-    """
-    with open(out, "w") as f:
+    def __call__(self, redaction: RedactedText) -> MemoryFile:
+        """Render a narrative to an HTML file.
+
+        Args:
+            redaction: The redaction to render
+
+        Returns:
+            The rendered narrative as an HTML file.
+        """
+        f = MemoryFile()
         f.write(
             tpl.render(
-                title=TITLE,
-                disclaimer=DISCLAIMER,
-                narrative=format_narrative(
+                title=self.TITLE,
+                disclaimer=self.DISCLAIMER,
+                narrative=redaction.format(
                     apply_css_style,
                     format_html_paragraph,
-                    escape_for_xml,
-                    narrative,
-                    original,
+                    self.escape_for_xml,
                 ),
             )
         )
-
-
-html = Renderer("html", "html", render_html)
+        return f
