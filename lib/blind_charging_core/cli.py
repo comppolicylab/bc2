@@ -19,6 +19,7 @@ def run(
     config_path: str,
     input_path: Optional[str] = None,
     output_path: Optional[str] = None,
+    validate: bool = False,
 ):
     """Run the pipeline."""
     logger.debug("Running pipeline ...")
@@ -27,11 +28,22 @@ def run(
     cfg_obj = tomllib.loads(raw_cfg)
     config = PipelineConfig.model_validate(cfg_obj)
 
+    ctx = {
+        "input_path": input_path,
+        "output_path": output_path,
+    }
+
     pipe = Pipeline(config)
+    if validate:
+        pipe.validate(ctx)
+        logger.debug("Runtime configuration validated.")
+        return
+
     pipe.run(
         {
             "input_path": input_path,
             "output_path": output_path,
         }
     )
+
     logger.debug("Pipeline completed.")
