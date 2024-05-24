@@ -13,3 +13,4 @@ badge.svg
 config*.toml
 *.ipynb
 .cache/
+pipeline*.toml
