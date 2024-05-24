@@ -33,6 +33,7 @@ RenderConfig = Union[PdfRenderConfig, HtmlRenderConfig, TextRenderConfig]
 
 OutputConfig = Union[AzureBlobOutputConfig, FileOutputConfig, StdoutOutputConfig]
 
+
 AnyConfig = Union[InputConfig, ExtractConfig, RedactConfig, RenderConfig, OutputConfig]
 
 
@@ -55,7 +56,7 @@ class Pipeline:
         for config in self.pipeline:
             sig = signature(config.driver)
             params = sig.parameters
-            explicit_requires = set(getattr(config, "required", []))
+            explicit_requires = set(getattr(config.driver, "required", []))
             required_params = [
                 p
                 for p in params
@@ -75,7 +76,7 @@ class Pipeline:
 
             # Now check if we have all other required params from the runtime input
             for param in required_params:
-                if param not in runtime_config:
+                if runtime_config.get(param, None) is None:
                     raise ValueError(f"Missing required parameter {param}")
 
             # Update the last_output
