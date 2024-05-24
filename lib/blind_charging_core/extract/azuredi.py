@@ -1,4 +1,5 @@
 import logging
+from functools import cached_property
 from io import BytesIO
 from typing import Literal
 
@@ -18,13 +19,17 @@ logger = logging.getLogger(__name__)
 class AzureDIExtractConfig(BaseModel):
     """Azure DI Extract config."""
 
-    engine: Literal["azuredi"]
+    engine: Literal["extract:azuredi"]
     endpoint: str
     key: str
     document_model: str = Field("prebuilt-read")
     min_confidence: float = Field(0.04)
     narrative_field: str = Field("narrative")
     locale: str = Field("en-US")
+
+    @cached_property
+    def driver(self) -> "AzureDIExtract":
+        return AzureDIExtract(self)
 
 
 class AzureDIExtract(BaseExtractDriver):
