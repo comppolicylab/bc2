@@ -37,7 +37,7 @@ AnyConfig = Union[InputConfig, ExtractConfig, RedactConfig, RenderConfig, Output
 
 
 class PipelineConfig(BaseModel):
-    pipeline: list[AnyConfig]
+    pipe: list[AnyConfig]
 
 
 class Pipeline:
@@ -45,7 +45,7 @@ class Pipeline:
 
     def __init__(self, config: PipelineConfig):
         """Initialize the pipeline."""
-        self.pipeline = config.pipeline
+        self.pipeline = config.pipe
 
     def validate(self, runtime_config: dict[str, Any]):
         """Validate the pipeline configuration."""
