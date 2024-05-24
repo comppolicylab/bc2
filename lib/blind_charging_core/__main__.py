@@ -1,2 +1,4 @@
+from .cli import cli
+
 if __name__ == "__main__":
-    raise NotImplementedError("CLI not implemented yet.")
+    cli()

@@ -1,4 +1,5 @@
 import sys
+from functools import cached_property
 from typing import Literal
 
 from pydantic import BaseModel
@@ -8,15 +9,19 @@ from .base import BaseInputDriver
 
 
 class StdinInputConfig(BaseModel):
-    engine: Literal["stdin"]
+    engine: Literal["in:stdin"]
     buffer_size: int = 1024
+
+    @cached_property
+    def driver(self) -> "StdinInput":
+        return StdinInput(self)
 
 
 class StdinInput(BaseInputDriver):
     def __init__(self, config: StdinInputConfig):
         self.config = config
 
-    def __call__(self, path: str = "") -> MemoryFile:
+    def __call__(self, input_path: str = "") -> MemoryFile:
         """Read from stdin."""
         f = MemoryFile()
         # Consume all the stdin pipe and write it to memory

@@ -12,5 +12,7 @@ class BaseOutputDriver(ABC):
     will ignore it.
     """
 
+    required: list[str] = []
+
     @abstractmethod
-    def __call__(self, file: MemoryFile, path: str = "") -> None: ...
+    def __call__(self, file: MemoryFile, output_path: str = "") -> None: ...

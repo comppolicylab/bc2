@@ -1,16 +1,25 @@
+from functools import cached_property
+from typing import Literal
+
 from ..common.azureblob import AzureBlobConfig
 from ..common.file import MemoryFile
 from .base import BaseInputDriver
 
 
 class AzureBlobInputConfig(AzureBlobConfig):
-    pass
+    engine: Literal["in:azureblob"]
+
+    @cached_property
+    def driver(self) -> "AzureBlobInput":
+        return AzureBlobInput(self)
 
 
 class AzureBlobInput(BaseInputDriver):
     def __init__(self, config: AzureBlobInputConfig):
         self.config = config
 
-    def __call__(self, path: str = "") -> MemoryFile:
+    required = ["input_path"]
+
+    def __call__(self, input_path: str = "") -> MemoryFile:
         """Read from an Azure Blob."""
         raise NotImplementedError("Azure Blob input not implemented yet.")
