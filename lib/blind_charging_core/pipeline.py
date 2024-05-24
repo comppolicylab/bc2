@@ -12,6 +12,7 @@ from .input.stdin import StdinInputConfig
 from .output.azureblob import AzureBlobOutputConfig
 from .output.file import FileOutputConfig
 from .output.stdout import StdoutOutputConfig
+from .redact.noop import NoOpRedactConfig
 from .redact.openai import OpenAIRedactConfig
 from .render.html import HtmlRenderConfig
 from .render.pdf import PdfRenderConfig
@@ -19,13 +20,14 @@ from .render.text import TextRenderConfig
 
 logger = logging.getLogger(__name__)
 
+
 InputConfig = Union[AzureBlobInputConfig, FileInputConfig, StdinInputConfig]
 
 
 ExtractConfig = Union[AzureDIExtractConfig, OpenAIExtractConfig]
 
 
-RedactConfig = Union[OpenAIRedactConfig]
+RedactConfig = Union[OpenAIRedactConfig, NoOpRedactConfig]
 
 
 RenderConfig = Union[PdfRenderConfig, HtmlRenderConfig, TextRenderConfig]
