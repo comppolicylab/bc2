@@ -1,7 +1,7 @@
 from functools import cached_property
 from typing import Literal
 
-from ..common.azureblob import AzureBlobConfig
+from ..common.azureblob import AzureBlobConfig, AzureBlobDriver
 from ..common.file import MemoryFile
 from .base import BaseInputDriver
 
@@ -14,12 +14,16 @@ class AzureBlobInputConfig(AzureBlobConfig):
         return AzureBlobInput(self)
 
 
-class AzureBlobInput(BaseInputDriver):
-    def __init__(self, config: AzureBlobInputConfig):
-        self.config = config
-
+class AzureBlobInput(BaseInputDriver, AzureBlobDriver):
     required = ["input_path"]
+
+    def __init__(self, config: AzureBlobInputConfig):
+        self.init_client(config)
 
     def __call__(self, input_path: str = "") -> MemoryFile:
         """Read from an Azure Blob."""
-        raise NotImplementedError("Azure Blob input not implemented yet.")
+        f = MemoryFile()
+        full_path = f"{self.config.prefix}{input_path}"
+        blob = self.container_client.download_blob(full_path)
+        blob.readinto(f.buffer)
+        return f

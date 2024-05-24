@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Optional
 
 import tomllib
 import typer
@@ -14,7 +15,11 @@ cli = typer.Typer()
 
 
 @cli.command()
-def run(config_path: str, input_path: str = "", output_path: str = ""):
+def run(
+    config_path: str,
+    input_path: Optional[str] = None,
+    output_path: Optional[str] = None,
+):
     """Run the pipeline."""
     logger.debug("Running pipeline ...")
 
