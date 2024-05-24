@@ -1,4 +1,5 @@
 import logging
+from functools import cached_property
 from io import BytesIO
 from typing import Literal
 
@@ -25,6 +26,10 @@ class AzureDIExtractConfig(BaseModel):
     min_confidence: float = Field(0.04)
     narrative_field: str = Field("narrative")
     locale: str = Field("en-US")
+
+    @cached_property
+    def driver(self) -> "AzureDIExtract":
+        return AzureDIExtract(self)
 
 
 class AzureDIExtract(BaseExtractDriver):

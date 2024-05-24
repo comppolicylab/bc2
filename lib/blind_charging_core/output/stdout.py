@@ -1,4 +1,5 @@
 import sys
+from functools import cached_property
 from typing import Literal
 
 from pydantic import BaseModel
@@ -11,12 +12,16 @@ class StdoutOutputConfig(BaseModel):
     engine: Literal["stdout"]
     buffer_size: int = 1024
 
+    @cached_property
+    def driver(self) -> "StdoutOutput":
+        return StdoutOutput(self)
+
 
 class StdoutOutput(BaseOutputDriver):
     def __init__(self, config: StdoutOutputConfig):
         self.config = config
 
-    def __call__(self, file: MemoryFile, path: str = "") -> None:
+    def __call__(self, file: MemoryFile, output_path: str = "") -> None:
         """Write to stdout."""
         file.buffer.seek(0)
         while True:

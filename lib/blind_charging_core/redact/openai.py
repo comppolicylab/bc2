@@ -2,6 +2,7 @@ import json
 import math
 import os
 import pathlib
+from functools import cached_property
 from typing import Literal
 
 import openai
@@ -13,7 +14,7 @@ from .base import BaseRedactDriver
 
 ROOT_PATH = pathlib.Path(os.path.dirname(os.path.abspath(__file__)))
 
-PROMPTS_DIR = ROOT_PATH / "common" / "prompts"
+PROMPTS_DIR = ROOT_PATH / ".." / "common" / "prompts"
 
 DEFAULT_PROMPT_PATH = PROMPTS_DIR / "redact.txt"
 with open(DEFAULT_PROMPT_PATH, "r") as f:
@@ -32,6 +33,10 @@ class OpenAIRedactConfig(BaseModel):
     model: str
     completion_type: Literal["chat", "completion"] = "completion"
     prompt_file: str = Field(DEFAULT_PROMPT_PATH)
+
+    @cached_property
+    def driver(self) -> "OpenAIRedactDriver":
+        return OpenAIRedactDriver(self)
 
 
 class OpenAIRedactDriver(BaseRedactDriver):

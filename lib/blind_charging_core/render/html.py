@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import Literal
 
 from jinja2 import Template
@@ -12,6 +13,10 @@ class HtmlRenderConfig(BaseModel):
     """HTML Render config."""
 
     engine: Literal["html"]
+
+    @cached_property
+    def driver(self) -> "HTMLRenderer":
+        return HTMLRenderer(self)
 
 
 tpl = Template(

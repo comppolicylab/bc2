@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import Literal
 
 from pydantic import BaseModel
@@ -15,6 +16,10 @@ class OpenAIExtractConfig(BaseModel):
     api: OpenAIApiConfig
     model: str
     prompt_file: str
+
+    @cached_property
+    def driver(self) -> "OpenAIExtractDriver":
+        return OpenAIExtractDriver(self)
 
 
 class OpenAIExtractDriver(BaseExtractDriver):

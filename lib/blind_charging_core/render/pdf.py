@@ -1,4 +1,4 @@
-from functools import partial
+from functools import cached_property, partial
 from typing import Literal
 
 from pydantic import BaseModel
@@ -16,6 +16,10 @@ class PdfRenderConfig(BaseModel):
     """PDF Render config."""
 
     engine: Literal["pdf"]
+
+    @cached_property
+    def driver(self) -> "PDFRenderer":
+        return PDFRenderer(self)
 
 
 class PDFRenderer(BaseRenderer):

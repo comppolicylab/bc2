@@ -1,4 +1,5 @@
 import re
+from functools import cached_property
 from typing import Literal
 
 from pydantic import BaseModel
@@ -12,6 +13,10 @@ class TextRenderConfig(BaseModel):
     """Text Render config."""
 
     engine: Literal["text"]
+
+    @cached_property
+    def driver(self) -> "TextRenderer":
+        return TextRenderer(self)
 
 
 class TextRenderer(BaseRenderer):
