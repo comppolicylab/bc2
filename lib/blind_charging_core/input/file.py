@@ -8,7 +8,7 @@ from .base import BaseInputDriver
 
 
 class FileInputConfig(BaseModel):
-    engine: Literal["file"]
+    engine: Literal["in:file"]
     buffer_size: int = 1024
 
     @cached_property

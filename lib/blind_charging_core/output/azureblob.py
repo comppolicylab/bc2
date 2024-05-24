@@ -1,4 +1,5 @@
 from functools import cached_property
+from typing import Literal
 
 from ..common.azureblob import AzureBlobConfig
 from ..common.file import MemoryFile
@@ -6,6 +7,8 @@ from .base import BaseOutputDriver
 
 
 class AzureBlobOutputConfig(AzureBlobConfig):
+    engine: Literal["out:azureblob"]
+
     @cached_property
     def driver(self) -> "AzureBlobOutput":
         return AzureBlobOutput(self)

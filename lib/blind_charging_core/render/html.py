@@ -12,7 +12,7 @@ from .base import BaseRenderer
 class HtmlRenderConfig(BaseModel):
     """HTML Render config."""
 
-    engine: Literal["html"]
+    engine: Literal["render:html"]
 
     @cached_property
     def driver(self) -> "HTMLRenderer":

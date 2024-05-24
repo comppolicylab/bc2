@@ -9,7 +9,7 @@ from .base import BaseInputDriver
 
 
 class StdinInputConfig(BaseModel):
-    engine: Literal["stdin"]
+    engine: Literal["in:stdin"]
     buffer_size: int = 1024
 
     @cached_property

@@ -12,7 +12,7 @@ from .base import BaseExtractDriver
 class OpenAIExtractConfig(BaseModel):
     """OpenAI Extract config."""
 
-    engine: Literal["openai"]
+    engine: Literal["extract:openai"]
     api: OpenAIApiConfig
     model: str
     prompt_file: str

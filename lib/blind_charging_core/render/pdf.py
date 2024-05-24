@@ -15,7 +15,7 @@ from .base import BaseRenderer
 class PdfRenderConfig(BaseModel):
     """PDF Render config."""
 
-    engine: Literal["pdf"]
+    engine: Literal["render:pdf"]
 
     @cached_property
     def driver(self) -> "PDFRenderer":

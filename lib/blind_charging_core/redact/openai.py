@@ -28,7 +28,7 @@ with open(EXAMPLES_PATH, "r") as f:
 class OpenAIRedactConfig(BaseModel):
     """OpenAI Redact config."""
 
-    engine: Literal["openai"]
+    engine: Literal["redact:openai"]
     api: OpenAIApiConfig
     model: str
     completion_type: Literal["chat", "completion"] = "completion"

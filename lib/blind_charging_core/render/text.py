@@ -12,7 +12,7 @@ from .base import BaseRenderer
 class TextRenderConfig(BaseModel):
     """Text Render config."""
 
-    engine: Literal["text"]
+    engine: Literal["render:text"]
 
     @cached_property
     def driver(self) -> "TextRenderer":

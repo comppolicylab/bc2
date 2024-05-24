@@ -8,7 +8,7 @@ from .base import BaseOutputDriver
 
 
 class FileOutputConfig(BaseModel):
-    engine: Literal["file"]
+    engine: Literal["out:file"]
     buffer_size: int = 1024
 
     @cached_property

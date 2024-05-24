@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class AzureDIExtractConfig(BaseModel):
     """Azure DI Extract config."""
 
-    engine: Literal["azuredi"]
+    engine: Literal["extract:azuredi"]
     endpoint: str
     key: str
     document_model: str = Field("prebuilt-read")

@@ -9,7 +9,7 @@ from .base import BaseOutputDriver
 
 
 class StdoutOutputConfig(BaseModel):
-    engine: Literal["stdout"]
+    engine: Literal["out:stdout"]
     buffer_size: int = 1024
 
     @cached_property
