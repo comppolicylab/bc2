@@ -1,6 +1,8 @@
 from functools import cached_property
 from typing import Literal
 
+import pymupdf
+
 from ..common.file import MemoryFile
 from ..common.image import ImageUrl
 from ..common.openai import OpenAIChatConfig, OpenAIConfig
@@ -31,16 +33,43 @@ class OpenAIExtractDriver(BaseExtractDriver):
         return Text(extraction)
 
     def convert(self, file: MemoryFile) -> list[ImageUrl]:
-        """Convert the input file to a set of images."""
+        """Convert the input file into a format that can be understood by OpenAI.
+
+        Currently only supports images and PDFs. We will upload all documents as images.
+
+        Returns a list of image URLs.
+        """
         # TODO - might be better to upload files to the API instead of base64 encoding
         if file.mime_type.startswith("image"):
             return [ImageUrl(url=file.data_url())]
         elif file.mime_type == "application/pdf":
-            # TODO - render each page as an image
-            raise NotImplementedError("PDF extraction not yet implemented")
+            # TODO - grabbing text from the PDF might be better in some cases
+            file.buffer.seek(0)
+            pdf = pymupdf.open(stream=file.buffer, filetype="pdf")
+            imgs: list[ImageUrl] = []
+            for page in pdf:
+                url = self._render_pdf_page_to_image(page)
+                imgs.append(ImageUrl(url=url))
+            return imgs
         else:
             raise ValueError(f"Unsupported file type: {file.mime_type}")
 
     def generate(self, input: list[ImageUrl]) -> str:
         """Generate a completion optionally including image input."""
         return self.config.generator.invoke(self.client, input)
+
+    def _render_pdf_page_to_image(
+        self, page: pymupdf.Page, format: str = "png", **kwargs
+    ) -> str:
+        """Render a PDF page to an image.
+
+        By default, the image is rendered as a PNG.
+
+        Additional keyword arguments are passed to the PIL image encoder.
+
+        Returns the data URL for the image.
+        """
+        pixmap = page.get_pixmap()
+        img = MemoryFile()
+        img.writeb(pixmap.pil_tobytes(format=format, **kwargs))
+        return img.data_url()
