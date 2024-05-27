@@ -21,7 +21,7 @@ class AzureDIExtractConfig(BaseModel):
 
     engine: Literal["extract:azuredi"]
     endpoint: str
-    key: str
+    api_key: str
     document_model: str = Field("prebuilt-read")
     min_confidence: float = Field(0.04)
     narrative_field: str = Field("narrative")
@@ -37,7 +37,7 @@ class AzureDIExtract(BaseExtractDriver):
         self.config = config
         self.document_analysis_client = DocumentAnalysisClient(
             endpoint=config.endpoint,
-            credential=AzureKeyCredential(config.key),
+            credential=AzureKeyCredential(config.api_key),
         )
 
     def __call__(self, file: MemoryFile) -> Text:
