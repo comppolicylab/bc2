@@ -72,8 +72,8 @@ class Pipeline:
                 # Compare that last_output matches expected input type
                 if not issubclass(last_output, params[input_param].annotation):
                     raise ValueError(
-                        f"Expected {last_output} "
-                        f"but got {params[input_param].annotation}"
+                        f"Expected {params[input_param].annotation}"
+                        f"but got {last_output}"
                     )
 
             # Now check if we have all other required params from the runtime input
