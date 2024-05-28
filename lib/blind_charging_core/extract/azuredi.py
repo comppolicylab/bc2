@@ -22,9 +22,12 @@ class AzureDIExtractConfig(BaseModel):
     engine: Literal["extract:azuredi"]
     endpoint: str
     api_key: str
+    # Todo: Add api_version, since we'll need to match what's on GovCloud,
+    # which has more limited releases than commerical Azure.
     document_model: str = Field("prebuilt-read")
+    extract_labeled_text: bool = Field(True)
     min_confidence: float = Field(0.04)
-    narrative_field: str = Field("narrative")
+    narrative_label: str = Field("narrative")
     locale: str = Field("en-US")
 
     @cached_property
@@ -46,7 +49,7 @@ class AzureDIExtract(BaseExtractDriver):
             raise EmptyExtractionError("No narrative found in document!")
         return Text(txt)
 
-    def extract_narrative_fields(
+    def extract_labeled_narrative(
         self,
         analysis: list[AnalyzeResult],
     ) -> list[DocumentField]:
@@ -58,7 +61,7 @@ class AzureDIExtract(BaseExtractDriver):
         logger.info("Inspecting analysis result to find narrative(s) ...")
         logger.debug(
             "Looking for narrative field `%s` with confidence >= %f ...",
-            self.config.narrative_field,
+            self.config.narrative_label,
             self.config.min_confidence,
         )
 
@@ -66,11 +69,29 @@ class AzureDIExtract(BaseExtractDriver):
         # Look through each page of the analysis results and find any narratives.
         for page in analysis:
             for doc in page.documents:
-                narrative = doc.fields.get(self.config.narrative_field)
+                narrative = doc.fields.get(self.config.narrative_label)
                 confidence = getattr(narrative, "confidence", 0.0) or 0.0
                 if narrative and confidence >= self.config.min_confidence:
                     narratives.append(narrative)
         return narratives
+
+    def extract_paragraphs(
+        self,
+        analysis: list[AnalyzeResult],
+    ) -> list[DocumentField]:
+        """Extract all paragraphs provided by the analysis results.
+
+        Args:
+            analysis (list[AnalyzeResult]): Results, one for each page
+        """
+        logger.info("Inspecting analysis result to find paragraph(s) ...")
+
+        paragraphs = list[str]()
+        # Look through each page of the analysis results and find any narratives.
+        for page in analysis:
+            for paragraph in page.paragraphs:
+                paragraphs.append(paragraph)
+        return paragraphs
 
     def concat_fields(self, fields: list[DocumentField], sep: str = "\n\n") -> str:
         """Join the text content from a set of text fields.
@@ -90,16 +111,19 @@ class AzureDIExtract(BaseExtractDriver):
         return txt
 
     def extract_narrative_from_pdf(self, doc: BytesIO) -> str | None:
-        """Extract the narrative from a PDF.
+        """Extract text from a PDF.
 
         Args:
             doc (BytesIO): Stream containing the PDF.
 
         Returns:
-            str: The narrative, if one was found.
+            str: The text, if text was found.
         """
         analysis = self.analyze_document(doc)
-        fields = self.extract_narrative_fields(analysis)
+        if self.config.extract_labeled_text:
+            fields = self.extract_labeled_narrative(analysis)
+        else:
+            fields = self.extract_paragraphs(analysis)
 
         if not fields:
             logger.warning("No narrative found in document!")
@@ -128,10 +152,11 @@ class AzureDIExtract(BaseExtractDriver):
 
         # Run analysis on the document using the remote service.
         for i in range(pages):
+            doc.seek(0)
             if results[i] is None:
                 poller = self.document_analysis_client.begin_analyze_document(
                     self.config.document_model,
-                    document=doc,
+                    document=doc.read(),
                     locale=self.config.locale,
                     pages=f"{i + 1}",
                 )
