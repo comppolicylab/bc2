@@ -17,6 +17,7 @@ from .redact.openai import OpenAIRedactConfig
 from .render.html import HtmlRenderConfig
 from .render.pdf import PdfRenderConfig
 from .render.text import TextRenderConfig
+from .parse.openai import OpenAIParseConfig
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,9 @@ InputConfig = Union[AzureBlobInputConfig, FileInputConfig, StdinInputConfig]
 
 
 ExtractConfig = Union[AzureDIExtractConfig, OpenAIExtractConfig]
+
+
+ParseConfig = Union[OpenAIParseConfig]
 
 
 RedactConfig = Union[OpenAIRedactConfig, NoOpRedactConfig]
@@ -36,7 +40,7 @@ RenderConfig = Union[PdfRenderConfig, HtmlRenderConfig, TextRenderConfig]
 OutputConfig = Union[AzureBlobOutputConfig, FileOutputConfig, StdoutOutputConfig]
 
 
-AnyConfig = Union[InputConfig, ExtractConfig, RedactConfig, RenderConfig, OutputConfig]
+AnyConfig = Union[InputConfig, ExtractConfig, RedactConfig, ParseConfig, RenderConfig, OutputConfig]
 
 
 class PipelineConfig(BaseModel):
