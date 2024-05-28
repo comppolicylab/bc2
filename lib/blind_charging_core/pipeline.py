@@ -12,12 +12,12 @@ from .input.stdin import StdinInputConfig
 from .output.azureblob import AzureBlobOutputConfig
 from .output.file import FileOutputConfig
 from .output.stdout import StdoutOutputConfig
+from .parse.openai import OpenAIParseConfig
 from .redact.noop import NoOpRedactConfig
 from .redact.openai import OpenAIRedactConfig
 from .render.html import HtmlRenderConfig
 from .render.pdf import PdfRenderConfig
 from .render.text import TextRenderConfig
-from .parse.openai import OpenAIParseConfig
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,9 @@ RenderConfig = Union[PdfRenderConfig, HtmlRenderConfig, TextRenderConfig]
 OutputConfig = Union[AzureBlobOutputConfig, FileOutputConfig, StdoutOutputConfig]
 
 
-AnyConfig = Union[InputConfig, ExtractConfig, RedactConfig, ParseConfig, RenderConfig, OutputConfig]
+AnyConfig = Union[
+    InputConfig, ExtractConfig, RedactConfig, ParseConfig, RenderConfig, OutputConfig
+]
 
 
 class PipelineConfig(BaseModel):
