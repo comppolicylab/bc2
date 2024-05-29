@@ -35,15 +35,13 @@ def run(
 
     pipe = Pipeline(config)
     if validate:
+        # NOTE(jnu): the pipeline config will *always* be validated before running.
+        # If the `validate` option is set on the CLI, we will *only* validated, and
+        # not run the pipeline.
         pipe.validate(ctx)
-        logger.debug("Runtime configuration validated.")
+        logger.info("Runtime configuration validated.")
         return
 
-    pipe.run(
-        {
-            "input_path": input_path,
-            "output_path": output_path,
-        }
-    )
+    pipe.run(ctx)
 
     logger.debug("Pipeline completed.")
