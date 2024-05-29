@@ -5,7 +5,7 @@ from ..common.text import Text
 
 
 class EmptyExtractionError(Exception):
-    """Raised when an extraction process fails to find a narrative."""
+    """Raised when an extraction process fails to find any text."""
 
     pass
 
@@ -16,12 +16,12 @@ class BaseExtractDriver(ABC):
         """Extract the narrative from the given file.
 
         Args:
-            file (MemoryFile): The file to extract the narrative from.
+            file (MemoryFile): The file to extract the text from.
 
         Returns:
-            Text: The extracted narrative.
+            Text: The extracted text.
 
         Raises:
-            EmptyExtractionError: When no narrative is found
+            EmptyExtractionError: When no text is found
         """
         ...

@@ -12,6 +12,7 @@ from .input.stdin import StdinInputConfig
 from .output.azureblob import AzureBlobOutputConfig
 from .output.file import FileOutputConfig
 from .output.stdout import StdoutOutputConfig
+from .parse.openai import OpenAIParseConfig
 from .redact.noop import NoOpRedactConfig
 from .redact.openai import OpenAIRedactConfig
 from .render.html import HtmlRenderConfig
@@ -27,6 +28,9 @@ InputConfig = Union[AzureBlobInputConfig, FileInputConfig, StdinInputConfig]
 ExtractConfig = Union[AzureDIExtractConfig, OpenAIExtractConfig]
 
 
+ParseConfig = Union[OpenAIParseConfig]
+
+
 RedactConfig = Union[OpenAIRedactConfig, NoOpRedactConfig]
 
 
@@ -36,7 +40,9 @@ RenderConfig = Union[PdfRenderConfig, HtmlRenderConfig, TextRenderConfig]
 OutputConfig = Union[AzureBlobOutputConfig, FileOutputConfig, StdoutOutputConfig]
 
 
-AnyConfig = Union[InputConfig, ExtractConfig, RedactConfig, RenderConfig, OutputConfig]
+AnyConfig = Union[
+    InputConfig, ExtractConfig, RedactConfig, ParseConfig, RenderConfig, OutputConfig
+]
 
 
 class PipelineConfig(BaseModel):
@@ -72,8 +78,8 @@ class Pipeline:
                 # Compare that last_output matches expected input type
                 if not issubclass(last_output, params[input_param].annotation):
                     raise ValueError(
-                        f"Expected {last_output} "
-                        f"but got {params[input_param].annotation}"
+                        f"Expected {params[input_param].annotation}"
+                        f"but got {last_output}"
                     )
 
             # Now check if we have all other required params from the runtime input
