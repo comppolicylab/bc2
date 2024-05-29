@@ -4,7 +4,6 @@ from io import BytesIO
 from typing import Literal
 
 from azure.ai.formrecognizer import AnalyzeResult, DocumentAnalysisClient
-from azure.ai.formrecognizer._models import DocumentField
 from azure.core.credentials import AzureKeyCredential
 from pydantic import BaseModel, Field
 from pypdf import PdfReader
@@ -25,9 +24,8 @@ class AzureDIExtractConfig(BaseModel):
     # Todo: Add api_version, since we'll need to match what's on GovCloud,
     # which has more limited releases than commerical Azure.
     document_model: str = Field("prebuilt-read")
-    extract_labeled_text: bool = Field(True)
+    labels: list[str] | None = Field(None)
     min_confidence: float = Field(0.04)
-    narrative_label: str = Field("narrative")
     locale: str = Field("en-US")
 
     @cached_property
@@ -44,73 +42,60 @@ class AzureDIExtract(BaseExtractDriver):
         )
 
     def __call__(self, file: MemoryFile) -> Text:
-        txt = self.extract_narrative_from_pdf(file.buffer)
+        txt = self.extract_text_from_pdf(file.buffer)
         if not txt:
-            raise EmptyExtractionError("No narrative found in document!")
+            raise EmptyExtractionError("No text found in document!")
         return Text(txt)
 
-    def extract_labeled_narrative(
+    def extract_document_content(
         self,
         analysis: list[AnalyzeResult],
-    ) -> list[DocumentField]:
-        """Extract the narrative from the analysis results.
+        labels: list[str] | None = None,
+    ) -> list[str]:
+        """Extract text spans from the analysis results.
 
         Args:
             analysis (list[AnalyzeResult]): Results, one for each page
+            labels (list[str], optional): Filter for specific fields. Defaults to None.
         """
-        logger.info("Inspecting analysis result to find narrative(s) ...")
-        logger.debug(
-            "Looking for narrative field `%s` with confidence >= %f ...",
-            self.config.narrative_label,
-            self.config.min_confidence,
-        )
+        logger.info("Inspecting analysis result to find text ...")
+        if labels:
+            logger.debug(
+                "Looking for text in fields (`%s`) with confidence >= %f ...",
+                ", ".join(labels),
+                self.config.min_confidence,
+            )
+        else:
+            logger.debug(
+                "No labels filter set, so extracting all text ...",
+            )
 
-        narratives = list[str]()
-        # Look through each page of the analysis results and find any narratives.
+        chunks = list[str]()
+        labels_filter = set(labels) if labels else None
+        # Look through each page of the analysis results and find any text.
         for page in analysis:
-            for doc in page.documents:
-                narrative = doc.fields.get(self.config.narrative_label)
-                confidence = getattr(narrative, "confidence", 0.0) or 0.0
-                if narrative and confidence >= self.config.min_confidence:
-                    narratives.append(narrative)
-        return narratives
+            # If a labels filter was passed, use that to extract only labeled regions.
+            if labels_filter:
+                for doc in page.documents:
+                    for label, field in doc.fields.items():
+                        if label in labels_filter:
+                            confidence = getattr(field, "confidence", 0.0) or 0.0
+                            if (
+                                field
+                                and field.content
+                                and confidence >= self.config.min_confidence
+                            ):
+                                chunks.append(field.content)
+            # When no filter was passed, get text from paragraphs in sequence instead.
+            else:
+                for para in page.paragraphs:
+                    if para.content:
+                        chunks.append(para.content)
+        return chunks
 
-    def extract_paragraphs(
-        self,
-        analysis: list[AnalyzeResult],
-    ) -> list[DocumentField]:
-        """Extract all paragraphs provided by the analysis results.
-
-        Args:
-            analysis (list[AnalyzeResult]): Results, one for each page
-        """
-        logger.info("Inspecting analysis result to find paragraph(s) ...")
-
-        paragraphs = list[str]()
-        # Look through each page of the analysis results and find any narratives.
-        for page in analysis:
-            for paragraph in page.paragraphs:
-                paragraphs.append(paragraph)
-        return paragraphs
-
-    def concat_fields(self, fields: list[DocumentField], sep: str = "\n\n") -> str:
-        """Join the text content from a set of text fields.
-
-        Args:
-            fields (list[DocumentField]): List of document fields.
-
-        Returns:
-            str: The joined text
-        """
-        txt = ""
-        for field in fields:
-            if field.content:
-                if txt:
-                    txt += sep
-                txt += field.content
-        return txt
-
-    def extract_narrative_from_pdf(self, doc: BytesIO) -> str | None:
+    def extract_text_from_pdf(
+        self, doc: BytesIO, chunk_separator: str = "\n\n"
+    ) -> str | None:
         """Extract text from a PDF.
 
         Args:
@@ -120,16 +105,13 @@ class AzureDIExtract(BaseExtractDriver):
             str: The text, if text was found.
         """
         analysis = self.analyze_document(doc)
-        if self.config.extract_labeled_text:
-            fields = self.extract_labeled_narrative(analysis)
-        else:
-            fields = self.extract_paragraphs(analysis)
+        chunks = self.extract_document_content(analysis, self.config.labels)
 
-        if not fields:
-            logger.warning("No narrative found in document!")
+        if not chunks:
+            logger.warning("No text found in document!")
             return None
 
-        return self.concat_fields(fields)
+        return chunk_separator.join(chunks)
 
     def analyze_document(
         self,
@@ -147,16 +129,18 @@ class AzureDIExtract(BaseExtractDriver):
         # We analyze each page separately because the FormRecognizer API doesn't
         # currently fully support entire document analysis. It just analyzes two
         # pages at a time, even if you request more.
+        # TODO(jnu): check if this is still true?
         pages = len(PdfReader(doc).pages)
         results: list[AnalyzeResult] = [None] * pages
 
         # Run analysis on the document using the remote service.
+        doc.seek(0)
+        docbytes = doc.read()
         for i in range(pages):
-            doc.seek(0)
             if results[i] is None:
                 poller = self.document_analysis_client.begin_analyze_document(
                     self.config.document_model,
-                    document=doc.read(),
+                    document=docbytes,
                     locale=self.config.locale,
                     pages=f"{i + 1}",
                 )

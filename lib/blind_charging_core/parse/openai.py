@@ -22,8 +22,8 @@ class OpenAIParseDriver(BaseParseDriver):
         self.config = config
         self.client = config.client.init()
 
-    def __call__(self, narrative: Text) -> Text:
-        parsed = self.generate(narrative.text)
+    def __call__(self, text: Text) -> Text:
+        parsed = self.generate(text.text)
         return Text(parsed)
 
     def generate(self, input: str) -> str:
