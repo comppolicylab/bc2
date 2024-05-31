@@ -27,6 +27,23 @@ def _test_graf(text: str) -> str:
             "<p>Hello, <style:Redaction>[Person 1]</style:Redaction>!</p>",
         ),
         (
+            "I took photos of Leopold ears.",
+            "I took photos of [Subject 1]'s ears.",
+            "[]",
+            """<p>I took photos of <style:Redaction>[Subject 1]</style:Redaction>\
+<style:RedactError>'s</style:RedactError> ears.</p>""",
+        ),
+        (
+            """This text] [includes] [delimiters that Joe does \
+not want to treat as redactions.""",
+            """This text] [includes] [delimiters that [Person 1] \
+does not want to treat as redactions.""",
+            "[]",
+            """<p>This text] [includes] [delimiters that \
+<style:Redaction>[Person 1]</style:Redaction> does not want to treat \
+as redactions.</p>""",
+        ),
+        (
             """\
 Just a test narrative where there's nothing very interesting to redact.
 
