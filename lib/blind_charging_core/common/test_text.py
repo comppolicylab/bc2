@@ -34,6 +34,16 @@ def _test_graf(text: str) -> str:
 <style:RedactError>'s</style:RedactError> ears.</p>""",
         ),
         (
+            """This text] [includes] [delimiters that Joe does \
+not want to treat as redactions.""",
+            """This text] [includes] [delimiters that [Person 1] \
+does not want to treat as redactions.""",
+            "[]",
+            """<p>This text] [includes] [delimiters that \
+<style:Redaction>[Person 1]</style:Redaction> does not want to treat \
+as redactions.</p>""",
+        ),
+        (
             """\
 Just a test narrative where there's nothing very interesting to redact.
 

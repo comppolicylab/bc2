@@ -163,6 +163,23 @@ def segment(  # noqa: C901
 
         masked = original[i1:i2]
         mask = redacted[j1:j2]
+
+        # We basically should ignore the "equal" opcodes.
+        # If we're not in the middle of an edit, we can just yield
+        # the text span now. Either way, just move on -- if we are
+        # in the middle of an edit, we'll end up capturing the equal
+        # segment when we find the closing delimiter.
+        if opcode == "equal":
+            if edit_stack == 0:
+                yield TextSegment(
+                    TextSpan(i1, i2, masked),
+                    TextSpan(j1, j2, mask),
+                    False,
+                    True,
+                )
+            continue
+
+        # Check if the mask contains the delimiters
         opener = opener_delim.pattern.search(mask)
         closer = closer_delim.pattern.search(mask)
 
@@ -178,15 +195,7 @@ def segment(  # noqa: C901
                 op_seq_start = (opcode, i1 + offset, i2, j1 + offset, j2)
             edit_stack += 1
 
-        if opcode == "equal":
-            if edit_stack == 0:
-                yield TextSegment(
-                    TextSpan(i1, i2, masked),
-                    TextSpan(j1, j2, mask),
-                    False,
-                    True,
-                )
-        elif opcode in {"insert", "replace", "delete"}:
+        if opcode in {"insert", "replace", "delete"}:
             if edit_stack == 0:
                 yield TextSegment(
                     TextSpan(i1, i2, masked),
