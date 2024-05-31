@@ -2,14 +2,13 @@ from functools import cached_property
 from typing import Literal
 
 from jinja2 import Template
-from pydantic import BaseModel
 
 from ..common.file import MemoryFile
-from ..common.text import RedactedText
-from .base import BaseRenderer
+from ..common.text import RedactedText, escape_for_xml
+from .base import BaseRenderConfig, BaseRenderer
 
 
-class HtmlRenderConfig(BaseModel):
+class HtmlRenderConfig(BaseRenderConfig):
     """HTML Render config."""
 
     engine: Literal["render:html"]
@@ -123,9 +122,10 @@ class HTMLRenderer(BaseRenderer):
                 title=self.TITLE,
                 disclaimer=self.DISCLAIMER,
                 narrative=redaction.format(
-                    apply_css_style,
-                    format_html_paragraph,
-                    self.escape_for_xml,
+                    style=apply_css_style,
+                    p=format_html_paragraph,
+                    escape=escape_for_xml,
+                    delimiters=self.config.delimiters,
                 ),
             )
         )

@@ -4,12 +4,25 @@ from .infer import infer_annotations
 
 
 @pytest.mark.parametrize(
-    "original,redacted,expected",
+    "original,redacted,delimiters,expected",
     [
         (
             "Hello, world!",
             "Hello, <name>!",
+            "<>",
             [{"start": 7, "end": 12, "content": "<name>"}],
+        ),
+        (
+            "Hello, world!",
+            "Hello, [name]!",
+            "[]",
+            [{"start": 7, "end": 12, "content": "[name]"}],
+        ),
+        (
+            "Hello, world!",
+            "Hello, [name]!",
+            "<>",
+            [],  # Delimiters don't match so nothing is found
         ),
         (
             """\
@@ -27,6 +40,7 @@ My dog <(D1)> and I were walking in <location> last night, near <location>. \
 We passed a mother and her son speaking <language> together. \
 <(D1)> really wanted to clean their ears but I wouldn't let him.
 """,
+            "<>",
             [
                 {"start": 80, "end": 87, "content": "<(D1)>"},
                 {"start": 110, "end": 126, "content": "<location>"},
@@ -37,5 +51,7 @@ We passed a mother and her son speaking <language> together. \
         ),
     ],
 )
-def test_infer_annotations(original, redacted, expected):
-    assert list(infer_annotations(original, redacted)) == expected
+def test_infer_annotations(original, redacted, delimiters, expected):
+    assert (
+        list(infer_annotations(original, redacted, delimiters=delimiters)) == expected
+    )

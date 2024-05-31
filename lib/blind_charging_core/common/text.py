@@ -14,22 +14,47 @@ class Text:
 
 
 Styler = Callable[[str, str], str]
+"""A function that styles text based on its type."""
 
 Grafer = Callable[[str], str]
+"""A function that formats a paragraph."""
 
 Escaper = Callable[[str], str]
+"""A function that escapes text for display."""
+
+
+def default_styler(text: str, type_: str) -> str:
+    """Default styling function."""
+    return text
+
+
+def default_grafer(text: str) -> str:
+    """Default paragraph formatting function."""
+    return text + "\n\n"
+
+
+def default_escaper(text: str) -> str:
+    """Default escape function."""
+    return text
 
 
 class RedactedText:
+    """Container for redacted text.
+
+    When the original text is available, the redacted text can be formatted
+    into a rich diff.
+    """
+
     def __init__(self, redacted: str, original: str | None = None) -> None:
         self.redacted = redacted
         self.original = original
 
     def format(
         self,
-        style: Styler,
-        p: Grafer,
-        escape: Escaper,
+        style: Styler = default_styler,
+        p: Grafer = default_grafer,
+        escape: Escaper = default_escaper,
+        **kwargs,
     ) -> str:
         """Format a narrative for display as an HTML-style document.
 
@@ -37,6 +62,7 @@ class RedactedText:
             style: The style function to use.
             p: The paragraph formatting function to use.
             escape: The escape function to use.
+            **kwargs: Additional arguments to pass to the `segment` function.
 
         Returns:
             The formatted narrative.
@@ -47,7 +73,7 @@ class RedactedText:
         if self.original:
             final = ""
 
-            for seg in segment(self.original, self.redacted):
+            for seg in segment(self.original, self.redacted, **kwargs):
                 original_txt = escape(seg.original.text)
                 redacted_txt = escape(seg.redacted.text)
                 if seg.is_edit:
@@ -59,3 +85,22 @@ class RedactedText:
         final = "".join(p(line) for line in final.splitlines())
 
         return final
+
+
+def escape_for_xml(text: str) -> str:
+    """Escape text for HTML-style markup languages (HTML, platypus, etc).
+
+    Args:
+        text: The text to escape.
+
+    Returns:
+        The escaped text.
+    """
+    replacements = [
+        ("&", "&amp;"),
+        ("<", "&lt;"),
+        (">", "&gt;"),
+    ]
+    for old, new in replacements:
+        text = text.replace(old, new)
+    return text

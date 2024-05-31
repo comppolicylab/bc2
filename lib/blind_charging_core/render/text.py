@@ -2,14 +2,12 @@ import re
 from functools import cached_property
 from typing import Literal
 
-from pydantic import BaseModel
-
 from ..common.file import MemoryFile
 from ..common.text import RedactedText
-from .base import BaseRenderer
+from .base import BaseRenderConfig, BaseRenderer
 
 
-class TextRenderConfig(BaseModel):
+class TextRenderConfig(BaseRenderConfig):
     """Text Render config."""
 
     engine: Literal["render:text"]
@@ -32,6 +30,13 @@ class TextRenderer(BaseRenderer):
         f.write("\n\n")
         f.write("=== NARRATIVE ===\n")
         # TODO: might want to add some formatting for the diff
-        f.write(redaction.format(lambda x, y: x, lambda x: f"{x}\n\n", lambda x: x))
+        f.write(
+            redaction.format(
+                style=lambda x, y: x,
+                p=lambda x: f"{x}\n\n",
+                escape=lambda x: x,
+                delimiters=self.config.delimiters,
+            )
+        )
         f.write("=== END OF DOCUMENT ===\n")
         return f
