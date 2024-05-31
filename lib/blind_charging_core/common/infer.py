@@ -1,6 +1,7 @@
 import difflib
 import re
-from typing import Generator, NamedTuple
+from dataclasses import dataclass
+from typing import Generator, NamedTuple, Sequence, Tuple
 
 TextSpan = NamedTuple(
     "TextSpan",
@@ -23,9 +24,42 @@ TextSegment = NamedTuple(
 )
 
 
+@dataclass
+class Delimiter:
+    pattern: re.Pattern[str]
+    length: int
+
+    @classmethod
+    def parse(cls, delimiters: Sequence[str]) -> Tuple["Delimiter", "Delimiter"]:
+        """Build regexes to match the delimiters.
+
+        By default we use < and >, so the regex for the opener is `^(\\s*<)`
+        and for the closer is `(>\\s*)$`.
+
+        Args:
+            delimiters: The delimiters to use (must be length of 2)
+
+        Returns:
+            A tuple of Delimiter instances.
+
+        Raises:
+            ValueError: If the delimiters are not of length 2.
+        """
+        if len(delimiters) != 2:
+            raise ValueError(
+                "Delimiters must be a sequence of two strings, such as ('<', '>')."
+            )
+        opener_re = re.compile(f"^(\\s*{re.escape(delimiters[0])})")
+        opener_len = len(delimiters[0])
+        closer_re = re.compile(f"({re.escape(delimiters[1])}\\s*)$")
+        closer_len = len(delimiters[1])
+        return cls(opener_re, opener_len), cls(closer_re, closer_len)
+
+
 def segment(
     original: str,
     redacted: str,
+    delimiters: Sequence[str] = ("<", ">"),
 ) -> Generator[TextSegment, None, None]:
     """Visit text segments in the redacted narrative.
 
@@ -47,9 +81,13 @@ def segment(
     Args:
         original: The original narrative text.
         redacted: The redacted narrative text.
+        delimiters: The tokens that mark beginning and end of a redaction.
     """
     edit_stack = 0
     matcher = difflib.SequenceMatcher(None, original, redacted, autojunk=False)
+
+    # Build regexes to match the delimiters
+    opener_delim, closer_delim = Delimiter.parse(delimiters)
 
     op_seq_start = ("equal", 0, 0, 0, 0)
     for op in matcher.get_opcodes():
@@ -57,12 +95,12 @@ def segment(
 
         masked = original[i1:i2]
         mask = redacted[j1:j2]
-        opener = re.search(r"^(\s*<)", mask)
-        closer = re.search(r"(>\s*)$", mask)
+        opener = opener_delim.pattern.search(mask)
+        closer = closer_delim.pattern.search(mask)
 
         if opener:
             if edit_stack == 0:
-                offset = opener.end() - 1
+                offset = opener.end() - opener_delim.length
                 op_seq_start = (opcode, i1 + offset, i2, j1 + offset, j2)
             edit_stack += 1
 
@@ -87,7 +125,7 @@ def segment(
             edit_stack = max(0, edit_stack - 1)
             # Yield the final segment
             if edit_stack == 0:
-                offset = closer.end() - closer.start() - 1
+                offset = closer.end() - closer.start() - closer_delim.length
                 i1 = op_seq_start[1]
                 i2 = i2 - offset
                 j1 = op_seq_start[3]
@@ -103,17 +141,20 @@ def segment(
                 )
 
 
-def infer_annotations(original: str, redacted: str) -> Generator[dict, None, None]:
+def infer_annotations(
+    original: str, redacted: str, **kwargs
+) -> Generator[dict, None, None]:
     """Segment the narrative and return a sequence of redactions.
 
     Args:
         original: The original narrative text.
         redacted: The redacted narrative text.
+        **kwargs: Additional arguments to pass to the `segment` function.
 
     Yields:
         A sequence of redaction annotations.
     """
-    for seg in segment(original, redacted):
+    for seg in segment(original, redacted, **kwargs):
         if seg.is_edit and seg.is_valid:
             yield {
                 "start": seg.original.start,

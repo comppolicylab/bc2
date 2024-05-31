@@ -13,4 +13,5 @@ badge.svg
 config*.toml
 *.ipynb
 .cache/
+.python-version
 pipeline*.toml
