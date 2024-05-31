@@ -2,6 +2,7 @@ import os
 import re
 import argparse
 import pandas as pd
+import random
 from pypdf import PdfReader, PdfWriter
 
 def format_filename(text):
@@ -60,7 +61,7 @@ def process_pdf(folder_name, filename, case_id, agency, state,
                     pdf_writer.write(output)
     print("")
 
-def main(directory_path, doc_type, source_folder, dest_folder):
+def main(directory_path, doc_type, source_folder, dest_folder, num_samples):
     df = pd.read_excel(directory_path)
     filtered_df = df[df['document_type'].str.contains(doc_type, regex=True, na=False) & 
                      (df['duplicate_notes'] != "Ignore")]
@@ -71,7 +72,11 @@ def main(directory_path, doc_type, source_folder, dest_folder):
                                       'referring_agency', 
                                       'referring_agency_state'])
 
-    for (folder_name, file_name, document_id, agency, state), group_df in grouped_df:
+    groups = list(grouped_df)
+    if num_samples:
+        groups = random.sample(groups, min(num_samples, len(groups)))
+
+    for (folder_name, file_name, document_id, agency, state), group_df in groups:
         process_pdf(folder_name, file_name, document_id, agency, state, 
                     group_df, source_folder, dest_folder)
 
@@ -81,8 +86,8 @@ if __name__ == '__main__':
     parser.add_argument('doc_type', type=str, help='Regex string for filtering the Groups column')
     parser.add_argument('source_folder', type=str, help='Path to the source folder')
     parser.add_argument('dest_folder', type=str, help='Path to the destination folder')
+    parser.add_argument('--num_samples', type=int, help='Number of documents to randomly sample', default=None)
 
     args = parser.parse_args()
 
-    main(args.directory_path, args.doc_type, 
-         args.source_folder, args.dest_folder)
+    main(args.directory_path, args.doc_type, args.source_folder, args.dest_folder, args.num_samples)
