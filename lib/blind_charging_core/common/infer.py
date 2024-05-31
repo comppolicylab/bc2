@@ -1,7 +1,7 @@
 import difflib
 import re
 from dataclasses import dataclass
-from typing import Generator, NamedTuple, Sequence, Tuple
+from typing import Generator, Literal, NamedTuple, Sequence, Tuple
 
 TextSpan = NamedTuple(
     "TextSpan",
@@ -49,14 +49,81 @@ class Delimiter:
             raise ValueError(
                 "Delimiters must be a sequence of two strings, such as ('<', '>')."
             )
-        opener_re = re.compile(f"^(\\s*{re.escape(delimiters[0])})")
+        opener_re = re.compile(f"({re.escape(delimiters[0])})")
         opener_len = len(delimiters[0])
-        closer_re = re.compile(f"({re.escape(delimiters[1])}\\s*)$")
+        closer_re = re.compile(f"({re.escape(delimiters[1])})")
         closer_len = len(delimiters[1])
         return cls(opener_re, opener_len), cls(closer_re, closer_len)
 
 
-def segment(
+Op = Literal["replace", "insert", "delete", "equal"]
+"""Diff segment operation type."""
+
+Opcode = Tuple[Op, int, int, int, int]
+"""Segment of a diff operation."""
+
+_INSERT: Literal["insert"] = "insert"
+
+
+def _split_opcode(
+    mask: str,
+    opcode: Op,
+    i1: int,
+    i2: int,
+    j1: int,
+    j2: int,
+    opener: re.Match[str] | None,
+    closer: re.Match[str] | None,
+) -> list[Opcode]:
+    """Split an opcode into multiple opcodes if needed.
+
+    This is needed when the start/end tokens are not placed at
+    the start / end of the mask.
+
+    Returns:
+        A list of opcodes.
+    """
+    if opener and opener.start() > 0:
+        opening_op = (
+            _INSERT,
+            i1,
+            i1,
+            j1,
+            j1 + opener.start(),
+        )
+        main_op = (
+            opcode,
+            i1,
+            i2,
+            j1 + opener.start(),
+            j2,
+        )
+        return [opening_op, main_op]
+
+    # If the closer is not at the end of the mask,
+    # split the opcode into a new "insertion" and process
+    # that after we process the current op.
+    if closer and closer.end() < len(mask):
+        main_op = (
+            opcode,
+            i1,
+            i2,
+            j1,
+            j2 - (len(mask) - closer.end()),
+        )
+        closing_op = (
+            _INSERT,
+            i2,
+            i2,
+            j2 - (len(mask) - closer.end()),
+            j2,
+        )
+        return [main_op, closing_op]
+
+    return []
+
+
+def segment(  # noqa: C901
     original: str,
     redacted: str,
     delimiters: Sequence[str] = ("<", ">"),
@@ -90,13 +157,20 @@ def segment(
     opener_delim, closer_delim = Delimiter.parse(delimiters)
 
     op_seq_start = ("equal", 0, 0, 0, 0)
-    for op in matcher.get_opcodes():
-        opcode, i1, i2, j1, j2 = op
+    opcodes = matcher.get_opcodes()
+    while opcodes:
+        opcode, i1, i2, j1, j2 = opcodes.pop(0)
 
         masked = original[i1:i2]
         mask = redacted[j1:j2]
         opener = opener_delim.pattern.search(mask)
         closer = closer_delim.pattern.search(mask)
+
+        # Simplify the opcodes by splitting them if needed.
+        new_ops = _split_opcode(mask, opcode, i1, i2, j1, j2, opener, closer)
+        if new_ops:
+            opcodes = new_ops + opcodes
+            continue
 
         if opener:
             if edit_stack == 0:

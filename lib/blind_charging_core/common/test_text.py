@@ -27,6 +27,13 @@ def _test_graf(text: str) -> str:
             "<p>Hello, <style:Redaction>[Person 1]</style:Redaction>!</p>",
         ),
         (
+            "I took photos of Leopold ears.",
+            "I took photos of [Subject 1]'s ears.",
+            "[]",
+            """<p>I took photos of <style:Redaction>[Subject 1]</style:Redaction>\
+<style:RedactError>'s</style:RedactError> ears.</p>""",
+        ),
+        (
             """\
 Just a test narrative where there's nothing very interesting to redact.
 
