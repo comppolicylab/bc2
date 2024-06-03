@@ -41,7 +41,7 @@ class PDFRenderer(BaseRenderer):
             pagesize=letter,
             rightMargin=inch / 2,
             leftMargin=inch / 2,
-            topMargin=inch / 2,
+            topMargin=inch,
             bottomMargin=inch / 2,
         )
         frame = Frame(
@@ -65,10 +65,11 @@ class PDFRenderer(BaseRenderer):
         paras = [p + "</para>" for p in formatted.split("</para>") if p]
 
         doc.build(
-            [
-                Paragraph(self.DISCLAIMER, styles["Italic"]),
-            ]
-            + [Paragraph(p, styles["Normal"]) for p in paras],
+            # [
+            #     Paragraph(self.DISCLAIMER, styles["Italic"]),
+            # ]
+            # + 
+            [Paragraph(p, styles["Normal"]) for p in paras],
             onFirstPage=partial(self.layout_pdf, styles=styles),
             onLaterPages=partial(self.layout_pdf, styles=styles),
         )
@@ -147,15 +148,15 @@ class PDFRenderer(BaseRenderer):
                 parent=styles["Normal"],
                 fontName="Courier",
                 fontSize=12,
-                color="orange",
+                color="tomato",
             )
         )
         styles.add(
             ParagraphStyle(
                 name="RedactError",
                 parent=styles["Redaction"],
-                fontName="Courier-Bold",
-                color="red",
+                fontName="Times",
+                color="dimgray",
             )
         )
         return styles
