@@ -76,13 +76,12 @@ but I wouldn't let him.</p>\
     ],
 )
 def test_format_redaction(original, redacted, delimiters, expected):
-    redaction = RedactedText(redacted, original)
+    redaction = RedactedText(redacted, original, delimiters)
     assert (
         redaction.format(
             style=_test_style,
             p=_test_graf,
             escape=escape_for_xml,
-            delimiters=delimiters,
         )
         == expected
     )

@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Sequence
 
 from pydantic import BaseModel
 
@@ -10,8 +9,7 @@ from ..common.text import RedactedText
 class BaseRenderConfig(BaseModel):
     """Common settings for all renderers."""
 
-    # The tokens that mark the beginning and end of a redaction.
-    delimiters: Sequence[str] = ("<", ">")
+    ...
 
 
 class BaseRenderer(ABC):

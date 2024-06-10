@@ -3,10 +3,10 @@ from typing import Literal
 
 from ..common.openai import OpenAIChatConfig, OpenAICompletionConfig, OpenAIConfig
 from ..common.text import RedactedText, Text
-from .base import BaseRedactDriver
+from .base import BaseRedactConfig, BaseRedactDriver
 
 
-class OpenAIRedactConfig(OpenAIConfig):
+class OpenAIRedactConfig(BaseRedactConfig, OpenAIConfig):
     """OpenAI Redact config."""
 
     engine: Literal["redact:openai"]
@@ -24,7 +24,7 @@ class OpenAIRedactDriver(BaseRedactDriver):
 
     def __call__(self, narrative: Text) -> RedactedText:
         redacted = self.generate(narrative.text)
-        return RedactedText(redacted, narrative.text)
+        return RedactedText(redacted, narrative.text, self.config.delimiters)
 
     def generate(self, input: str) -> str:
         """Generate text from the config and the user input.
