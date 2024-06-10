@@ -28,7 +28,7 @@ def run(
     cfg_obj = tomllib.loads(raw_cfg)
     config = PipelineConfig.model_validate(cfg_obj)
 
-    ctx = {
+    runtime_cfg = {
         "input_path": input_path,
         "output_path": output_path,
     }
@@ -38,10 +38,10 @@ def run(
         # NOTE(jnu): the pipeline config will *always* be validated before running.
         # If the `validate` option is set on the CLI, we will *only* validated, and
         # not run the pipeline.
-        pipe.validate(ctx)
+        pipe.validate(runtime_cfg)
         logger.info("Runtime configuration validated.")
         return
 
-    pipe.run(ctx)
+    pipe.run(runtime_cfg)
 
     logger.debug("Pipeline completed.")

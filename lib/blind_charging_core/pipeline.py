@@ -4,6 +4,7 @@ from typing import Any, Union
 
 from pydantic import BaseModel
 
+from .common.context import Context
 from .extract.azuredi import AzureDIExtractConfig
 from .extract.openai import OpenAIExtractConfig
 from .input.azureblob import AzureBlobInputConfig
@@ -96,9 +97,11 @@ class Pipeline:
                 f"Expected last step to have no return value, but got {last_output}"
             )
 
-    def run(self, runtime_config: dict[str, Any] | None = None) -> None:
+    def run(self, runtime_config: dict[str, Any] | None = None) -> Context:
         """Run the pipeline."""
         runtime_config = runtime_config or {}
+        ctx = Context()
+        runtime_config["context"] = ctx
         self.validate(runtime_config)
 
         pipe: Any = None
@@ -124,3 +127,5 @@ class Pipeline:
                         kwargs[param] = runtime_config[param]
 
             pipe = config.driver(*args, **kwargs)
+
+        return ctx

@@ -125,7 +125,6 @@ class HTMLRenderer(BaseRenderer):
                     style=apply_css_style,
                     p=format_html_paragraph,
                     escape=escape_for_xml,
-                    delimiters=self.config.delimiters,
                 ),
             )
         )
