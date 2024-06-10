@@ -9,8 +9,7 @@ from pydantic import BaseModel, Field
 from pypdf import PdfReader
 
 from ..common.file import MemoryFile
-from ..common.text import Text
-from .base import BaseExtractDriver, EmptyExtractionError
+from .base import BaseExtractDriver, register_preprocessor
 
 logger = logging.getLogger(__name__)
 
@@ -41,13 +40,15 @@ class AzureDIExtract(BaseExtractDriver):
             credential=AzureKeyCredential(config.api_key),
         )
 
-    def __call__(self, file: MemoryFile) -> Text:
-        txt = self.extract_text_from_pdf(file.buffer)
-        if not txt:
-            raise EmptyExtractionError("No text found in document!")
-        return Text(txt)
+    @register_preprocessor(r"^application/pdf")
+    def convert_pdf(self, file: MemoryFile) -> BytesIO:
+        file.buffer.seek(0)
+        return file.buffer
 
-    def extract_document_content(
+    def extract(self, doc: BytesIO) -> str:
+        return self._extract_text_from_doc(doc) or ""
+
+    def _extract_document_content(
         self,
         analysis: list[AnalyzeResult],
         labels: list[str] | None = None,
@@ -93,7 +94,7 @@ class AzureDIExtract(BaseExtractDriver):
                         chunks.append(para.content)
         return chunks
 
-    def extract_text_from_pdf(
+    def _extract_text_from_doc(
         self, doc: BytesIO, chunk_separator: str = "\n\n"
     ) -> str | None:
         """Extract text from a PDF.
@@ -104,8 +105,8 @@ class AzureDIExtract(BaseExtractDriver):
         Returns:
             str: The text, if text was found.
         """
-        analysis = self.analyze_document(doc)
-        chunks = self.extract_document_content(analysis, self.config.labels)
+        analysis = self._analyze_document(doc)
+        chunks = self._extract_document_content(analysis, self.config.labels)
 
         if not chunks:
             logger.warning("No text found in document!")
@@ -113,7 +114,7 @@ class AzureDIExtract(BaseExtractDriver):
 
         return chunk_separator.join(chunks)
 
-    def analyze_document(
+    def _analyze_document(
         self,
         doc: BytesIO,
     ) -> list[AnalyzeResult]:
