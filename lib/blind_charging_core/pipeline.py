@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from .common.context import Context
 from .extract.azuredi import AzureDIExtractConfig
 from .extract.openai import OpenAIExtractConfig
+from .extract.tesseract import TesseractExtractConfig
 from .input.azureblob import AzureBlobInputConfig
 from .input.file import FileInputConfig
 from .input.stdin import StdinInputConfig
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 InputConfig = Union[AzureBlobInputConfig, FileInputConfig, StdinInputConfig]
 
 
-ExtractConfig = Union[AzureDIExtractConfig, OpenAIExtractConfig]
+ExtractConfig = Union[AzureDIExtractConfig, OpenAIExtractConfig, TesseractExtractConfig]
 
 
 ParseConfig = Union[OpenAIParseConfig]

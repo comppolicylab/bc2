@@ -1,0 +1,20 @@
+# Input source type
+[[pipe]]
+engine = "in:file"
+
+# Extraction
+[[pipe]]
+engine = "extract:tesseract"
+
+# Redaction
+[[pipe]]
+engine = "redact:noop"
+delimiters = ["[", "]"]
+
+# Rendering
+[[pipe]]
+engine = "render:pdf"
+
+# Output file type
+[[pipe]]
+engine = "out:file"
