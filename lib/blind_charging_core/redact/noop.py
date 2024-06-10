@@ -1,13 +1,11 @@
 from functools import cached_property
 from typing import Literal
 
-from pydantic import BaseModel
-
 from ..common.text import RedactedText, Text
-from .base import BaseRedactDriver
+from .base import BaseRedactConfig, BaseRedactDriver
 
 
-class NoOpRedactConfig(BaseModel):
+class NoOpRedactConfig(BaseRedactConfig):
     """No-op Redact config."""
 
     engine: Literal["redact:noop"]
@@ -23,4 +21,4 @@ class NoOpRedactDriver(BaseRedactDriver):
 
     def __call__(self, narrative: Text) -> RedactedText:
         """Don't actually redact anything, just pass through."""
-        return RedactedText(narrative.text, narrative.text)
+        return RedactedText(narrative.text, narrative.text, self.config.delimiters)

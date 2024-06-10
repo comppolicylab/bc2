@@ -35,7 +35,6 @@ class TextRenderer(BaseRenderer):
                 style=lambda x, y: x,
                 p=lambda x: f"{x}\n\n",
                 escape=lambda x: x,
-                delimiters=self.config.delimiters,
             )
         )
         f.write("=== END OF DOCUMENT ===\n")
