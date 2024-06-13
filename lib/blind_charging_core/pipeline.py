@@ -10,9 +10,11 @@ from .extract.openai import OpenAIExtractConfig
 from .extract.tesseract import TesseractExtractConfig
 from .input.azureblob import AzureBlobInputConfig
 from .input.file import FileInputConfig
+from .input.memory import MemoryInputConfig
 from .input.stdin import StdinInputConfig
 from .output.azureblob import AzureBlobOutputConfig
 from .output.file import FileOutputConfig
+from .output.memory import MemoryOutputConfig
 from .output.stdout import StdoutOutputConfig
 from .parse.openai import OpenAIParseConfig
 from .redact.noop import NoOpRedactConfig
@@ -24,7 +26,9 @@ from .render.text import TextRenderConfig
 logger = logging.getLogger(__name__)
 
 
-InputConfig = Union[AzureBlobInputConfig, FileInputConfig, StdinInputConfig]
+InputConfig = Union[
+    AzureBlobInputConfig, FileInputConfig, StdinInputConfig, MemoryInputConfig
+]
 
 
 ExtractConfig = Union[AzureDIExtractConfig, OpenAIExtractConfig, TesseractExtractConfig]
@@ -39,7 +43,9 @@ RedactConfig = Union[OpenAIRedactConfig, NoOpRedactConfig]
 RenderConfig = Union[PdfRenderConfig, HtmlRenderConfig, TextRenderConfig]
 
 
-OutputConfig = Union[AzureBlobOutputConfig, FileOutputConfig, StdoutOutputConfig]
+OutputConfig = Union[
+    AzureBlobOutputConfig, FileOutputConfig, StdoutOutputConfig, MemoryOutputConfig
+]
 
 
 AnyConfig = Union[
