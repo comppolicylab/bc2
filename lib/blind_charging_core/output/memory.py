@@ -1,5 +1,4 @@
 import io
-import sys
 from functools import cached_property
 from typing import Literal
 
@@ -9,25 +8,26 @@ from ..common.file import MemoryFile
 from .base import BaseOutputDriver
 
 
-class StdoutOutputConfig(BaseModel):
-    engine: Literal["out:stdout"]
+class MemoryOutputConfig(BaseModel):
+    engine: Literal["out:memory"]
     buffer_size: int = 1024
 
     @cached_property
-    def driver(self) -> "StdoutOutput":
-        return StdoutOutput(self)
+    def driver(self) -> "MemoryOutput":
+        return MemoryOutput(self)
 
 
-class StdoutOutput(BaseOutputDriver):
-    def __init__(self, config: StdoutOutputConfig):
+class MemoryOutput(BaseOutputDriver):
+    def __init__(self, config: MemoryOutputConfig):
         self.config = config
 
     def __call__(self, file: MemoryFile, output_path: str = "") -> io.BytesIO | None:
-        """Write to stdout."""
+        """Write to a memory buffer."""
+        output = io.BytesIO()
         file.buffer.seek(0)
         while True:
             b = file.buffer.read(self.config.buffer_size)
             if not b:
                 break
-            sys.stdout.buffer.write(b)
-        return None
+            output.write(b)
+        return output

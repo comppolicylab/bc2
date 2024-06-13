@@ -1,6 +1,6 @@
 import logging
 from inspect import signature
-from typing import Any, Union
+from typing import Any, Tuple, Union
 
 from pydantic import BaseModel
 
@@ -98,7 +98,7 @@ class Pipeline:
                 f"Expected last step to have no return value, but got {last_output}"
             )
 
-    def run(self, runtime_config: dict[str, Any] | None = None) -> Context:
+    def run(self, runtime_config: dict[str, Any] | None = None) -> Tuple[Any, Context]:
         """Run the pipeline."""
         runtime_config = runtime_config or {}
         ctx = Context()
@@ -129,4 +129,4 @@ class Pipeline:
 
             pipe = config.driver(*args, **kwargs)
 
-        return ctx
+        return pipe, ctx

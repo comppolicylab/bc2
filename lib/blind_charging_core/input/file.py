@@ -1,3 +1,4 @@
+import io
 from functools import cached_property
 from typing import Literal
 
@@ -22,7 +23,9 @@ class FileInput(BaseInputDriver):
 
     required = ["input_path"]
 
-    def __call__(self, input_path: str = "") -> MemoryFile:
+    def __call__(
+        self, input_path: str = "", input_buffer: io.BytesIO | None = None
+    ) -> MemoryFile:
         """Read from a file."""
         if not input_path:
             raise ValueError("Path is required for file input.")

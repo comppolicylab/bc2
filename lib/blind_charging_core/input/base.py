@@ -1,3 +1,4 @@
+import io
 from abc import ABC, abstractmethod
 
 from ..common.file import MemoryFile
@@ -15,4 +16,6 @@ class BaseInputDriver(ABC):
     required: list[str] = []
 
     @abstractmethod
-    def __call__(self, input_path: str = "") -> MemoryFile: ...
+    def __call__(
+        self, input_path: str = "", input_buffer: io.BytesIO | None = None
+    ) -> MemoryFile: ...
