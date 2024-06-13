@@ -9,7 +9,7 @@ from .base import BaseInputDriver
 
 
 class MemoryInputConfig(BaseModel):
-    engine: Literal["in:stdin"]
+    engine: Literal["in:memory"]
     buffer_size: int = 1024
 
     @cached_property
