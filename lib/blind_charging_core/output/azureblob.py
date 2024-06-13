@@ -1,3 +1,4 @@
+import io
 from functools import cached_property
 from typing import Literal
 
@@ -20,10 +21,11 @@ class AzureBlobOutput(BaseOutputDriver, AzureBlobDriver):
     def __init__(self, config: AzureBlobOutputConfig):
         self.init_client(config)
 
-    def __call__(self, file: MemoryFile, output_path: str = "") -> None:
+    def __call__(self, file: MemoryFile, output_path: str = "") -> io.BytesIO | None:
         """Write to an Azure Blob."""
         full_path = f"{self.config.prefix}{output_path}"
         bc = self.blob_service_client.get_blob_client(
             container=self.config.container, blob=full_path
         )
         bc.upload_blob(file.buffer, blob_type="BlockBlob")
+        return None

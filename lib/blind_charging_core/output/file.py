@@ -1,3 +1,4 @@
+import io
 from functools import cached_property
 from typing import Literal
 
@@ -22,7 +23,7 @@ class FileOutput(BaseOutputDriver):
 
     required = ["path"]
 
-    def __call__(self, file: MemoryFile, output_path: str = "") -> None:
+    def __call__(self, file: MemoryFile, output_path: str = "") -> io.BytesIO | None:
         """Write to a file."""
         if not output_path:
             raise ValueError("Path is required for file output.")
@@ -33,3 +34,4 @@ class FileOutput(BaseOutputDriver):
                 if not data:
                     break
                 f.write(data)
+        return None

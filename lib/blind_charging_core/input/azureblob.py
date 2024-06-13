@@ -1,3 +1,4 @@
+import io
 from functools import cached_property
 from typing import Literal
 
@@ -20,7 +21,9 @@ class AzureBlobInput(BaseInputDriver, AzureBlobDriver):
     def __init__(self, config: AzureBlobInputConfig):
         self.init_client(config)
 
-    def __call__(self, input_path: str = "") -> MemoryFile:
+    def __call__(
+        self, input_path: str = "", input_buffer: io.BytesIO | None = None
+    ) -> MemoryFile:
         """Read from an Azure Blob."""
         f = MemoryFile()
         full_path = f"{self.config.prefix}{input_path}"
