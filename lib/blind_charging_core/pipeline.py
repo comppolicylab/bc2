@@ -98,11 +98,7 @@ class Pipeline:
             # Update the last_output
             last_output = sig.return_annotation
 
-        # Validate that the last step returns None.
-        if last_output is not None:
-            raise ValueError(
-                f"Expected last step to have no return value, but got {last_output}"
-            )
+        # TODO(jnu): Validate that last step returns the type `io.BytesIO | None`
 
     def run(self, runtime_config: dict[str, Any] | None = None) -> Tuple[Any, Context]:
         """Run the pipeline."""
