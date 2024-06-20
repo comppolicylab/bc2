@@ -11,7 +11,7 @@ def generate_csv(root_folder):
             relative_path = os.path.relpath(file_path, root_folder)
             parts = relative_path.split(os.sep)
             
-            if len(parts) < 4:
+            if len(parts) < 4 or file.startswith('.'):
                 continue
 
             agency_fullname, _, folder_name, _ = parts[:4]
