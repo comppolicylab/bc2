@@ -11,7 +11,7 @@ def format_filename(text):
     return text
 
 def process_pdf(folder_name, filename, case_id, agency, state,
-                rows, source_folder, dest_folder):
+                rows, source_folder, dest_folder, extract_mode):
     
     print(f"Processing {agency} - {state} - {folder_name} - {filename} - {case_id}")
     agency_filename = format_filename(agency)
@@ -40,28 +40,42 @@ def process_pdf(folder_name, filename, case_id, agency, state,
             doc_start = row['document_start']
             doc_end   = row['document_end']
             doc_type  = row['document_type'].lower().strip()
-            # doc_num   = row['document_num']
 
-            for page in range(int(doc_start) - 1, int(doc_end)):
-                if page + 1 in doc_attached_pages:
-                    continue
+            if extract_mode == "document":
                 output_filename = "__".join([agency_folder, folder_name, 
                                              str(filename), 
-                                            #  str(case_id), 
-                                            #  str(doc_num), doc_type, 
-                                             f"pg{page + 1:03}"]) + ".pdf"
+                                             f"doc_{doc_start}_{doc_end}"]) + ".pdf"
                 output_path = os.path.join(dest_folder, doc_type, output_filename)
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
                 pdf_writer = PdfWriter()
-                pdf_writer.add_page(pdf_reader.pages[page])
+                for page in range(int(doc_start) - 1, int(doc_end)):
+                    if page + 1 in doc_attached_pages:
+                        continue
+                    pdf_writer.add_page(pdf_reader.pages[page])
 
                 with open(output_path, 'wb') as output:
                     print(f"Writing {output_filename}")
                     pdf_writer.write(output)
+            else:
+                for page in range(int(doc_start) - 1, int(doc_end)):
+                    if page + 1 in doc_attached_pages:
+                        continue
+                    output_filename = "__".join([agency_folder, folder_name, 
+                                                 str(filename), 
+                                                 f"pg{page + 1:03}"]) + ".pdf"
+                    output_path = os.path.join(dest_folder, doc_type, output_filename)
+                    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+                    pdf_writer = PdfWriter()
+                    pdf_writer.add_page(pdf_reader.pages[page])
+
+                    with open(output_path, 'wb') as output:
+                        print(f"Writing {output_filename}")
+                        pdf_writer.write(output)
     print("")
 
-def main(directory_path, doc_type, source_folder, dest_folder, num_samples):
+def main(directory_path, doc_type, source_folder, dest_folder, num_samples, extract_mode):
     df = pd.read_excel(directory_path)
     filtered_df = df[df['document_type'].str.contains(doc_type, regex=True, na=False) & 
                      (df['duplicate_notes'] != "Ignore")]
@@ -78,7 +92,7 @@ def main(directory_path, doc_type, source_folder, dest_folder, num_samples):
 
     for (folder_name, file_name, document_id, agency, state), group_df in groups:
         process_pdf(folder_name, file_name, document_id, agency, state, 
-                    group_df, source_folder, dest_folder)
+                    group_df, source_folder, dest_folder, extract_mode)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process PDF files based on Excel data.')
@@ -87,7 +101,9 @@ if __name__ == '__main__':
     parser.add_argument('source_folder', type=str, help='Path to the source folder')
     parser.add_argument('dest_folder', type=str, help='Path to the destination folder')
     parser.add_argument('--num_samples', type=int, help='Number of documents to randomly sample', default=None)
+    parser.add_argument('--extract_mode', type=str, choices=['page', 'document'], default='page', 
+                        help='Mode of extraction: "page" for page-by-page, "document" for entire document')
 
     args = parser.parse_args()
 
-    main(args.directory_path, args.doc_type, args.source_folder, args.dest_folder, args.num_samples)
+    main(args.directory_path, args.doc_type, args.source_folder, args.dest_folder, args.num_samples, args.extract_mode)
