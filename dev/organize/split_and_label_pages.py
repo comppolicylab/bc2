@@ -28,14 +28,17 @@ def process_pdf(folder_name, filename, case_id, agency, state,
             if not pd.isnull(doc_attached_pages_value):
                 print(doc_attached_pages_value)
                 print()
-                attached_ranges = doc_attached_pages_value.split(',')
-                for item in attached_ranges:
-                    if '-' in item:
-                        start, end = item.split('-')
-                        doc_attached_pages.extend(range(int(start), 
-                                                        int(end) + 1))
-                    else:
-                        doc_attached_pages.append(int(item))
+                if "," in str(doc_attached_pages_value):
+                    attached_ranges = doc_attached_pages_value.split(',')
+                    for item in attached_ranges:
+                        if '-' in item:
+                            start, end = item.split('-')
+                            doc_attached_pages.extend(range(int(start), 
+                                                            int(end) + 1))
+                        else:
+                            doc_attached_pages.append(int(item))
+                else:
+                    doc_attached_pages = [doc_attached_pages_value]
 
             doc_start = row['document_start']
             doc_end   = row['document_end']
