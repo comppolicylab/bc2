@@ -10,26 +10,26 @@ Formatter = Callable[[str, dict[str, Any]], str]
 Ctx = dict[str, Any]
 
 
-def format_jinja(prompt: str, ctx: Ctx) -> str:
-    """Format the prompt as a Jinja template."""
-    template = Template(prompt)
+def format_jinja(tpl: str, ctx: Ctx) -> str:
+    """Format the template with Jinja."""
+    template = Template(tpl)
     return template.render(**ctx)
 
 
-def format_string(prompt: str, ctx: Ctx) -> str:
-    """Format the prompt as a string template."""
-    # Check if the prompt has a named `prompt` placeholder
+def format_string(tpl: str, ctx: Ctx) -> str:
+    """Format the template with string formatting."""
     fmt = string.Formatter()
 
-    if any(field[1] is not None for field in fmt.parse(prompt)):
-        return prompt.format(**ctx)
+    # Use string-formatting if there are placeholders.
+    if any(field[1] is not None for field in fmt.parse(tpl)):
+        return tpl.format(**ctx)
 
-    # Otherwise tack the prompt onto the end of the string
-    input = ctx.get("input", "")
-    output = prompt
-    if input:
-        output += "\n" + input
-    return output
+    # If there are no placeholders, just tack on fields to the end.
+    outputs = [tpl]
+    for value in ctx.values():
+        outputs.append(value)
+
+    return "\n".join(outputs)
 
 
 def get_formatter(engine: TemplateEngine) -> Formatter:
