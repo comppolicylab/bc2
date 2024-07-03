@@ -125,10 +125,16 @@ class Pipeline:
                     params = params[1:]
 
                 # Try to fill in additional parameters from the runtime config
+                pipe_type = config.engine.split(":")[0]
+                rt_param_set = runtime_config.get(pipe_type, {})
                 for param in params:
-                    if param in runtime_config:
-                        kwargs[param] = runtime_config[param]
+                    if param == "context":
+                        kwargs[param] = ctx
+                    elif param in rt_param_set:
+                        kwargs[param] = rt_param_set[param]
 
-            pipe = config.driver(*args, **kwargs)
+            # NOTE(jnu): mypy can't validate the kwarg types, but we've effectively
+            # done this at runtime anyway so just hush the error.
+            pipe = config.driver(*args, **kwargs)  # type: ignore[arg-type]
 
         return pipe, ctx

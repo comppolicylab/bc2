@@ -29,8 +29,12 @@ def run(
     config = PipelineConfig.model_validate(cfg_obj)
 
     runtime_cfg = {
-        "input_path": input_path,
-        "output_path": output_path,
+        "in": {
+            "path": input_path,
+        },
+        "out": {
+            "path": output_path,
+        },
     }
 
     pipe = Pipeline(config)

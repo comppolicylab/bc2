@@ -22,7 +22,7 @@ class StdoutOutput(BaseOutputDriver):
     def __init__(self, config: StdoutOutputConfig):
         self.config = config
 
-    def __call__(self, file: MemoryFile, output_path: str = "") -> io.BytesIO | None:
+    def __call__(self, file: MemoryFile, path: str = "") -> io.BytesIO | None:
         """Write to stdout."""
         file.buffer.seek(0)
         while True:

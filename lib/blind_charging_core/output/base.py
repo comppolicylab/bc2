@@ -1,5 +1,6 @@
 import io
 from abc import ABC, abstractmethod
+from typing import Literal
 
 from ..common.file import MemoryFile
 
@@ -17,9 +18,7 @@ class BaseOutputDriver(ABC):
     and return None.
     """
 
-    required: list[str] = []
+    required: list[Literal["path"]] = []
 
     @abstractmethod
-    def __call__(
-        self, file: MemoryFile, output_path: str = ""
-    ) -> io.BytesIO | None: ...
+    def __call__(self, file: MemoryFile, path: str = "") -> io.BytesIO | None: ...

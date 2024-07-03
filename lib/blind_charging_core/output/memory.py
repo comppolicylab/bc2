@@ -21,7 +21,7 @@ class MemoryOutput(BaseOutputDriver):
     def __init__(self, config: MemoryOutputConfig):
         self.config = config
 
-    def __call__(self, file: MemoryFile, output_path: str = "") -> io.BytesIO | None:
+    def __call__(self, file: MemoryFile, path: str = "") -> io.BytesIO | None:
         """Write to a memory buffer."""
         output = io.BytesIO()
         file.buffer.seek(0)

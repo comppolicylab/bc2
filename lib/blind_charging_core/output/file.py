@@ -23,12 +23,12 @@ class FileOutput(BaseOutputDriver):
 
     required = ["path"]
 
-    def __call__(self, file: MemoryFile, output_path: str = "") -> io.BytesIO | None:
+    def __call__(self, file: MemoryFile, path: str = "") -> io.BytesIO | None:
         """Write to a file."""
-        if not output_path:
+        if not path:
             raise ValueError("Path is required for file output.")
         file.buffer.seek(0)
-        with open(output_path, "wb") as f:
+        with open(path, "wb") as f:
             while True:
                 data = file.buffer.read(self.config.buffer_size)
                 if not data:

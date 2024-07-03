@@ -1,5 +1,6 @@
 import io
 from abc import ABC, abstractmethod
+from typing import Literal
 
 from ..common.file import MemoryFile
 
@@ -13,9 +14,9 @@ class BaseInputDriver(ABC):
     will ignore it.
     """
 
-    required: list[str] = []
+    required: list[Literal["path"] | Literal["buffer"]] = []
 
     @abstractmethod
     def __call__(
-        self, input_path: str = "", input_buffer: io.BytesIO | None = None
+        self, path: str = "", buffer: io.BytesIO | None = None
     ) -> MemoryFile: ...
