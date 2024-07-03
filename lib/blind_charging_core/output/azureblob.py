@@ -21,7 +21,9 @@ class AzureBlobOutput(BaseOutputDriver, AzureBlobDriver):
     def __init__(self, config: AzureBlobOutputConfig):
         self.init_client(config)
 
-    def __call__(self, file: MemoryFile, path: str = "") -> io.BytesIO | None:
+    def __call__(
+        self, file: MemoryFile, path: str = "", buffer: io.BytesIO | None = None
+    ) -> None:
         """Write to an Azure Blob."""
         full_path = f"{self.config.prefix}{path}"
         bc = self.blob_service_client.get_blob_client(

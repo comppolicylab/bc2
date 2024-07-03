@@ -23,7 +23,9 @@ class FileOutput(BaseOutputDriver):
 
     required = ["path"]
 
-    def __call__(self, file: MemoryFile, path: str = "") -> io.BytesIO | None:
+    def __call__(
+        self, file: MemoryFile, path: str = "", buffer: io.BytesIO | None = None
+    ) -> None:
         """Write to a file."""
         if not path:
             raise ValueError("Path is required for file output.")
@@ -34,4 +36,3 @@ class FileOutput(BaseOutputDriver):
                 if not data:
                     break
                 f.write(data)
-        return None

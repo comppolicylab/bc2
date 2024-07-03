@@ -21,13 +21,17 @@ class MemoryOutput(BaseOutputDriver):
     def __init__(self, config: MemoryOutputConfig):
         self.config = config
 
-    def __call__(self, file: MemoryFile, path: str = "") -> io.BytesIO | None:
+    required = ["buffer"]
+
+    def __call__(
+        self, file: MemoryFile, path: str = "", buffer: io.BytesIO | None = None
+    ) -> None:
         """Write to a memory buffer."""
-        output = io.BytesIO()
+        if not buffer:
+            raise ValueError("Buffer is required for memory output.")
         file.buffer.seek(0)
         while True:
             b = file.buffer.read(self.config.buffer_size)
             if not b:
                 break
-            output.write(b)
-        return output
+            buffer.write(b)
