@@ -200,13 +200,13 @@ class OpenAIChatConfig(BaseModel):
     top_p: float | None = None
 
     def invoke(
-        self, client: Client, input: AnyChatInput | Sequence[AnyChatInput]
+        self, client: Client, input: AnyChatInput | Sequence[AnyChatInput], **kwargs
     ) -> str:
         """Invoke the chat."""
         settings = self.model_dump()
         settings.pop("method")
         settings.pop("system")
-        messages = [m.model_dump() for m in self.system.format(input)]
+        messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
         # Remove any setting whose value is `None`
         settings = {k: v for k, v in settings.items() if v is not None}
         completion = client.chat.completions.create(**settings, messages=messages)
@@ -236,11 +236,12 @@ class OpenAICompletionConfig(BaseModel):
             if self.best_of <= self.n:
                 raise ValueError("best_of must be greater than n")
 
-    def invoke(self, client: Client, input: str) -> str:
+    def invoke(self, client: Client, input: str, **kwargs) -> str:
         """Invoke the completion."""
         settings = self.model_dump()
         settings.pop("method")
-        prompt = settings.pop("prompt").format(input)
+        settings.pop("prompt")
+        prompt = self.prompt.format(input, **kwargs)
         # Remove any setting whose value is `None`
         settings = {k: v for k, v in settings.items() if v is not None}
         completion = client.completions.create(**settings, prompt=prompt)
