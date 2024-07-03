@@ -1,4 +1,4 @@
-import string
+import json
 from abc import abstractmethod
 from functools import cached_property
 from typing import Any, Literal, Sequence
@@ -7,6 +7,7 @@ from openai import Client
 from pydantic import BaseModel
 
 from .image import ImageUrl
+from .template import TemplateEngine, get_formatter
 
 
 class OpenAIClientConfig(BaseModel):
@@ -61,14 +62,35 @@ AnyChatInput = str | ImageUrl
 
 
 class ChatPrompt:
+    engine: TemplateEngine = "string"
+
     @property
     @abstractmethod
-    def messages(self) -> list[OpenAIChatTurn]: ...
+    def prompt(self) -> str: ...
+
+    @property
+    @abstractmethod
+    def examples(self) -> list[dict[str, str]] | None: ...
 
     def format(
-        self, input: AnyChatInput | Sequence[AnyChatInput]
+        self, input: AnyChatInput | Sequence[AnyChatInput], **kwargs
     ) -> list[OpenAIChatTurn]:
         """Format the prompt."""
+        ctx = {**kwargs, "input": input}
+        fmt = get_formatter(self.engine)
+
+        # Format system and example messages into the start of the thread
+        base_messages: list[OpenAIChatTurn] = [
+            OpenAIChatTurn(
+                role="system",
+                content=fmt(self.prompt, ctx),
+            )
+        ]
+        for example in self.examples or []:
+            turn = OpenAIChatTurn.model_validate(example)
+            turn.content = fmt(turn.content, ctx)
+            base_messages.append(turn)
+
         # TODO - we might get different results if the input image is
         # formatted into the pre-defined prompt instead of as a new message.
         inputs: list[AnyChatInput] = []
@@ -90,23 +112,14 @@ class ChatPrompt:
                 content.append(OpenAIChatInputText(text=node))
             else:
                 raise ValueError(f"Unsupported input type: {type(node)}")
-        return self.messages + [OpenAIChatTurn(role="user", content=content)]
+        return base_messages + [OpenAIChatTurn(role="user", content=content)]
 
 
 class OpenAIChatPromptInline(BaseModel, ChatPrompt):
     """An inline prompt for an OpenAI model."""
 
     prompt: str
-    examples: list[OpenAIChatTurn] | None = None
-
-    @cached_property
-    def messages(self) -> list[OpenAIChatTurn]:
-        """Format the prompt."""
-        messages: list[OpenAIChatTurn] = []
-        messages.append(OpenAIChatTurn(role="system", content=self.prompt))
-        if self.examples:
-            messages += self.examples
-        return messages
+    examples: list[dict[str, str]] | None = None
 
 
 class OpenAIChatPromptFile(BaseModel, ChatPrompt):
@@ -116,17 +129,20 @@ class OpenAIChatPromptFile(BaseModel, ChatPrompt):
     examples_file: str | None = None
 
     @cached_property
-    def messages(self) -> list[OpenAIChatTurn]:
+    def prompt(self) -> str:
         """Format the prompt file."""
-        messages: list[OpenAIChatTurn] = []
         with open(self.prompt_file, "r") as f:
-            prompt = f.read()
-            messages.append(OpenAIChatTurn(role="system", content=prompt))
+            return f.read()
+
+    @cached_property
+    def examples(self) -> list[dict[str, str]]:
+        """Load the examples file."""
+        messages: list[dict[str, str]] = []
         if self.examples_file is not None:
             # Examples should be specified as JSONL
             with open(self.examples_file, "r") as f:
                 for example in f:
-                    new_turn = OpenAIChatTurn.model_validate_json(example)
+                    new_turn = json.loads(example)
                     messages.append(new_turn)
         return messages
 
@@ -135,19 +151,17 @@ OpenAIChatPrompt = OpenAIChatPromptInline | OpenAIChatPromptFile
 
 
 class CompletionPrompt:
+    engine: TemplateEngine = "string"
+
     @property
     @abstractmethod
     def prompt(self) -> str: ...
 
-    def format(self, input: str) -> str:
+    def format(self, input: str, **kwargs) -> str:
         """Format the prompt."""
-        # Check if the prompt has a named `prompt` placeholder
-        fmt = string.Formatter()
-        if any(field[1] == "prompt" for field in fmt.parse(self.prompt)):
-            return self.prompt.format(prompt=input)
-
-        # Otherwise tack the prompt onto the end of the string
-        return self.prompt + "\n" + input
+        ctx = {**kwargs, "input": input}
+        fmt = get_formatter(self.engine)
+        return fmt(self.prompt, ctx)
 
 
 class OpenAICompletionPromptInline(BaseModel, CompletionPrompt):
