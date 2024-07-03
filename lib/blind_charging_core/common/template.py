@@ -25,9 +25,9 @@ def format_string(tpl: str, ctx: Ctx) -> str:
         return tpl.format(**ctx)
 
     # If there are no placeholders, just tack on fields to the end.
-    outputs = [tpl]
+    outputs: list[str] = [tpl]
     for value in ctx.values():
-        outputs.append(value)
+        outputs.append(str(value))
 
     return "\n".join(outputs)
 
