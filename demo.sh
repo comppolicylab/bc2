@@ -29,4 +29,4 @@ fi
 
 export OUTPUT_DIR
 
-find "$INPUT_DIR" -name "*.pdf" | parallel -j "$NUM_JOBS" --eta 'filename=$(basename -- {}); poetry run python -m lib.blind_charging_core ../blind-charging-secrets/pipeline.dev.toml --input-path {} --output-path "$OUTPUT_DIR/${filename%.pdf}-redacted.pdf"'
+find "$INPUT_DIR" -name "*.pdf" | parallel -j "$NUM_JOBS" --eta 'filename=$(basename -- {}); poetry run python -m lib.blind_charging_core ../blind-charging-secrets/demo.toml --input-path {} --output-path "$OUTPUT_DIR/${filename%.pdf}-redacted.pdf"'
