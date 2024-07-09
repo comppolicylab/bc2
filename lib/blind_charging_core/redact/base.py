@@ -11,6 +11,18 @@ class BaseRedactConfig(BaseModel):
     delimiters: Sequence[str] = ("<", ">")
 
 
+AliasMap = dict[str, str]
+"""A mapping of human names to aliases.
+
+Example:
+{
+    "Leopold Nudell": "Accused 1",
+}
+"""
+
+
 class BaseRedactDriver(ABC):
     @abstractmethod
-    def __call__(self, narrative: Text) -> RedactedText: ...
+    def __call__(
+        self, narrative: Text, aliases: AliasMap | None = None
+    ) -> RedactedText: ...
