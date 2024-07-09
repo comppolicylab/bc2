@@ -98,7 +98,11 @@ class Pipeline:
             # Update the last_output
             last_output = sig.return_annotation
 
-        # TODO(jnu): Validate that last step returns the type `io.BytesIO | None`
+        # Validate that last step returns `None`
+        if last_output is not None and last_output != type(None):
+            raise ValueError(
+                f"Expected final step to return `None` but got {last_output}"
+            )
 
     def run(self, runtime_config: dict[str, Any] | None = None) -> Tuple[Any, Context]:
         """Run the pipeline."""
@@ -125,10 +129,16 @@ class Pipeline:
                     params = params[1:]
 
                 # Try to fill in additional parameters from the runtime config
+                pipe_type = config.engine.split(":")[0]
+                rt_param_set = runtime_config.get(pipe_type, {})
                 for param in params:
-                    if param in runtime_config:
-                        kwargs[param] = runtime_config[param]
+                    if param == "context":
+                        kwargs[param] = ctx
+                    elif param in rt_param_set:
+                        kwargs[param] = rt_param_set[param]
 
-            pipe = config.driver(*args, **kwargs)
+            # NOTE(jnu): mypy can't validate the kwarg types, but we've effectively
+            # done this at runtime anyway so just hush the error.
+            pipe = config.driver(*args, **kwargs)  # type: ignore[arg-type]
 
         return pipe, ctx

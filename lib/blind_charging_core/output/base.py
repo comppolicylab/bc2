@@ -1,5 +1,6 @@
 import io
 from abc import ABC, abstractmethod
+from typing import Literal
 
 from ..common.file import MemoryFile
 
@@ -12,14 +13,17 @@ class BaseOutputDriver(ABC):
     The path is only relevant for some output drivers; others (like stdout)
     will ignore it.
 
-    The output driver can return a BytesIO object if the output is in-memory.
-    In other cases the driver will have IO side effects (like writing to a file),
-    and return None.
+    The output driver must have side effects, such as writing to a file.
+    The input arguments of either a `path` or a `buffer` can specify where
+    the side effect will take place. These arguments will be interpreted
+    differently depending on the output driver.
+
+    The output driver should return `None`.
     """
 
-    required: list[str] = []
+    required: list[Literal["path"] | Literal["buffer"]] = []
 
     @abstractmethod
     def __call__(
-        self, file: MemoryFile, output_path: str = ""
-    ) -> io.BytesIO | None: ...
+        self, file: MemoryFile, path: str = "", buffer: io.BytesIO | None = None
+    ) -> None: ...

@@ -1,3 +1,4 @@
+import json
 import logging
 from pathlib import Path
 from typing import Optional
@@ -20,6 +21,7 @@ def run(
     input_path: Optional[str] = None,
     output_path: Optional[str] = None,
     validate: bool = False,
+    aliases: Optional[str] = None,
 ):
     """Run the pipeline."""
     logger.debug("Running pipeline ...")
@@ -28,9 +30,17 @@ def run(
     cfg_obj = tomllib.loads(raw_cfg)
     config = PipelineConfig.model_validate(cfg_obj)
 
+    # Map of arguments passed at runtime to the pipeline.
     runtime_cfg = {
-        "input_path": input_path,
-        "output_path": output_path,
+        "in": {
+            "path": input_path,
+        },
+        "out": {
+            "path": output_path,
+        },
+        "redact": {
+            "aliases": json.loads(aliases) if aliases else None,
+        },
     }
 
     pipe = Pipeline(config)

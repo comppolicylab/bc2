@@ -21,16 +21,14 @@ class FileInput(BaseInputDriver):
     def __init__(self, config: FileInputConfig):
         self.config = config
 
-    required = ["input_path"]
+    required = ["path"]
 
-    def __call__(
-        self, input_path: str = "", input_buffer: io.BytesIO | None = None
-    ) -> MemoryFile:
+    def __call__(self, path: str = "", buffer: io.BytesIO | None = None) -> MemoryFile:
         """Read from a file."""
-        if not input_path:
+        if not path:
             raise ValueError("Path is required for file input.")
         f = MemoryFile()
-        with open(input_path, "rb") as file:
+        with open(path, "rb") as file:
             while True:
                 data = file.read(self.config.buffer_size)
                 if not data:
