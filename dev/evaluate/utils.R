@@ -1,4 +1,18 @@
 
+# Common paths
+user_dir               <- "/Users/alexcw"
+project_dir            <- "Development/bc2"
+project_path           <- glue("{file.path(user_dir, project_dir)}")
+onedrive_dir           <- "Library/CloudStorage/OneDrive-HarvardUniversity"
+data_dir               <- "public_police_reports"
+label_dir              <- "labels/all_labels/public_police_reports"
+inventory_dir          <- "inventories"
+inventory_name         <- "cpl_inventory_2024-06-20.xlsx"
+
+
+
+# Label extraction functions
+# ------------------------------------------------------------------------------
 # Extract labeled narratives from Document Intelligence labels
 extract_narrative <- function(label_filepath) {
   # Read the JSON file
@@ -53,6 +67,29 @@ extract_narrative <- function(label_filepath) {
   return(final_result)
 }
 
+extract_labels <- function() {
+  label_files <- tibble(
+    label_filepath = list.files(path = file.path(user_dir, onedrive_dir, 
+                                                 data_dir, label_dir), 
+                                pattern = "\\.pdf.labels.json$", 
+                                full.names = TRUE)) %>% 
+    mutate(label_filename = basename(label_filepath))
+  
+  label_files %>% 
+    pull(label_filepath) %>% 
+    map_dfr(extract_narrative) %>% # distinct() %>% 
+    group_by(label_filepath) %>% 
+    summarize(label_narr_and_head_page = paste(na.omit(label_value), 
+                                               collapse = "\n"),
+              label_narr_only_page     = paste(na.omit(label_value[label_type == 
+                                                                     "narrative_content"]), 
+                                               collapse = "\n"),
+              .groups = "drop") %>% 
+    mutate(across(starts_with("label_"), 
+                  ~ if_else(. == "", NA_character_, .)),
+           page_src_path   = str_remove(label_filepath, "\\.labels.json$"))
+}
+
 remove_special_chars <- function(filename) {
   # Define a pattern for characters to keep (alphanumeric and some common symbols)
   pattern <- "[^A-Za-z0-9._-]"
@@ -74,12 +111,7 @@ add_filepaths_to_inventory <- function(inventory) {
            orig_pdf_src_path    = file.path(user_dir, onedrive_dir, data_dir, 
                                             "raw", "harvard", agency_dir, "raw",
                                             folder_name, file_name),
-           document_id_safe     = remove_special_chars(document_id),
-           document_out_name    = str_c(name_base, 
-                                        glue("{document_id_safe}.pdf"), 
-                                        sep = "__"),
-           document_out_path    = file.path(cache_path, input_dir, 
-                                            document_out_name)
+           document_id_safe     = remove_special_chars(document_id)
     ) %>% 
     group_by(name_base, document_id, document_start, document_end) %>% 
     mutate(page = map2(document_start, document_end, seq)) %>%
@@ -90,9 +122,17 @@ add_filepaths_to_inventory <- function(inventory) {
            page_out_name        = str_c(name_base, document_id_safe,
                                         glue("pg{page_str}.pdf"), sep = "__"),
            page_src_path        = file.path(user_dir, onedrive_dir, data_dir, 
-                                            label_dir, page_src_name),
-           page_out_path        = file.path(cache_path, input_dir,
-                                            page_out_name)
+                                            label_dir, page_src_name)
     ) %>% 
     ungroup()
+  
+  
+
+  # document_out_name    = str_c(name_base, 
+  #                              glue("{document_id_safe}.pdf"), 
+  #                              sep = "__"),
+  # document_out_path    = file.path(cache_path, input_dir, 
+  #                                  document_out_name),
+  # page_out_path        = file.path(cache_path, input_dir,
+  #                                  page_out_name)
 }
