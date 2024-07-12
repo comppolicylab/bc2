@@ -25,32 +25,32 @@ source("dev/evaluate/utils.R")
 # With GPT-4 Turbo and 100 records with full PDFs, it took 1.25 hours,
 # so about 45 s / record
 
-num_samples            <- 100
-add_full_pdfs          <- TRUE
+num_samples   <- 100
+add_full_pdfs <- TRUE
 
-template_pipeline_name <- "extract_2024-07-06.toml"
-template_pipeline_path <- file.path(user_dir, "Development", 
-                                "blind-charging-secrets", "iterations",
-                                template_pipeline_name)
+pipe_folder                <- file.path(user_dir, "Development", 
+                                        "blind-charging-secrets", "iterations")
+extract_pipe_template_name <- "extract_2024-07-09.toml"
+extract_pipe_template_path <- file.path(pipe_folder, extract_pipe_template_name)
+parse_pipe_template_name   <- "parse_2024-07-09.toml"
+parse_pipe_template_path   <- file.path(pipe_folder, parse_pipe_template_name)
 
-evaluation_dir         <- "evaluations/extraction"
 
 
 # Set up cache 
 # ------------------------------------------------------------------------------
+evaluation_dir         <- "evaluations/extraction"
+
 cache_name        <- now() %>% str_replace_all(" |:|\\.|\\-", "_")
 cache_path        <- file.path(user_dir, onedrive_dir, data_dir,
                                evaluation_dir, cache_name)
 
 input_dir         <- "input"
-output_dir        <- "model_output"
-dir.create(file.path(cache_path, input_dir),  recursive = TRUE)
-dir.create(file.path(cache_path, output_dir), recursive = TRUE)
-
-
-# Get labels 
-# ------------------------------------------------------------------------------
-labels <- extract_labels()
+extract_dir       <- "extracted"
+parsed_dir        <- "parsed"
+dir.create(file.path(cache_path, input_dir),   recursive = TRUE)
+dir.create(file.path(cache_path, extract_dir), recursive = TRUE)
+dir.create(file.path(cache_path, parsed_dir),  recursive = TRUE)
 
 
 # Prepare evaluation sample 
@@ -59,7 +59,7 @@ inventory <- file.path(user_dir, onedrive_dir, data_dir,
                        inventory_dir, inventory_name) %>%
   read_excel(col_types = "text")
 
-has_redaction <- list.files(file.path(user_dir, onedrive_dir, data_dir, 
+redaction_labels <- list.files(file.path(user_dir, onedrive_dir, data_dir, 
                                       "labels", "redactions"), 
                             full.names = TRUE,
                             pattern = "*\\.txt") %>% 
@@ -69,12 +69,24 @@ has_redaction <- list.files(file.path(user_dir, onedrive_dir, data_dir,
          is_redacted = str_detect(raw_response, 
                                   regex("Yes", ignore_case = TRUE)))
 
+# inventory is one row per subdocument
+# master docs are by filename + document_id
+# need to drop duplicates first
+# then group by filename + document_id
+# then filter to docs with any incident included
+# then combine across subdocs to get page numbers
+# then sample from that
+
+# need separate crosswalk to go from label filename (which is orig filename + pg no)
+# to filename + document_id
+
 # Pick sample of documents from inventory, choosing from docs that are labeled
-set.seed(cache_name %>% str_split_1("_") %>% last())
-report_sample <- inventory %>% 
+# set.seed(cache_name %>% str_split_1("_") %>% last())
+# set.seed("486037")
+doc_sample <- inventory %>% 
   filter(document_type == "Incident") %>% 
-  add_filepaths_to_inventory() %>% 
-  inner_join(has_redaction, by = "page_src_name") %>%
+  add_filepaths_to_inventory(cache_paths = T) %>% 
+  inner_join(redaction_labels, by = "page_src_name") %>%
   distinct(page_src_path, .keep_all = TRUE) %>%
   filter(!is_redacted) # %>%
   # group_by(name_base, document_id) %>% 
@@ -93,34 +105,38 @@ report_sample <- inventory %>%
   #          weight = weight) %>% 
   # ungroup()
 
-# Copy all PDFs into the cache folder
-report_sample %>% 
-  select(page_src_path, page_out_name) %>% 
-  pwalk(function(page_src_path, page_out_name) {
+# Copy all PDFs into the input_dir
+doc_sample %>% 
+  select(page_src_path, page_save_name) %>% 
+  pwalk(function(page_src_path, page_save_name) {
     file.copy(page_src_path, 
-              file.path(cache_path, input_dir, page_out_name))
+              file.path(cache_path, input_dir, page_save_name))
   })
 
-# Copy the full PDFs into the cache folder
+# Copy the full PDFs into the input_dir
 if (add_full_pdfs) {
-  report_sample %>% 
-    select(orig_pdf_src_path, document_out_path, 
+  doc_sample %>% 
+    select(orig_pdf_src_path, document_save_path, 
            document_start, document_end) %>% 
-    pwalk(function(orig_pdf_src_path, document_out_path, 
+    pwalk(function(orig_pdf_src_path, document_save_path, 
                    document_start, document_end) {
       pdf_subset(input = orig_pdf_src_path, 
                  pages = document_start:document_end, 
-                 output = document_out_path)
+                 output = document_save_path)
     })
 }
 
 
-# Inject prompt
+# Prepare pipelines
 # ------------------------------------------------------------------------------
-template_pipeline_raw <- readLines(template_pipeline_path, warn = TRUE)
-template_pipeline     <- paste(template_pipeline_raw, collapse = "\n")
+# Simply copy over the extract pipe, since it doesn't need any modification
+extract_pipe_path <- file.path(cache_path, "pipeline_extract.toml")
+file.copy(extract_pipe_template_path, extract_pipe_path)
 
-extraction_prompt <- glue("
+# Inject the prompt below into the parse pipe
+parse_pipe_template_raw <- readLines(parse_pipe_template_path, warn = TRUE)
+parse_pipe_template     <- paste(parse_pipe_template_raw, collapse = "\n")
+parse_prompt            <- glue("
 I am providing you with text extracted from a police report via OCR using Azure Document Intelligence. Please extract ALL freely-written text in this output, including text constituting a police narrative or statement.
 
 A police narrative is a freely-written account of events that occurred during a criminal incident. It typically includes information such as the date, time,  location, and description of the incident, as well as the actions taken by the police officers involved. It may also include legal statements or policing jargon. They often start with \"On MMDDYY, at approximately HH:MM, I...\", or a note about body worn camera footage, e.g., \"BWC activated\". Sometimes they end with \"End of report\" or something similar.
@@ -155,65 +171,91 @@ In other words, ONLY respond with text that was included in the input, and nothi
 Do not provide any commentary.
 ")
 
-# Try to include end matter 
-# - Sometimes narratives include a list of factual information with freely written text mixed in 
-
-
 # Replace the placeholder with the long string
-injected_pipeline <- gsub("\\{prompt\\}", extraction_prompt, template_pipeline)
+parse_pipe_injected <- gsub("\\{prompt\\}", parse_prompt, parse_pipe_template)
 
 # Write the modified content back to the cache, to be used below
-injected_pipeline_path <- file.path(cache_path, "pipeline.toml")
-writeLines(injected_pipeline, injected_pipeline_path)
+parse_pipe_injected_path <- file.path(cache_path, "pipeline_parse.toml")
+writeLines(parse_pipe_injected, parse_pipe_injected_path)
 
 
-# Run model
+# Run pipelines
 # ------------------------------------------------------------------------------
 # Run pipeline to extract narrative on sample of documents
 # And cache these results 
 command_prefix <- glue("PYTHONPATH={project_path} poetry run -C {project_path}")
 base_command   <- glue("{command_prefix} python -m lib.blind_charging_core")
 
-model_input <- list.files(path = file.path(cache_path, input_dir), 
-           pattern = "pdf$", 
-           full.names = TRUE) %>% 
-  tibble(pdf_filepath = .) %>% 
-  mutate(pdf_filename  = basename(pdf_filepath),
-         output_name   = glue("{pdf_filename}.extract_output.txt"),
-         output_path   = file.path(cache_path, output_dir, output_name),
-         pdf_filepath  = shQuote(pdf_filepath),
-         output_path   = shQuote(output_path),
-         pipeline_path = shQuote(injected_pipeline_path),
-         input_arg     = glue("--input-path {pdf_filepath}"),
-         output_arg    = glue("--output-path {output_path}"),
-         args          = glue("{input_arg} {output_arg}"),
-         command = glue("{base_command} {pipeline_path} {args}")
-         )
+run_pipeline <- function(source_dir, source_pattern, 
+                         output_suffix, output_dir, 
+                         pipeline_path) {
+                           
+  pipeline_input <- list.files(path = file.path(cache_path, source_dir), 
+                               pattern = source_pattern, 
+                               full.names = TRUE) %>% 
+    tibble(src_filepath = .) %>% 
+    mutate(src_filename  = basename(src_filepath),
+           output_name   = glue("{src_filename}.{output_suffix}"),
+           output_path   = file.path(cache_path, output_dir, output_name),
+           src_filepath  = shQuote(src_filepath),
+           output_path   = shQuote(output_path),
+           pipeline_path = shQuote(pipeline_path),
+           input_arg     = glue("--input-path {src_filepath}"),
+           output_arg    = glue("--output-path {output_path}"),
+           args          = glue("{input_arg} {output_arg}"),
+           command = glue("{base_command} {pipeline_path} {args}")
+           )
+  
+  pipeline_input %>% 
+    pmap(function(...) {
+      args <- list(...)
+      system(args$command)
+    })
+  
+}
 
-model_input %>% 
-  pmap(function(...) {
-    args <- list(...)
-    system(args$command)
-  })
+run_pipeline(input_dir, "pdf$", 
+             "extracted.txt", extract_dir, 
+             extract_pipe_path)
 
-model_output <- list.files(file.path(cache_path, output_dir), 
-                           pattern = "\\.txt$", 
-                           full.names = TRUE) %>%  
-  tibble(output_filepath = .) %>% 
-  mutate(model_output = map_chr(output_filepath, 
-                                ~ paste(readLines(.), 
-                                        collapse = "\n")),
-         input_filename = str_remove(basename(output_filepath), 
-                                     "\\.extract_output.txt$"))
+run_pipeline(extract_dir, "\\.extracted\\.txt$", 
+             "parsed.txt", parsed_dir, 
+             parse_pipe_injected_path)
 
 
 # Evaluate output
 # ------------------------------------------------------------------------------
-raw_eval <- report_sample %>% 
-  left_join(model_output, 
-            by = c("page_out_name" = "input_filename")) %>% 
-  left_join(model_output, 
-            by = c("document_out_name" = "input_filename"), 
+labels <- extract_labels()
+
+extract_output <- list.files(file.path(cache_path, extract_dir), 
+                             pattern = "\\.txt$", 
+                             full.names = TRUE) %>%  
+  tibble(extract_output_filepath = .) %>% 
+  mutate(extract_output = map_chr(extract_output_filepath, 
+                                  ~ paste(readLines(.), 
+                                          collapse = "\n")),
+         input_filename = str_remove(basename(extract_output_filepath), 
+                                     "\\.extracted\\.txt$"))
+
+parse_output <- list.files(file.path(cache_path, parsed_dir), 
+                           pattern = "\\.txt$", 
+                           full.names = TRUE) %>%  
+  tibble(parse_output_filepath = .) %>% 
+  mutate(parse_output = map_chr(parse_output_filepath, 
+                                ~ paste(readLines(.), 
+                                        collapse = "\n")),
+         input_filename = str_remove(basename(parse_output_filepath), 
+                                     "\\.extracted\\.txt\\.parsed\\.txt$"))
+
+raw_eval <- doc_sample %>% 
+  left_join(labels, 
+            by = c("page_src_path" = "page_src_path")) %>%
+  left_join(extract_output, 
+            by = c("page_save_name" = "input_filename")) %>%
+  left_join(parse_output, 
+            by = c("page_save_name" = "input_filename")) %>% 
+  left_join(parse_output, 
+            by = c("document_save_name" = "input_filename"), 
             suffix = c("_page_raw", "_document_raw"))
 
 raw_eval %>% 
@@ -221,34 +263,34 @@ raw_eval %>%
 
 eval <- raw_eval %>% 
   mutate(# Replace "No narratives found." with NA_character_
-    model_output_page     = str_replace(model_output_page_raw, 
-                                         "No narratives found.\\n", 
-                                         NA_character_),
-    model_output_document = str_replace(model_output_document_raw, 
+    parse_output_page     = str_replace(parse_output_page_raw, 
+                                        "No narratives found.\\n", 
+                                        NA_character_),
+    parse_output_document = str_replace(parse_output_document_raw, 
                                         "No narratives found.\\n", 
                                         NA_character_),
     # Remove breaks between narratives added by prompt instructions
-    model_output_page     = str_replace_all(model_output_page, "-{50,}", ""),
-    model_output_document = str_replace_all(model_output_document, "-{50,}", ""),
+    parse_output_page     = str_replace_all(parse_output_page, "-{50,}", ""),
+    parse_output_document = str_replace_all(parse_output_document, "-{50,}", ""),
     # Collapse multiple linebreaks to a single line break
-    model_output_page     = str_replace_all(model_output_page, 
+    parse_output_page     = str_replace_all(parse_output_page, 
                                             "(\\n){2,}", 
                                             "\\\n"),
-    model_output_document = str_replace_all(model_output_document, 
+    parse_output_document = str_replace_all(parse_output_document, 
                                             "(\\n){2,}", 
                                             "\\\n"),
-    # model_output_page     = str_replace(model_output_page, "\\n$", ""),
-    # model_output_document = str_replace(model_output_document, "\\n$", ""),
-    has_narrative           = !is.na(label_narr_only_page), 
-    narrative_extracted     = !is.na(model_output_page),
-    text_diff_page          = pmap(list(label_narr_only_page,
-                                        model_output_page,
-                                        "semantic"),
-                                   diff_make),
-    text_diff_document      = pmap(list(label_narr_only_page,
-                                        model_output_document,
-                                        "semantic"),
-                                   diff_make)
+    # parse_output_page     = str_replace(parse_output_page, "\\n$", ""),
+    # parse_output_document = str_replace(parse_output_document, "\\n$", ""),
+    has_narrative         = !is.na(label_narr_only_page), 
+    narrative_extracted   = !is.na(parse_output_page),
+    text_diff_page        = pmap(list(label_narr_only_page,
+                                      parse_output_page,
+                                      "lossless"),
+                                 diff_make),
+    text_diff_document    = pmap(list(label_narr_only_page,
+                                      parse_output_document,
+                                      "lossless"),
+                                 diff_make)
   )
 
 # How many pages had a narrative extracted at all?
@@ -262,7 +304,7 @@ narr_recovery_page <- eval %>%
   mutate(label_narr_only_page_length = str_length(label_narr_only_page),
          op_length = str_length(text),
          op_pct = op_length / label_narr_only_page_length) %>%
-  group_by(page_out_name, model_output_page, label_narr_only_page) %>% 
+  group_by(page_save_name, parse_output_page, label_narr_only_page) %>% 
   summarize(pct_narr_recovered_page = sum(op_pct[op == "EQUAL"]),
             .groups = "drop")
 
@@ -272,17 +314,19 @@ narr_recovery_doc <- eval %>%
   mutate(label_narr_only_page_length = str_length(label_narr_only_page),
          op_length = str_length(text),
          op_pct = op_length / label_narr_only_page_length) %>%
-  group_by(page_out_name, model_output_document, label_narr_only_page) %>% 
+  group_by(page_save_name, parse_output_document, label_narr_only_page) %>% 
   summarize(pct_narr_recovered_doc = sum(op_pct[op == "EQUAL"]),
             .groups = "drop")
 
 narr_recovery <- narr_recovery_page %>% 
-  left_join(narr_recovery_doc, by = c("page_out_name",
+  left_join(narr_recovery_doc, by = c("page_save_name",
                                       "label_narr_only_page")) %>% 
-  left_join(eval %>% select(page_out_name, 
+  left_join(eval %>% select(page_save_name,
+                            extract_output,
                             text_diff_page, 
                             text_diff_document,
-                            page_out_path), by = "page_out_name")
+                            page_save_path,
+                            document_save_path), by = "page_save_name")
 
 narr_recovery %>% 
   summarize(num_narr_recovered_95_page = sum(pct_narr_recovered_page > 0.95),
@@ -300,7 +344,9 @@ narr_recovery %>%
                values_to = "count")
 
 narr_recovery %>% 
-  select(label_narr_only_page, model_output_page, model_output_document,
+  select(label_narr_only_page, 
+         extract_output,
+         parse_output_page, parse_output_document,
          pct_narr_recovered_page, pct_narr_recovered_doc) %>% 
   mutate(row_numb = row_number()) %>% 
   relocate(row_numb) %>% 
@@ -310,45 +356,61 @@ examine_doc <- function(ix_num) {
   doc_deets <- narr_recovery %>% 
     slice(ix_num) 
   
-  cat(glue("Labeled narrative:\n\n"))
+  cat(glue("Extract output:\n\n"))
+  doc_deets %>% 
+    pull(extract_output) %>% 
+    cat()
   
+  cat(glue("\n\n\n\nLabeled narrative:\n\n"))
   doc_deets %>% 
     pull(label_narr_only_page) %>% 
     cat()
   
   cat(glue("\n\n\n\nExtracted from page:\n\n"))
-  
   doc_deets %>% 
     pull(text_diff_page) %>% 
     print()
   
   cat(glue("\nExtracted from document:\n\n"))
-  
   doc_deets %>% 
     pull(text_diff_document) %>% 
     print()
   
   doc_deets %>% 
-    pull(page_out_path) %>%
+    pull(page_save_path) %>%
     map(., ~ rstudioapi::viewer(.))
+  
+  doc_deets %>% 
+    pull(document_save_path) %>%
+    map(., ~ rstudioapi::viewer(.))
+  
 }
 
-examine_doc(47)
+examine_doc(42)
 
+
+
+# 246: "wi_milwaukee_pd__assaults__232520149" Check label for narrative
 
 # To engineer:
-# - Label pages with redactions, since it seems to struggle on these
+# - Compile narratives across reports and analyze these all together
+# - Compare to input to detect hallucination 
+# - Something is wrong with #36 Idaho Falls 2023-00033247 -- probably b/c multiple report nums?
+# - Same with #37 Idaho Falls same incident number 
+# - But somehow #38 is fine, and #39
 
 # To change:
-# - Add "extra material" metric 
-# - Make diff case insensitive? 
+# - Add "hallucination" metric (not extracted text)
+# - Add "extra material" metric (extracted text, just not part of the label)
 
 # Ideas for Joe:
 # - Quality check vs. input at extraction step (see doc #32)
+# Hallucination examples: 27, 
 
 # Muskan re-label:
-# - Remove duplicate AK Juneau records in inventory? 
+# - Recommendation letter update?
+# - in_bloomington_pd__felonies__B23-51932_redacted.pdf: why label table entries as part of narrative?
 # - Lewis County: remove end-matter if it is just "I DECLARE UNDER PENALTY OF PERJURY..." boilerplate
-# - NV Elko CAD examples
-# - Duluth CAD examples
+# - NV Elko CAD examples (#83-90)
+# - Duluth CAD examples (#52)
 # - Yakima CAD examples
