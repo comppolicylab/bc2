@@ -151,14 +151,4 @@ incident_to_page_crosswalk <- function(inventory) {
                                             label_dir, page_src_name)
     ) %>% 
     ungroup()
-  
-  
-
-  # document_out_name    = str_c(name_base, 
-  #                              glue("{document_id_safe}.pdf"), 
-  #                              sep = "__"),
-  # document_out_path    = file.path(cache_path, input_dir, 
-  #                                  document_out_name),
-  # page_out_path        = file.path(cache_path, input_dir,
-  #                                  page_out_name)
 }
