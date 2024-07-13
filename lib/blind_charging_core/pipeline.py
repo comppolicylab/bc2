@@ -91,8 +91,10 @@ class Pipeline:
                     )
 
             # Now check if we have all other required params from the runtime input
+            pipe_type = config.engine.split(":")[0]
+            rt_param_set = runtime_config.get(pipe_type, {})
             for param in required_params:
-                if runtime_config.get(param, None) is None:
+                if rt_param_set.get(param, None) is None:
                     raise ValueError(f"Missing required parameter {param}")
 
             # Update the last_output
