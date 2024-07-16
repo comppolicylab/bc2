@@ -396,6 +396,6 @@ examine_doc(1)
 # - in_bloomington_pd__felonies__B23-51932_redacted.pdf: why label table entries as part of narrative?
 # - Lewis County: remove end-matter if it is just "I DECLARE UNDER PENALTY OF PERJURY..." boilerplate
 # - NV Elko CAD examples (#83-90)
-# - Duluth CAD examples (#52)
-# - Yakima CAD examples
+# - MN Duluth CAD examples (#52)
+# - WA Yakima CAD examples
 
