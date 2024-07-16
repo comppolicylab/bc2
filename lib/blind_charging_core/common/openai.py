@@ -66,27 +66,27 @@ class ChatPrompt:
 
     @property
     @abstractmethod
-    def prompt(self) -> str: ...
+    def prompt_value(self) -> str: ...
 
     @property
     @abstractmethod
-    def examples(self) -> list[dict[str, str]] | None: ...
+    def examples_value(self) -> list[dict[str, str]] | None: ...
 
     def format(
         self, input: AnyChatInput | Sequence[AnyChatInput], **kwargs
     ) -> list[OpenAIChatTurn]:
         """Format the prompt."""
-        ctx = {**kwargs, "input": input}
+        ctx = kwargs.copy()
         fmt = get_formatter(self.engine)
 
         # Format system and example messages into the start of the thread
         base_messages: list[OpenAIChatTurn] = [
             OpenAIChatTurn(
                 role="system",
-                content=fmt(self.prompt, ctx),
+                content=fmt(self.prompt_value, ctx),
             )
         ]
-        for example in self.examples or []:
+        for example in self.examples_value or []:
             turn = OpenAIChatTurn.model_validate(example)
             turn.content = fmt(turn.content, ctx)
             base_messages.append(turn)
@@ -121,6 +121,14 @@ class OpenAIChatPromptInline(BaseModel, ChatPrompt):
     prompt: str
     examples: list[dict[str, str]] | None = None
 
+    @property
+    def prompt_value(self) -> str:
+        return self.prompt
+
+    @property
+    def examples_value(self) -> list[dict[str, str]] | None:
+        return self.examples
+
 
 class OpenAIChatPromptFile(BaseModel, ChatPrompt):
     """A prompt file for an OpenAI model."""
@@ -129,13 +137,13 @@ class OpenAIChatPromptFile(BaseModel, ChatPrompt):
     examples_file: str | None = None
 
     @cached_property
-    def prompt(self) -> str:
+    def prompt_value(self) -> str:
         """Format the prompt file."""
         with open(self.prompt_file, "r") as f:
             return f.read()
 
     @cached_property
-    def examples(self) -> list[dict[str, str]]:
+    def examples_value(self) -> list[dict[str, str]]:
         """Load the examples file."""
         messages: list[dict[str, str]] = []
         if self.examples_file is not None:
