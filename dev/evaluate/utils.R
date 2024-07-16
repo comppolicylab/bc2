@@ -72,7 +72,7 @@ extract_narrative <- function(label_filepath) {
   return(final_result)
 }
 
-extract_labels <- function() {
+extract_labels <- function(inventory_page_basis) {
   label_files <- tibble(
     label_filepath = list.files(path = file.path(user_dir, onedrive_dir, 
                                                  data_dir, label_dir), 
@@ -85,17 +85,19 @@ extract_labels <- function() {
     map_dfr(extract_narrative) %>% 
     arrange(label_filepath, page_number, 
             narrative_num, desc(label_type)) %>% 
-    mutate(name_base = str_remove(label_filepath, "__pg\\d{3}\\.pdf\\.labels\\.json$"),
-           name_base = basename(name_base)) %>% 
-    group_by(name_base) %>% 
+    mutate(label_filename = basename(label_filepath),
+           page_src_name  = str_remove(label_filename, "\\.labels\\.json$")) %>% 
+    left_join(inventory_page_basis, by = "page_src_name",
+              relationship = "many-to-one") %>% 
+    group_by(document_save_name) %>% 
     summarize(label_narr_and_head_document = paste(na.omit(label_value), 
                                                    collapse = "\n"),
               label_narr_only_document     = paste(na.omit(label_value[label_type == 
-                                                                         "narrative_content"]), 
+                                                               "narrative_content"]), 
                                                            collapse = "\n"),
               .groups = "drop") %>% 
     mutate(across(starts_with("label_"), 
-                  ~ if_else(. == "", NA_character_, .)))
+                  ~ if_else(. == "", NA_character_, .))) 
 }
 
 remove_special_chars <- function(filename) {
@@ -136,7 +138,7 @@ add_filepaths_to_inventory <- function(inventory, cache_paths = F) {
   
 }
 
-doc_to_page_crosswalk <- function(inventory) {
+incident_to_page_crosswalk <- function(inventory) {
   inventory %>% 
     group_by(name_base, document_id, document_start, document_end) %>% 
     mutate(page = map2(document_start, document_end, seq)) %>%

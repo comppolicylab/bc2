@@ -10,10 +10,11 @@ def format_filename(text):
     text = re.sub(r'[^a-z0-9_]', '', text)
     return text
 
-def process_pdf(folder_name, filename, case_id, agency, state,
-                rows, source_folder, dest_folder, extract_mode):
+def process_pdf(state, agency, folder_name, filename, case_id,  
+                rows, source_folder, dest_folder, 
+                extract_mode, exclude_foreign_pages):
     
-    print(f"Processing {agency} - {state} - {folder_name} - {filename} - {case_id}")
+    print(f"Processing {state} - {agency} - {folder_name} - {filename} - {case_id}")
     agency_filename = format_filename(agency)
     agency_folder = f"{state.lower()}_{agency_filename}"
     pdf_path = os.path.join(source_folder, agency_folder,
@@ -23,22 +24,22 @@ def process_pdf(folder_name, filename, case_id, agency, state,
         pdf_reader = PdfReader(file)
 
         for _, row in rows.iterrows():
-            doc_attached_pages = []
-            doc_attached_pages_value = row['foreign_pages']
-            if not pd.isnull(doc_attached_pages_value):
-                print(doc_attached_pages_value)
+            doc_excluded_pages = []
+            doc_foreign_pages_value = row['foreign_pages']
+            if not pd.isnull(doc_foreign_pages_value) and exclude_foreign_pages:
+                print(doc_foreign_pages_value)
                 print()
-                if "," in str(doc_attached_pages_value):
-                    attached_ranges = doc_attached_pages_value.split(',')
+                if "," in str(doc_foreign_pages_value):
+                    attached_ranges = doc_foreign_pages_value.split(',')
                     for item in attached_ranges:
                         if '-' in item:
                             start, end = item.split('-')
-                            doc_attached_pages.extend(range(int(start), 
+                            doc_excluded_pages.extend(range(int(start), 
                                                             int(end) + 1))
                         else:
-                            doc_attached_pages.append(int(item))
+                            doc_excluded_pages.append(int(item))
                 else:
-                    doc_attached_pages = [doc_attached_pages_value]
+                    doc_excluded_pages = [doc_foreign_pages_value]
 
             doc_start = row['document_start']
             doc_end   = row['document_end']
@@ -53,7 +54,7 @@ def process_pdf(folder_name, filename, case_id, agency, state,
 
                 pdf_writer = PdfWriter()
                 for page in range(int(doc_start) - 1, int(doc_end)):
-                    if page + 1 in doc_attached_pages:
+                    if page + 1 in doc_excluded_pages:
                         continue
                     pdf_writer.add_page(pdf_reader.pages[page])
 
@@ -62,7 +63,7 @@ def process_pdf(folder_name, filename, case_id, agency, state,
                     pdf_writer.write(output)
             else:
                 for page in range(int(doc_start) - 1, int(doc_end)):
-                    if page + 1 in doc_attached_pages:
+                    if page + 1 in doc_excluded_pages:
                         continue
                     output_filename = "__".join([agency_folder, folder_name, 
                                                  str(filename), 
@@ -78,35 +79,42 @@ def process_pdf(folder_name, filename, case_id, agency, state,
                         pdf_writer.write(output)
     print("")
 
-def main(directory_path, doc_type, source_folder, dest_folder, num_samples, extract_mode):
-    df = pd.read_excel(directory_path)
+def main(inventory_path, doc_type, source_folder, dest_folder, num_samples, 
+         extract_mode, exclude_foreign_pages):
+    df = pd.read_excel(inventory_path)
     filtered_df = df[df['document_type'].str.contains(doc_type, regex=True, na=False) & 
                      (df['duplicate_notes'] != "Ignore")]
 
     print(len(df))
 
-    grouped_df = filtered_df.groupby(['folder_name', 'file_name', 'document_id', 
-                                      'referring_agency', 
-                                      'referring_agency_state'])
+    grouped_df = filtered_df.groupby(['referring_agency_state', 'referring_agency', 
+                                      'folder_name', 'file_name', 
+                                      'document_id'])
 
     groups = list(grouped_df)
     if num_samples:
         groups = random.sample(groups, min(num_samples, len(groups)))
 
-    for (folder_name, file_name, document_id, agency, state), group_df in groups:
-        process_pdf(folder_name, file_name, document_id, agency, state, 
-                    group_df, source_folder, dest_folder, extract_mode)
+    for (state, agency, folder_name, file_name, document_id), group_df in groups:
+        process_pdf(state, agency, folder_name, file_name, document_id,   
+                    group_df, source_folder, dest_folder, 
+                    extract_mode, exclude_foreign_pages)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Process PDF files based on Excel data.')
-    parser.add_argument('directory_path', type=str, help='Path to the Excel file')
+    parser = argparse.ArgumentParser(description='Process PDF files based on report inventory.')
+    parser.add_argument('inventory_path', type=str, help='Path to the Excel inventory')
     parser.add_argument('doc_type', type=str, help='Regex string for filtering the Groups column')
     parser.add_argument('source_folder', type=str, help='Path to the source folder')
     parser.add_argument('dest_folder', type=str, help='Path to the destination folder')
-    parser.add_argument('--num_samples', type=int, help='Number of documents to randomly sample', default=None)
+    parser.add_argument('--num_samples', type=int, help='Number of documents to randomly sample', 
+                        default=None)
     parser.add_argument('--extract_mode', type=str, choices=['page', 'document'], default='page', 
                         help='Mode of extraction: "page" for page-by-page, "document" for entire document')
+    parser.add_argument('--exclude_foreign_pages', action="store_true", 
+                        help='Whether to exclude foreign pages from exports')
 
     args = parser.parse_args()
 
-    main(args.directory_path, args.doc_type, args.source_folder, args.dest_folder, args.num_samples, args.extract_mode)
+    main(args.inventory_path, args.doc_type, args.source_folder, 
+         args.dest_folder, args.num_samples, 
+         args.extract_mode, args.exclude_foreign_pages)

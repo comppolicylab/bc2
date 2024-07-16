@@ -55,76 +55,70 @@ dir.create(file.path(cache_path, parsed_dir),  recursive = TRUE)
 
 # Prepare evaluation sample 
 # ------------------------------------------------------------------------------
-inventory <- file.path(user_dir, onedrive_dir, data_dir,
-                       inventory_dir, inventory_name) %>%
-  read_excel(col_types = "text")
+inventory_incident_basis <- file.path(user_dir, onedrive_dir, data_dir,
+                                      inventory_dir, inventory_name) %>%
+  read_excel(col_types = "text") %>% 
+  # Drop hand-noted duplicates and PRR douments
+  filter(duplicate_notes != "Ignore" | is.na(duplicate_notes),
+         document_type != "PRR Document") %>% 
+  # For Muskan to fix: doc_num should be consistent across a doc
+  # Fix document ID for now to represent documents
+  mutate(document_id = str_remove(document_id, "(\\-|\\.|/)\\d{0,2}$")) %>%
+  # Group by original document + document ID (should be document_num after fix)
+  group_by(referring_agency_state, referring_agency, folder_name, file_name, 
+           document_id) %>% 
+  # Filter to documents that include at least one incident
+  filter(any(document_type == "Incident")) %>% 
+  # Combine across subdocuments to get page numbers
+  summarize(document_start = min(document_start),
+            document_end   = max(document_end),
+            .groups = "drop") %>%
+  # Add filepaths for later parsing
+  add_filepaths_to_inventory(cache_paths = T) 
 
-redaction_labels <- list.files(file.path(user_dir, onedrive_dir, data_dir, 
-                                      "labels", "redactions"), 
-                            full.names = TRUE,
-                            pattern = "*\\.txt") %>% 
-  map_df(~ tibble(page_src_name = basename(.x), 
-                  raw_response  = readLines(.x))) %>% 
-  mutate(page_src_name = str_replace(page_src_name, "\\.txt$", ".pdf"),
-         is_redacted = str_detect(raw_response, 
-                                  regex("Yes", ignore_case = TRUE)))
+inventory_page_basis <- inventory_incident_basis %>% 
+  incident_to_page_crosswalk()
 
-# inventory is one row per subdocument
-# master docs are by filename + document_id
-# need to drop duplicates first
-# then group by filename + document_id
-# then filter to docs with any incident included
-# then combine across subdocs to get page numbers
-# then sample from that
+labels <- extract_labels(inventory_page_basis)
 
-# need separate crosswalk to go from label filename (which is orig filename + pg no)
-# to filename + document_id
-
-# Pick sample of documents from inventory, choosing from docs that are labeled
-# set.seed(cache_name %>% str_split_1("_") %>% last())
-# set.seed("486037")
-doc_sample <- inventory %>% 
-  filter(document_type == "Incident") %>% 
-  add_filepaths_to_inventory(cache_paths = T) %>% 
-  inner_join(redaction_labels, by = "page_src_name") %>%
-  distinct(page_src_path, .keep_all = TRUE) %>%
-  filter(!is_redacted) # %>%
-  # group_by(name_base, document_id) %>% 
-  # sample_n(1) %>% 
-  # ungroup() %>% 
-  # # Filter to only labeled docs
-  # inner_join(labels, by = "page_src_path") %>% 
-  # filter(!is.na(label_narr_and_head_page)) %>% 
-  # group_by(referring_agency) %>% 
-  # # Set weights to prioritize samples from agencies with fewer samples
-  # mutate(n = n(),
-  #        max_sample = min(3, n),
-  #        weight = max_sample / n) %>% 
-  # ungroup() %>% 
-  # sample_n(num_samples, 
-  #          weight = weight) %>% 
-  # ungroup()
-
-# Copy all PDFs into the input_dir
-doc_sample %>% 
-  select(page_src_path, page_save_name) %>% 
-  pwalk(function(page_src_path, page_save_name) {
-    file.copy(page_src_path, 
-              file.path(cache_path, input_dir, page_save_name))
-  })
+set.seed(cache_name %>% str_split_1("_") %>% last())
+doc_sample <- inventory_incident_basis %>% 
+  # Filter to labeled incidents 
+  inner_join(labels, by = "document_save_name") %>% 
+  group_by(referring_agency) %>%
+  # Set weights to prioritize samples from agencies with fewer samples
+  mutate(n = n(),
+         max_sample = min(3, n),
+         weight = max_sample / n) %>%
+  ungroup() %>%
+  sample_n(num_samples,
+           weight = weight) %>%
+  ungroup()
 
 # Copy the full PDFs into the input_dir
-if (add_full_pdfs) {
-  doc_sample %>% 
-    select(orig_pdf_src_path, document_save_path, 
-           document_start, document_end) %>% 
-    pwalk(function(orig_pdf_src_path, document_save_path, 
-                   document_start, document_end) {
-      pdf_subset(input = orig_pdf_src_path, 
-                 pages = document_start:document_end, 
-                 output = document_save_path)
-    })
-}
+doc_sample %>% 
+  select(orig_pdf_src_path, document_save_path, 
+         document_start, document_end) %>% 
+  pwalk(function(orig_pdf_src_path, document_save_path, 
+                 document_start, document_end) {
+    pdf_subset(input = orig_pdf_src_path, 
+               pages = document_start:document_end, 
+               output = document_save_path)
+  })
+
+# redaction_labels <- list.files(file.path(user_dir, onedrive_dir, data_dir, 
+#                                          "labels", "redactions"), 
+#                                full.names = TRUE,
+#                                pattern = "*\\.txt") %>% 
+#   map_df(~ tibble(page_src_name = basename(.x), 
+#                   raw_response  = readLines(.x))) %>% 
+#   mutate(page_src_name = str_replace(page_src_name, "\\.txt$", ".pdf"),
+#          is_redacted   = str_detect(raw_response, 
+#                                     regex("Yes", ignore_case = TRUE))) %>% 
+#   left_join(inventory_page_basis, by = "page_src_name") %>% 
+#   group_by(document_save_name) %>%
+#   summarize(is_redacted = any(is_redacted)) %>% 
+#   ungroup()
 
 
 # Prepare pipelines
@@ -137,34 +131,38 @@ file.copy(extract_pipe_template_path, extract_pipe_path)
 parse_pipe_template_raw <- readLines(parse_pipe_template_path, warn = TRUE)
 parse_pipe_template     <- paste(parse_pipe_template_raw, collapse = "\n")
 parse_prompt            <- glue("
-I am providing you with text extracted from a police report via OCR using Azure Document Intelligence. Please extract ALL freely-written text in this output, including text constituting a police narrative or statement.
-
-A police narrative is a freely-written account of events that occurred during a criminal incident. It typically includes information such as the date, time,  location, and description of the incident, as well as the actions taken by the police officers involved. It may also include legal statements or policing jargon. They often start with \"On MMDDYY, at approximately HH:MM, I...\", or a note about body worn camera footage, e.g., \"BWC activated\". Sometimes they end with \"End of report\" or something similar.
-
-A statement is a recounting of events written from the first person's perspective. It is often written by the victim, witness, or suspect involved in the incident. It often includes statments like \"I was doing X\" or \"He said Y\". These statements may focus on actions, discussions, and even violent events that occurred during the incident. These should include a listed author (e.g., \"Name of Person\"). They may also include line numbers at the beginning of each line, which you can try to remove. A statement can also be a \"probable cause statement\", which is very similar to a narrative. 
+I am providing you with text from a police report provided by OCR using Azure Document Intelligence. Review this input and extract ALL freely-written text from the following categories:
+1. *Narratives*: A narrative is a freely-written account of events that occurred during a crime. It typically includes information such as the date, time, location, and description of the incident, as well as the actions taken by the police officers involved. It may also include legal statements or policing jargon. They often start with \"On MMDDYY, at approximately HH:MM, I...\", or a couple words about body worn camera (BWC) footage, e.g., \"BWC activated\" or \"No BWC\". Sometimes they end with \"End of report\", a certification under penalty of perjury, a recommendation, or the officer's name.
+2. *Synposis*, *Summary*, or *Probable Cause*: These are like narratives, but are often 1-2 sentences long, giving high-level details of the crime.
+3. *Statements*: A statement is a recounting of events written from the first person's perspective. It is often written by the victim, witness, or suspect involved in the incident. It often includes statments like \"I was doing X\" or \"He said Y\". These statements may focus on actions, discussions, and even violent events that occurred during the incident. These should include a listed author (e.g., \"Name of Person\"). They may also include line numbers at the beginning of each line, which you can try to remove. A statement can also be a \"probable cause statement\", which is very similar to a narrative. 
 
 Make sure to extract ALL freely-written text, even if it is not explicitly labeled as a narrative or statement. 
 
-Do not include text that seems like a boilerplate part of the police report (e.g., information that appears to be from a header or footer). ONLY include freely written text by a police officer or involved person. Also DO NOT extract long lists of labels and values (e.g., DOB, Zipcode, weight, etc.), unless they are embedded within freely-written text (occasionally a list of labels and freely-written values will be directly included as part of a narrative). When in doubt, opt to include text.
+Headers are an important field to extract if it exists. It typically immediately precedes a block of freely written text. It often includes words like \"Main\", \"Primary\", \"Follow-Up\", \"Supplemental\", \"Investigative\", or \"Synposis\" to indicate the type of narrative, or \"Statement\" to indicate a witness, suspect, or victim statement, or probable cause statement. Extract the entire header, not just one of these words. Be sure to only extract this field if it exists on the page. Sometimes multiple headers are used for the same narrative; make sure to extract them all.
 
-Headers are an important field to extract if it exists. It typically immediately precedes a block of freely written text. It often includes words like \"Main\", \"Primary\", \"Follow-Up\", \"Supplemental\", \"Investigative\", or \"Synposis\" to indicate the type of narrative, or \"Statement\" to indicate a witness, suspect, or victim statement, or probable cause statement. Extract the entire header, not just one of these words. Be sure to only extract this field if it exists on the page. 
-
-Sometimes freely-written text appears without a header. You should still include these passages. For example, freely-written text can spill across multiple pages. As a result, the last few paragraphs of a long narrative may appear without any header at the top of a page. It is very important to extract these stubs so that we can merge them into a single block of text at a later time. These hanging paragraphs may be tricky to identify, especially if the page contains the start of the next block of freely-written text. So keep your eye out for pages with multiple blocks of narratives.
-
-You may need to tweak the output to make it readble to a human. If there appear to be line numbers at the beginning of some extracted lines, remove those to make the output more readable. If it appears there are random line breaks that break up a sentence, remove those as well. 
-
-Important: add a visual divider between each extracted passage. The divider should be a line of dashes like this: \"------------------------------------------------------\". You only need to add this line between narratives if there is more than one extracted narrative; no need to add these breaks at the beginning or end of your output.
-
-Take your time and triple-check your work. Quality is better than moving quickly. Make sure to examine all of the provided content.
+Sometimes freely-written text from the above categories appears without a header. You should still include these passages. For example, freely-written text can spill across multiple pages. As a result, the last few sentence(s) of a long narrative may appear without any header at the top of a page. It is very important to extract these stubs so that we can merge them into a single block of text at a later time. These hanging paragraphs may be tricky to identify, especially if the page contains the start of the next block of freely-written text. So keep your eye out for pages with a hanging sentence or two.
 
 If you find one or more narratives or statements, you should return them as simple plain-text paragraphs, with the header (if it exists) followed by the narrative content. Paragraphs should be presented in the order they appeared in the input. 
 
+Important: add a visual divider between each extracted narrative The divider should be a line of dashes like this: \"------------------------------------------------------\". You only need to add this line between narratives if there is more than one extracted narrative; no need to add these breaks at the beginning or end of your output.
+
 If you do not find any narratives, or if you are not provided with any text, return \"No narratives found.\" 
 
-NEVER respond with extra text that was not included in the input. Here are some scenarios you should avoid where you may be tempted to create text:
+NEVER include text from the following categories:
+1. Do NOT extract lists of labels and values (e.g., DOB, Zipcode, weight, etc.), unless they are embedded within freely-written text. One exception: occasionally a list of labels and freely-written values will be part of a larger narrative, so you can extract these.
+2. Do NOT extract text that seems like a boilerplate part of the police report (e.g., information from a page header or page footer). ONLY include freely written text by a police officer or involved person. 
+3. Do NOT extract \"CAD Narratives\", which are sometimes labeled as such. You can also recognize CAD narratives as long lists of timestamps and very short notes about actions. 
+
+When in doubt, opt to include text.
+
+You may need to tweak the output to make it readable to a human. If there appear to be line numbers at the beginning of some extracted lines, remove those to make the output more readable. If it appears there are random line breaks that break up a sentence, remove those as well. Remove page footers or headers that appear to interrupt a multi-page narrative.
+
+Take your time and triple-check your work. Quality is better than moving quickly. Make sure to examine all of the provided content.
+
+IMPORTANT: NEVER EVER add to or modify the text that was provided as input. Here are some scenarios you should avoid where you may be tempted to edit text:
 1. Some of the records you are receiving may have been partially redacted, which means there might be missing text. However, the output you receive won't say it's been redacted. There will just be words missing, or ocassionally placeholders where the redactions occurred (like a number or a legal code). It will be very tempting to fill in this missing information. However, DO NOT attempt to fill these gaps in missing text. If it seems like there are missing words, you can add \"[redacted]\" to these gaps to indicate that text seems to be missing.
-2. Sometimes freely written text comes with grammatical or spelling errors, which will be very tempting to correct. Hoewever, DO NOT make any grammatical corrections or spelling fixes. 
-3. Sometimes a page might present enough factual information that it will be very tempting to create an entirely new narrative from the facts provided. However, it is VERY BAD to create a narrative or statement from the listed details of an incident. NEVER do this.
+2. Sometimes the input will include grammatical or spelling errors, which will be extremely tempting to correct. For example, you might see text riddled with errors, like \"his sisters store spended $ 4,000\" or \"they went to hous to git ( 3) foods\". DO NOT correct these mistakes or fix any spelling errors in the text you extract. Leave it be.
+3. Sometimes a page might present enough factual information that it will be very tempting to create an entirely new narrative from the facts provided. However, it is VERY VERY BAD to create a narrative or statement from the listed details of an incident. NEVER do this.
 
 In other words, ONLY respond with text that was included in the input, and nothing more.
 
@@ -225,8 +223,6 @@ run_pipeline(extract_dir, "\\.extracted\\.txt$",
 
 # Evaluate output
 # ------------------------------------------------------------------------------
-labels <- extract_labels()
-
 extract_output <- list.files(file.path(cache_path, extract_dir), 
                              pattern = "\\.txt$", 
                              full.names = TRUE) %>%  
@@ -248,109 +244,94 @@ parse_output <- list.files(file.path(cache_path, parsed_dir),
                                      "\\.extracted\\.txt\\.parsed\\.txt$"))
 
 raw_eval <- doc_sample %>% 
-  left_join(labels, 
-            by = c("page_src_path" = "page_src_path")) %>%
   left_join(extract_output, 
-            by = c("page_save_name" = "input_filename")) %>%
+            by = c("document_save_name" = "input_filename")) %>%
   left_join(parse_output, 
-            by = c("page_save_name" = "input_filename")) %>% 
-  left_join(parse_output, 
-            by = c("document_save_name" = "input_filename"), 
-            suffix = c("_page_raw", "_document_raw"))
+            by = c("document_save_name" = "input_filename"))
 
 raw_eval %>% 
   write_csv(file.path(cache_path, "evaluation.csv"))
 
-eval <- raw_eval %>% 
-  mutate(# Replace "No narratives found." with NA_character_
-    parse_output_page     = str_replace(parse_output_page_raw, 
-                                        "No narratives found.\\n", 
-                                        NA_character_),
-    parse_output_document = str_replace(parse_output_document_raw, 
+require(tidyverse)
+require(diffmatchpatch)
+raw_eval <- read_csv("~/Library/CloudStorage/OneDrive-HarvardUniversity/public_police_reports/evaluations/extraction/2024_07_12_14_04_15_413894/evaluation.csv")
+lab  <- raw_eval %>% slice(81) %>% pull(label_narr_only_document)
+lab2 <- raw_eval %>% slice(81) %>% pull(label_narr_and_head_document)
+p_o <- raw_eval %>% slice(81) %>% pull(parse_output)
+
+diff_make(lab, p_o)
+
+evaluation <- raw_eval %>% 
+  slice(-81) %>% 
+  mutate(
+    # Replace "No narratives found." with NA_character_
+    parse_output_raw      = parse_output,
+    parse_output          = str_replace(parse_output_raw, 
                                         "No narratives found.\\n", 
                                         NA_character_),
     # Remove breaks between narratives added by prompt instructions
-    parse_output_page     = str_replace_all(parse_output_page, "-{50,}", ""),
-    parse_output_document = str_replace_all(parse_output_document, "-{50,}", ""),
+    parse_output          = str_replace_all(parse_output, "-{50,}", ""),
     # Collapse multiple linebreaks to a single line break
-    parse_output_page     = str_replace_all(parse_output_page, 
+    parse_output          = str_replace_all(parse_output, 
                                             "(\\n){2,}", 
                                             "\\\n"),
-    parse_output_document = str_replace_all(parse_output_document, 
-                                            "(\\n){2,}", 
-                                            "\\\n"),
-    # parse_output_page     = str_replace(parse_output_page, "\\n$", ""),
-    # parse_output_document = str_replace(parse_output_document, "\\n$", ""),
-    has_narrative         = !is.na(label_narr_only_page), 
-    narrative_extracted   = !is.na(parse_output_page),
-    text_diff_page        = pmap(list(label_narr_only_page,
-                                      parse_output_page,
+    # parse_output         = str_replace(parse_output, "\\n$", ""),
+    has_narrative         = !is.na(label_narr_only_document), 
+    narrative_extracted   = !is.na(parse_output),
+    text_diff_narr_only   = pmap(list(label_narr_only_document,
+                                      parse_output,
                                       "lossless"),
                                  diff_make),
-    text_diff_document    = pmap(list(label_narr_only_page,
-                                      parse_output_document,
+    text_diff_narr_head   = pmap(list(label_narr_and_head_document,
+                                      parse_output,
                                       "lossless"),
                                  diff_make)
+    
   )
 
 # How many pages had a narrative extracted at all?
-eval %>% 
+evaluation %>% 
   count(has_narrative, narrative_extracted)
 
 # What proportion of the original labeled narrative(s) was recovered?
-narr_recovery_page <- eval %>% 
-  unnest(text_diff_page) %>%
+narr_recovery <- evaluation %>% 
+  unnest(text_diff_narr_only) %>%
   tibble() %>% 
-  mutate(label_narr_only_page_length = str_length(label_narr_only_page),
+  mutate(label_narr_only_document_length = str_length(label_narr_only_document),
          op_length = str_length(text),
-         op_pct = op_length / label_narr_only_page_length) %>%
-  group_by(page_save_name, parse_output_page, label_narr_only_page) %>% 
-  summarize(pct_narr_recovered_page = sum(op_pct[op == "EQUAL"]),
-            .groups = "drop")
-
-narr_recovery_doc <- eval %>% 
-  unnest(text_diff_document) %>%
-  tibble() %>% 
-  mutate(label_narr_only_page_length = str_length(label_narr_only_page),
-         op_length = str_length(text),
-         op_pct = op_length / label_narr_only_page_length) %>%
-  group_by(page_save_name, parse_output_document, label_narr_only_page) %>% 
+         op_pct = op_length / label_narr_only_document_length) %>%
+  group_by(document_save_name, parse_output, label_narr_only_document) %>% 
   summarize(pct_narr_recovered_doc = sum(op_pct[op == "EQUAL"]),
-            .groups = "drop")
-
-narr_recovery <- narr_recovery_page %>% 
-  left_join(narr_recovery_doc, by = c("page_save_name",
-                                      "label_narr_only_page")) %>% 
-  left_join(eval %>% select(page_save_name,
-                            extract_output,
-                            text_diff_page, 
-                            text_diff_document,
-                            page_save_path,
-                            document_save_path), by = "page_save_name")
+            .groups = "drop") %>% 
+  left_join(evaluation %>% select(-parse_output, 
+                            -label_narr_only_document),
+            by = "document_save_name")
 
 narr_recovery %>% 
-  summarize(num_narr_recovered_95_page = sum(pct_narr_recovered_page > 0.95),
-            num_narr_recovered_95_doc = sum(pct_narr_recovered_doc   > 0.95),
-            num_narr_recovered_90_page = sum(pct_narr_recovered_page > 0.9),
-            num_narr_recovered_90_doc = sum(pct_narr_recovered_doc   > 0.9),
-            num_narr_recovered_80_page = sum(pct_narr_recovered_page > 0.8),
-            num_narr_recovered_80_doc = sum(pct_narr_recovered_doc   > 0.8),
-            num_narr_recovered_50_page = sum(pct_narr_recovered_page > 0.5),
-            num_narr_recovered_50_doc = sum(pct_narr_recovered_doc   > 0.5),
-            num_narr_recovered_01_page = sum(pct_narr_recovered_page > 0.01),
-            num_narr_recovered_01_doc = sum(pct_narr_recovered_doc   > 0.01)) %>% 
+  filter(!is.na(pct_narr_recovered_doc)) %>%
+  summarize(num_narr_recovered_95_doc = sum(pct_narr_recovered_doc > 0.95),
+            num_narr_recovered_90_doc = sum(pct_narr_recovered_doc > 0.9),
+            num_narr_recovered_80_doc = sum(pct_narr_recovered_doc > 0.8),
+            num_narr_recovered_50_doc = sum(pct_narr_recovered_doc > 0.5),
+            num_narr_recovered_01_doc = sum(pct_narr_recovered_doc > 0.01)) %>% 
   pivot_longer(cols = everything(), 
                names_to = "metric", 
                values_to = "count")
 
 narr_recovery %>% 
-  select(label_narr_only_page, 
-         extract_output,
-         parse_output_page, parse_output_document,
-         pct_narr_recovered_page, pct_narr_recovered_doc) %>% 
+  select(label_narr_only_document, 
+         extract_output, parse_output,
+         pct_narr_recovered_doc) %>% 
   mutate(row_numb = row_number()) %>% 
   relocate(row_numb) %>% 
   View()
+
+narr_recovery %>% 
+  select(label_narr_only_document, 
+         extract_output, parse_output,
+         pct_narr_recovered_doc) %>% 
+  mutate(row_numb = row_number()) %>% 
+  relocate(row_numb) %>% write_csv(file.path(cache_path, "notes.csv"))
 
 examine_doc <- function(ix_num) {
   doc_deets <- narr_recovery %>% 
@@ -363,22 +344,13 @@ examine_doc <- function(ix_num) {
   
   cat(glue("\n\n\n\nLabeled narrative:\n\n"))
   doc_deets %>% 
-    pull(label_narr_only_page) %>% 
+    pull(label_narr_and_head_document) %>% 
     cat()
   
-  cat(glue("\n\n\n\nExtracted from page:\n\n"))
+  cat(glue("\n\n\nParsed from extract:\n\n"))
   doc_deets %>% 
-    pull(text_diff_page) %>% 
+    pull(text_diff_narr_head) %>% 
     print()
-  
-  cat(glue("\nExtracted from document:\n\n"))
-  doc_deets %>% 
-    pull(text_diff_document) %>% 
-    print()
-  
-  doc_deets %>% 
-    pull(page_save_path) %>%
-    map(., ~ rstudioapi::viewer(.))
   
   doc_deets %>% 
     pull(document_save_path) %>%
@@ -386,18 +358,30 @@ examine_doc <- function(ix_num) {
   
 }
 
-examine_doc(42)
+examine_doc(1)
 
 
 
-# 246: "wi_milwaukee_pd__assaults__232520149" Check label for narrative
+# Prompt changes:
+# - Don't get lazy at end of narrative
+# - Some extremely short narratives should still count (e.g., "Assigned to J. Doe"), "2 males arrested on gun charges." Differentiate between this and categorical information perhaps?
+# - Really highlight importance of BWC evidence "BWC available"
+# - Potential short table of information at start of narrative (author, date of entry, report type)
+# - Expand on importance of headers "original narrative", "police report", etc.
+# - fields to ignore: addresses, physical descriptions, phone numbers, contact info. often included in intro to statemetnts it seems, so we can ignore for statemnts 
+# - Underscore probable cause statements
+# - We don't need these:
+#   "This report was submitted from an electronic device owned, issued, or maintained by a law enforcement agency using my user ID and password. 
+#   I certify or declare under penalty of perjury under the laws of the State of ____ that the foregoing is true and correct.
+# - Add "list of attachments" to end matter description
+# - Describe attached reports that shouldn't be included. 
+#   e.g., "victim notification of no contact provision", i.e., a restraining order 
+#   detailing the specifics of a restraining order
+#   e.g., "notice to victims" of domestic violence, desc
+#   detailing how soon someone may be released from jail after an arrest 
 
 # To engineer:
-# - Compile narratives across reports and analyze these all together
 # - Compare to input to detect hallucination 
-# - Something is wrong with #36 Idaho Falls 2023-00033247 -- probably b/c multiple report nums?
-# - Same with #37 Idaho Falls same incident number 
-# - But somehow #38 is fine, and #39
 
 # To change:
 # - Add "hallucination" metric (not extracted text)
@@ -414,3 +398,4 @@ examine_doc(42)
 # - NV Elko CAD examples (#83-90)
 # - Duluth CAD examples (#52)
 # - Yakima CAD examples
+
