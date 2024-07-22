@@ -3,6 +3,7 @@ import re
 import argparse
 import pandas as pd
 import random
+from collections import defaultdict
 from pypdf import PdfReader, PdfWriter
 
 def format_filename(text):
@@ -27,8 +28,6 @@ def process_pdf(state, agency, folder_name, filename, case_id,
             doc_excluded_pages = []
             doc_foreign_pages_value = row['foreign_pages']
             if not pd.isnull(doc_foreign_pages_value) and exclude_foreign_pages:
-                print(doc_foreign_pages_value)
-                print()
                 if "," in str(doc_foreign_pages_value):
                     attached_ranges = doc_foreign_pages_value.split(',')
                     for item in attached_ranges:
@@ -79,7 +78,8 @@ def process_pdf(state, agency, folder_name, filename, case_id,
                         pdf_writer.write(output)
     print("")
 
-def main(inventory_path, doc_type, source_folder, dest_folder, num_samples, 
+def main(inventory_path, doc_type, source_folder, dest_folder, 
+         num_samples, sample_by_agency, 
          extract_mode, exclude_foreign_pages):
     df = pd.read_excel(inventory_path)
     filtered_df = df[df['document_type'].str.contains(doc_type, regex=True, na=False) & 
@@ -92,10 +92,29 @@ def main(inventory_path, doc_type, source_folder, dest_folder, num_samples,
                                       'document_id'])
 
     groups = list(grouped_df)
+    
     if num_samples:
-        groups = random.sample(groups, min(num_samples, len(groups)))
+        if sample_by_agency:
+            agency_counts = filtered_df['referring_agency'].value_counts()
+            agency_weights = defaultdict(lambda: 1.0)
 
-    for (state, agency, folder_name, file_name, document_id), group_df in groups:
+            for agency, count in agency_counts.items():
+                agency_weights[agency] = (count + 1)
+
+            weighted_groups = []
+            for (state, agency, folder_name, file_name, document_id), group_df in groups:
+                weighted_groups.append(((state, agency, folder_name, file_name, document_id), group_df, agency_weights[agency]))
+
+            weighted_groups = sorted(weighted_groups, key=lambda x: random.random() ** x[2],
+                                     reverse=True)
+            print(weighted_groups)
+            selected_groups = weighted_groups[:num_samples]
+        else:
+            selected_groups = random.sample(groups, min(num_samples, len(groups)))
+    else:
+        selected_groups = groups
+
+    for (state, agency, folder_name, file_name, document_id), group_df, _ in selected_groups:
         process_pdf(state, agency, folder_name, file_name, document_id,   
                     group_df, source_folder, dest_folder, 
                     extract_mode, exclude_foreign_pages)
@@ -108,6 +127,8 @@ if __name__ == '__main__':
     parser.add_argument('dest_folder', type=str, help='Path to the destination folder')
     parser.add_argument('--num_samples', type=int, help='Number of documents to randomly sample', 
                         default=None)
+    parser.add_argument('--sample_by_agency', action="store_true", 
+                        help='Whether to overweight small agencies in sample')
     parser.add_argument('--extract_mode', type=str, choices=['page', 'document'], default='page', 
                         help='Mode of extraction: "page" for page-by-page, "document" for entire document')
     parser.add_argument('--exclude_foreign_pages', action="store_true", 
@@ -116,5 +137,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     main(args.inventory_path, args.doc_type, args.source_folder, 
-         args.dest_folder, args.num_samples, 
+         args.dest_folder, args.num_samples, args.sample_by_agency,
          args.extract_mode, args.exclude_foreign_pages)
