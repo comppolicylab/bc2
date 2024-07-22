@@ -358,7 +358,7 @@ examine_doc <- function(ix_num) {
   
 }
 
-examine_doc(1)
+examine_doc(58)
 
 
 
@@ -393,7 +393,7 @@ examine_doc(1)
 
 # Muskan re-label:
 # - Recommendation letter update?
-# - in_bloomington_pd__felonies__B23-51932_redacted.pdf: why label table entries as part of narrative?
+# - in_bloomington_pd__felonies__B23-51932_redacted.pdf: why label metadata entries as part of narrative?
 # - Lewis County: remove end-matter if it is just "I DECLARE UNDER PENALTY OF PERJURY..." boilerplate
 # - NV Elko CAD examples (#83-90)
 # - MN Duluth CAD examples (#52)
