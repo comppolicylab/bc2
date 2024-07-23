@@ -3,7 +3,7 @@ from abc import abstractmethod
 from functools import cached_property
 from typing import Any, Literal, Sequence
 
-from openai import Client
+from openai import AzureOpenAI, OpenAI
 from pydantic import BaseModel
 
 from .image import ImageUrl
@@ -17,10 +17,21 @@ class OpenAIClientConfig(BaseModel):
     organization: str | None = None
     project: str | None = None
     base_url: str | None = None
+    azure_endpoint: str | None = None
+    api_version: str | None = None
 
-    def init(self) -> Client:
+    def init(self) -> OpenAI:
         """Create an OpenAI client."""
-        return Client(
+        if self.azure_endpoint:
+            return AzureOpenAI(
+                api_key=self.api_key,
+                organization=self.organization,
+                project=self.project,
+                base_url=self.base_url,
+                azure_endpoint=self.azure_endpoint,
+                api_version=self.api_version,
+            )
+        return OpenAI(
             api_key=self.api_key,
             organization=self.organization,
             project=self.project,
@@ -208,7 +219,7 @@ class OpenAIChatConfig(BaseModel):
     top_p: float | None = None
 
     def invoke(
-        self, client: Client, input: AnyChatInput | Sequence[AnyChatInput], **kwargs
+        self, client: OpenAI, input: AnyChatInput | Sequence[AnyChatInput], **kwargs
     ) -> str:
         """Invoke the chat."""
         settings = self.model_dump()
@@ -244,7 +255,7 @@ class OpenAICompletionConfig(BaseModel):
             if self.best_of <= self.n:
                 raise ValueError("best_of must be greater than n")
 
-    def invoke(self, client: Client, input: str, **kwargs) -> str:
+    def invoke(self, client: OpenAI, input: str, **kwargs) -> str:
         """Invoke the completion."""
         settings = self.model_dump()
         settings.pop("method")
