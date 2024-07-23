@@ -32,32 +32,9 @@ updated_inventory  <- existing_inventory %>%
          fixed_document_id = if_else(str_sub(document_id, 1, 1) == "0",
                                      document_id, fixed_document_id),
          fixed_document_id = coalesce(fixed_document_id, document_id),
-         equality = document_id == fixed_document_id) 
-
+         document_id = fixed_document_id) %>%
+  select(-fixed_document_id)
 
 # Export data
 updated_inventory %>% 
   write_csv(output_file_path, na = "")
-
-
-# left_side <- tribble(~joinkey, ~value,
-#                   "apple", "12",
-#                   "orange", "14",
-#                   "pomegranate", "17")
-# right_side <- tribble(~joinkey, ~extravalue,
-#                       "pomegranate", "giraffe",
-#                       "kumquat", "turtle",
-#                       "kiwi", "parrot",
-#                       # "apple", "lion",
-#                       "orange", "mushroom")
-# left_side %>%
-#   right_join(right_side, by = "joinkey")
-# 
-# left_side %>%
-#   left_join(right_side, by = "joinkey")
-# 
-# # left_side %>%
-# #   full_join(right_side, by = "joinkey")
-# 
-# left_side %>%
-#    inner_join(right_side, by = "joinkey")
