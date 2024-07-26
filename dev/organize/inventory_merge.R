@@ -1,12 +1,13 @@
 library(tidyverse)
 library(readxl)
 library(glue)
+library(writexl)
 
 # Script parameters
 data_directory     <- "~/Library/CloudStorage/OneDrive-HarvardUniversity/public_police_reports/inventories"
 existing_file_path <- glue("{data_directory}/cpl_inventory_2024-07-03.xlsx")
 new_file_path      <- glue("{data_directory}/draft_inventory.csv")
-output_file_path   <- glue("{data_directory}/merged_output.csv")
+output_file_path   <- glue("{data_directory}/merged_output.xlsx")
 
 # Import data
 existing_inventory <- read_excel(existing_file_path, col_types = "text")
@@ -37,4 +38,5 @@ updated_inventory  <- existing_inventory %>%
 
 # Export data
 updated_inventory %>% 
-  write_csv(output_file_path, na = "")
+  mutate_all(as.character) %>%
+  write_xlsx(output_file_path)
