@@ -14,3 +14,4 @@ config*.toml
 *.ipynb
 .cache/
 .python-version
+.Rproj.user

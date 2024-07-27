@@ -7,7 +7,6 @@ onedrive_dir           <- "Library/CloudStorage/OneDrive-HarvardUniversity"
 data_dir               <- "public_police_reports"
 label_dir              <- "labels/all_labels/public_police_reports"
 inventory_dir          <- "inventories"
-inventory_name         <- "cpl_inventory_2024-06-20.xlsx"
 
 
 

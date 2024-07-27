@@ -25,11 +25,14 @@ source("dev/evaluate/utils.R")
 # With GPT-4 Turbo and 100 records with full PDFs, it took 1.25 hours,
 # so about 45 s / record
 
-num_samples   <- 100
+num_samples   <- 5
 add_full_pdfs <- TRUE
 
+inventory_name             <- "cpl_inventory_2024-07-23.xlsx"
+
 pipe_folder                <- file.path(user_dir, "Development", 
-                                        "blind-charging-secrets", "iterations")
+                                        "blind-charging-secrets", 
+                                        "templates")
 extract_pipe_template_name <- "extract_2024-07-09.toml"
 extract_pipe_template_path <- file.path(pipe_folder, extract_pipe_template_name)
 parse_pipe_template_name   <- "parse_2024-07-09.toml"
@@ -252,17 +255,7 @@ raw_eval <- doc_sample %>%
 raw_eval %>% 
   write_csv(file.path(cache_path, "evaluation.csv"))
 
-require(tidyverse)
-require(diffmatchpatch)
-raw_eval <- read_csv("~/Library/CloudStorage/OneDrive-HarvardUniversity/public_police_reports/evaluations/extraction/2024_07_12_14_04_15_413894/evaluation.csv")
-lab  <- raw_eval %>% slice(81) %>% pull(label_narr_only_document)
-lab2 <- raw_eval %>% slice(81) %>% pull(label_narr_and_head_document)
-p_o <- raw_eval %>% slice(81) %>% pull(parse_output)
-
-diff_make(lab, p_o)
-
 evaluation <- raw_eval %>% 
-  slice(-81) %>% 
   mutate(
     # Replace "No narratives found." with NA_character_
     parse_output_raw      = parse_output,
