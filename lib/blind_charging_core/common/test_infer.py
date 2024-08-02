@@ -10,13 +10,29 @@ from .infer import infer_annotations
             "Hello, world!",
             "Hello, <name>!",
             "<>",
-            [{"start": 7, "end": 12, "content": "<name>"}],
+            [
+                {
+                    "start": 7,
+                    "end": 12,
+                    "content": "<name>",
+                    "original": "world",
+                    "redacted": "name",
+                }
+            ],
         ),
         (
             "Hello, world!",
             "Hello, [name]!",
             "[]",
-            [{"start": 7, "end": 12, "content": "[name]"}],
+            [
+                {
+                    "start": 7,
+                    "end": 12,
+                    "content": "[name]",
+                    "original": "world",
+                    "redacted": "name",
+                }
+            ],
         ),
         (
             "Hello, world!",
@@ -42,11 +58,41 @@ We passed a mother and her son speaking <language> together. \
 """,
             "<>",
             [
-                {"start": 80, "end": 87, "content": "<(D1)>"},
-                {"start": 110, "end": 126, "content": "<location>"},
-                {"start": 144, "end": 166, "content": "<location>"},
-                {"start": 208, "end": 215, "content": "<language>"},
-                {"start": 226, "end": 233, "content": "<(D1)>"},
+                {
+                    "start": 80,
+                    "end": 87,
+                    "content": "<(D1)>",
+                    "original": "Leopold",
+                    "redacted": "(D1)",
+                },
+                {
+                    "start": 110,
+                    "end": 126,
+                    "content": "<location>",
+                    "original": "Golden Gate Park",
+                    "redacted": "location",
+                },
+                {
+                    "start": 144,
+                    "end": 166,
+                    "content": "<location>",
+                    "original": "9th Avenue and Lincoln",
+                    "redacted": "location",
+                },
+                {
+                    "start": 208,
+                    "end": 215,
+                    "content": "<language>",
+                    "original": "Russian",
+                    "redacted": "language",
+                },
+                {
+                    "start": 226,
+                    "end": 233,
+                    "content": "<(D1)>",
+                    "original": "Leopold",
+                    "redacted": "(D1)",
+                },
             ],
         ),
     ],
