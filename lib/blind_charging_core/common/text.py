@@ -1,6 +1,6 @@
-from typing import Callable, Sequence
+from typing import Callable, Literal, Sequence, Tuple
 
-from .infer import segment
+from .infer import TextSegment, segment
 
 
 class Text:
@@ -14,13 +14,24 @@ class Text:
 
 
 Styler = Callable[[str, str], str]
-"""A function that styles text based on its type."""
+"""A function that styles text based on its type.
+
+Args:
+    redacted_text: The replacement text for the segment.
+    type_: The type of the text.
+"""
 
 Grafer = Callable[[str], str]
 """A function that formats a paragraph."""
 
-Escaper = Callable[[str], str]
-"""A function that escapes text for display."""
+EscapeType = Literal["original"] | Literal["redacted"]
+Escaper = Callable[[TextSegment, EscapeType], str]
+"""A function that escapes text for display.
+
+Args:
+    text: The text segment to escape.
+    type_: The type of text to escape (original or redacted).
+"""
 
 
 def default_styler(text: str, type_: str) -> str:
@@ -33,9 +44,14 @@ def default_grafer(text: str) -> str:
     return text + "\n\n"
 
 
-def default_escaper(text: str) -> str:
+def default_escaper(text: TextSegment, type_: EscapeType) -> str:
     """Default escape function."""
-    return text
+    if type_ == "redacted":
+        return text.redacted.text
+    elif type_ == "original":
+        return text.original.text
+    else:
+        raise ValueError(f"Invalid escape type: {type_}")
 
 
 class RedactedText:
@@ -80,8 +96,8 @@ class RedactedText:
         final = ""
 
         for seg in segment(self.original, self.redacted, delimiters=self.delimiters):
-            original_txt = escape(seg.original.text)
-            redacted_txt = escape(seg.redacted.text)
+            original_txt = escape(seg, "original")
+            redacted_txt = escape(seg, "redacted")
             if seg.is_edit:
                 type_ = "Redaction" if seg.is_valid else "RedactError"
                 final += style(redacted_txt, type_)
@@ -93,11 +109,13 @@ class RedactedText:
         return final
 
 
-def escape_for_xml(text: str) -> str:
+def escape_for_xml(ts: TextSegment, type_: EscapeType, debug: bool = False) -> str:
     """Escape text for HTML-style markup languages (HTML, platypus, etc).
 
     Args:
-        text: The text to escape.
+        text: The text segment to escape.
+        type_: The type of text to escape.
+        debug (optional): Whether to include debug information.
 
     Returns:
         The escaped text.
@@ -107,6 +125,56 @@ def escape_for_xml(text: str) -> str:
         ("<", "&lt;"),
         (">", "&gt;"),
     ]
+    return escape_with_replacement(ts, type_, replacements, debug=debug)
+
+
+def escape_for_txt(ts: TextSegment, type_: EscapeType, debug: bool = False) -> str:
+    """Escape text for plain text.
+
+    Args:
+        text: The text segment to escape.
+        type_: The type of text to escape
+        debug (optional): Whether to include debug information.
+
+    Returns:
+        The escaped text.
+    """
+    return escape_with_replacement(ts, type_, [], debug=debug)
+
+
+def escape_with_replacement(
+    ts: TextSegment,
+    type_: EscapeType,
+    replacements: list[Tuple[str, str]],
+    debug: bool = False,
+) -> str:
+    """Escape text with by replacing known characters with others.
+
+    Args:
+        ts: The text segment to escape.
+        type_: The type of text to escape
+        replacements: The replacements to make as (old, new) pairs.
+        debug (optional): Whether to include debug information.
+    """
+    if type_ == "redacted":
+        # Inject the original text into the redacted text for debugging.
+        # We want to place it _inside_ the delimiter.
+        if debug and ts.open_delim:
+            open_delim_len = len(ts.open_delim)
+            text = (
+                ts.redacted.text[:open_delim_len]
+                + ts.original.text
+                + " -> "
+                + ts.redacted.text[open_delim_len:]
+            )
+        else:
+            text = ts.redacted.text
+    elif type_ == "original":
+        text = ts.original.text
+    else:
+        raise ValueError(f"Invalid escape type: {type_}")
+
     for old, new in replacements:
         text = text.replace(old, new)
+
     return text

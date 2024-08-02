@@ -1,8 +1,9 @@
-from functools import cached_property
+from functools import cached_property, partial
 from typing import Literal
 
 from jinja2 import Template
 
+from ..common.context import Context
 from ..common.file import MemoryFile
 from ..common.text import RedactedText, escape_for_xml
 from .base import BaseRenderConfig, BaseRenderer
@@ -36,6 +37,10 @@ tpl = Template(
     a {
         color: #1E90FF;
         text-decoration: none;
+    }
+
+    .debug {
+        color: #808080;
     }
 
     .Header {
@@ -82,7 +87,7 @@ def apply_css_style(text: str, style: str) -> str:
     """Apply a CSS style to a text.
 
     Args:
-        text: The text to apply the style to.
+        redacted: The text to apply the style to.
         style: The CSS style to apply.
 
     Returns:
@@ -107,7 +112,7 @@ class HTMLRenderer(BaseRenderer):
     def __init__(self, config: HtmlRenderConfig) -> None:
         self.config = config
 
-    def __call__(self, redaction: RedactedText) -> MemoryFile:
+    def __call__(self, redaction: RedactedText, context: Context) -> MemoryFile:
         """Render a narrative to an HTML file.
 
         Args:
@@ -124,7 +129,7 @@ class HTMLRenderer(BaseRenderer):
                 narrative=redaction.format(
                     style=apply_css_style,
                     p=format_html_paragraph,
-                    escape=escape_for_xml,
+                    escape=partial(escape_for_xml, debug=context.debug),
                 ),
             )
         )

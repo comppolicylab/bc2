@@ -4,7 +4,7 @@ from typing import Any
 class Record(dict[str, Any]): ...
 
 
-class Context(Record):
+class Context(Record, Any):
     """dot.notation access to dictionary attributes."""
 
     __getattr__ = Record.get  # type: ignore

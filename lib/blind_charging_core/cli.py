@@ -22,6 +22,7 @@ def run(
     output_path: Optional[str] = None,
     validate: bool = False,
     aliases: Optional[str] = None,
+    debug: bool = False,
 ):
     """Run the pipeline."""
     logger.debug("Running pipeline ...")
@@ -32,6 +33,7 @@ def run(
 
     # Map of arguments passed at runtime to the pipeline.
     runtime_cfg = {
+        "debug": debug,
         "in": {
             "path": input_path,
         },

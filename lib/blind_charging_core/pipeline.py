@@ -1,17 +1,19 @@
 import logging
 from inspect import signature
-from typing import Any, Tuple, Union
+from typing import Any, Union
 
 from pydantic import BaseModel
 
 from .common.context import Context
 from .extract.azuredi import AzureDIExtractConfig
 from .extract.openai import OpenAIExtractConfig
+from .extract.raw import RawExtractConfig
 from .extract.tesseract import TesseractExtractConfig
 from .input.azureblob import AzureBlobInputConfig
 from .input.file import FileInputConfig
 from .input.memory import MemoryInputConfig
 from .input.stdin import StdinInputConfig
+from .inspect.annotations import InspectAnnotationsConfig
 from .output.azureblob import AzureBlobOutputConfig
 from .output.file import FileOutputConfig
 from .output.memory import MemoryOutputConfig
@@ -31,13 +33,18 @@ InputConfig = Union[
 ]
 
 
-ExtractConfig = Union[AzureDIExtractConfig, OpenAIExtractConfig, TesseractExtractConfig]
+ExtractConfig = Union[
+    AzureDIExtractConfig, OpenAIExtractConfig, TesseractExtractConfig, RawExtractConfig
+]
 
 
 ParseConfig = Union[OpenAIParseConfig]
 
 
 RedactConfig = Union[OpenAIRedactConfig, NoOpRedactConfig]
+
+
+InspectConfig = Union[InspectAnnotationsConfig]
 
 
 RenderConfig = Union[PdfRenderConfig, HtmlRenderConfig, TextRenderConfig]
@@ -49,7 +56,13 @@ OutputConfig = Union[
 
 
 AnyConfig = Union[
-    InputConfig, ExtractConfig, RedactConfig, ParseConfig, RenderConfig, OutputConfig
+    InputConfig,
+    ExtractConfig,
+    RedactConfig,
+    InspectConfig,
+    ParseConfig,
+    RenderConfig,
+    OutputConfig,
 ]
 
 
@@ -67,9 +80,10 @@ class Pipeline:
     def validate(self, runtime_config: dict[str, Any]):
         """Validate the pipeline configuration."""
         last_output: type | None = None
+        ctx = Context()
 
         # Iteratively validate that the pipeline can be chained together
-        for config in self.pipeline:
+        for i, config in enumerate(self.pipeline):
             sig = signature(config.driver)
             params = sig.parameters
             explicit_requires = set(getattr(config.driver, "required", []))
@@ -92,10 +106,14 @@ class Pipeline:
 
             # Now check if we have all other required params from the runtime input
             pipe_type = config.engine.split(":")[0]
-            rt_param_set = runtime_config.get(pipe_type, {})
+            rt_param_set = {"context": ctx}
+            rt_param_set.update(runtime_config.get(pipe_type, {}))
             for param in required_params:
                 if rt_param_set.get(param, None) is None:
-                    raise ValueError(f"Missing required parameter {param}")
+                    raise ValueError(
+                        f"Step [{i}] `{config.engine}` is missing required "
+                        f"runtime parameter `{param}`. "
+                    )
 
             # Update the last_output
             last_output = sig.return_annotation
@@ -106,10 +124,20 @@ class Pipeline:
                 f"Expected final step to return `None` but got {last_output}"
             )
 
-    def run(self, runtime_config: dict[str, Any] | None = None) -> Tuple[Any, Context]:
-        """Run the pipeline."""
+    def run(self, runtime_config: dict[str, Any] | None = None) -> Context:
+        """Run the pipeline.
+
+        Args:
+            runtime_config: The runtime configuration.
+            Most values in the runtime config are dependent on the pipeline.
+            The `debug` flag is interpretted globally.
+
+        Returns:
+            The context object created during the pipeline run.
+        """
         runtime_config = runtime_config or {}
         ctx = Context()
+        ctx.debug = runtime_config.get("debug", False)
         runtime_config["context"] = ctx
         self.validate(runtime_config)
 
@@ -143,4 +171,9 @@ class Pipeline:
             # done this at runtime anyway so just hush the error.
             pipe = config.driver(*args, **kwargs)  # type: ignore[arg-type]
 
-        return pipe, ctx
+        # The final pipe value is validated as None via type-checking.
+        # It's not an error if the final pipe is not None, but we should log it.
+        # The value is not returned and cannot be used.
+        if pipe is not None:
+            logger.warning("Pipeline did not end with a `None` return value.")
+        return ctx

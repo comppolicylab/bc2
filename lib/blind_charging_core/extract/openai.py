@@ -37,6 +37,11 @@ class OpenAIExtractDriver(BaseExtractDriver[list[ImageUrl]]):
             imgs.append(ImageUrl(url=img_file.data_url()))
         return imgs
 
+    # TODO(jnu): support for text/* and potentially other types.
+    # We might want to return simple text files directly, but we
+    # could send more complicated types like text/html to OpenAI
+    # for extraction of the actual text content.
+
     def extract(self, input: list[ImageUrl]) -> str:
         """Generate a completion optionally including image input."""
         return self.config.generator.invoke(self.client, input)

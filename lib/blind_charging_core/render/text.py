@@ -1,9 +1,10 @@
 import re
-from functools import cached_property
+from functools import cached_property, partial
 from typing import Literal
 
+from ..common.context import Context
 from ..common.file import MemoryFile
-from ..common.text import RedactedText
+from ..common.text import RedactedText, escape_for_txt
 from .base import BaseRenderConfig, BaseRenderer
 
 
@@ -21,7 +22,7 @@ class TextRenderer(BaseRenderer):
     def __init__(self, config: TextRenderConfig) -> None:
         self.config = config
 
-    def __call__(self, redaction: RedactedText) -> MemoryFile:
+    def __call__(self, redaction: RedactedText, context: Context) -> MemoryFile:
         f = MemoryFile()
         f.write(self.TITLE)
         f.write("\n\n")
@@ -32,9 +33,9 @@ class TextRenderer(BaseRenderer):
         # TODO: might want to add some formatting for the diff
         f.write(
             redaction.format(
-                style=lambda x, y: x,
+                style=lambda x, _: x,
                 p=lambda x: f"{x}\n\n",
-                escape=lambda x: x,
+                escape=partial(escape_for_txt, debug=context.debug),
             )
         )
         f.write("=== END OF DOCUMENT ===\n")
