@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 from pydantic import BaseModel
 
+from ..common.context import Context
 from ..common.file import MemoryFile
 from ..common.text import RedactedText
 
@@ -28,4 +29,4 @@ Please report any issues to
 """
 
     @abstractmethod
-    def __call__(self, redaction: RedactedText) -> MemoryFile: ...
+    def __call__(self, redaction: RedactedText, context: Context) -> MemoryFile: ...

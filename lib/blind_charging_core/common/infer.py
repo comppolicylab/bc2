@@ -20,6 +20,8 @@ TextSegment = NamedTuple(
         ("redacted", TextSpan),
         ("is_edit", bool),
         ("is_valid", bool),
+        ("open_delim", str | None),
+        ("close_delim", str | None),
     ],
 )
 
@@ -156,7 +158,7 @@ def segment(  # noqa: C901
     # Build regexes to match the delimiters
     opener_delim, closer_delim = Delimiter.parse(delimiters)
 
-    op_seq_start = ("equal", 0, 0, 0, 0)
+    op_seq_start = ("equal", 0, 0, 0, 0, "")
     opcodes = matcher.get_opcodes()
     while opcodes:
         opcode, i1, i2, j1, j2 = opcodes.pop(0)
@@ -176,6 +178,8 @@ def segment(  # noqa: C901
                     TextSpan(j1, j2, mask),
                     False,
                     True,
+                    None,
+                    None,
                 )
             continue
 
@@ -192,7 +196,14 @@ def segment(  # noqa: C901
         if opener:
             if edit_stack == 0:
                 offset = opener.end() - opener_delim.length
-                op_seq_start = (opcode, i1 + offset, i2, j1 + offset, j2)
+                op_seq_start = (
+                    opcode,
+                    i1 + offset,
+                    i2,
+                    j1 + offset,
+                    j2,
+                    opener.group(1),
+                )
             edit_stack += 1
 
         if opcode in {"insert", "replace", "delete"}:
@@ -202,6 +213,8 @@ def segment(  # noqa: C901
                     TextSpan(j1, j2, mask),
                     True,
                     False,
+                    None,
+                    None,
                 )
 
         if closer:
@@ -221,6 +234,8 @@ def segment(  # noqa: C901
                     TextSpan(j1, j2, mask),
                     True,
                     True,
+                    op_seq_start[5],
+                    closer.group(1),
                 )
 
 
@@ -243,4 +258,8 @@ def infer_annotations(
                 "start": seg.original.start,
                 "end": seg.original.end,
                 "content": seg.redacted.text,
+                "original": seg.original.text,
+                "redacted": seg.redacted.text[
+                    len(seg.open_delim or "") : -len(seg.close_delim or "")
+                ],
             }
