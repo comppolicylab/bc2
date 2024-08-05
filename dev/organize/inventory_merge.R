@@ -5,7 +5,7 @@ library(writexl)
 
 # Script parameters
 data_directory     <- "~/Library/CloudStorage/OneDrive-HarvardUniversity/public_police_reports/inventories"
-existing_file_path <- glue("{data_directory}/cpl_inventory_2024-07-03.xlsx")
+existing_file_path <- glue("{data_directory}/cpl_inventory_2024-07-23.xlsx")
 new_file_path      <- glue("{data_directory}/draft_inventory.csv")
 output_file_path   <- glue("{data_directory}/merged_output.xlsx")
 
