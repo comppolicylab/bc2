@@ -61,7 +61,7 @@ dir.create(file.path(cache_path, parsed_dir),  recursive = TRUE)
 inventory_incident_basis <- file.path(user_dir, onedrive_dir, data_dir,
                                       inventory_dir, inventory_name) %>%
   read_excel(col_types = "text") %>% 
-  # Drop hand-noted duplicates and PRR douments
+  # Drop hand-noted duplicates and PRR documents
   filter(duplicate_notes != "Ignore" | is.na(duplicate_notes),
          document_type != "PRR Document") %>% 
   # For Muskan to fix: doc_num should be consistent across a doc
@@ -73,8 +73,8 @@ inventory_incident_basis <- file.path(user_dir, onedrive_dir, data_dir,
   # Filter to documents that include at least one incident
   filter(any(document_type == "Incident")) %>% 
   # Combine across subdocuments to get page numbers
-  summarize(document_start = min(document_start),
-            document_end   = max(document_end),
+  summarize(document_start = min(as.numeric(document_start)),
+            document_end   = max(as.numeric(document_end)),
             .groups = "drop") %>%
   # Add filepaths for later parsing
   add_filepaths_to_inventory(cache_paths = T) 

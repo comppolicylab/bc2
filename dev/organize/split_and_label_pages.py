@@ -114,7 +114,7 @@ def main(inventory_path, doc_type, source_folder, dest_folder,
     else:
         selected_groups = groups
 
-    for (state, agency, folder_name, file_name, document_id), group_df, _ in selected_groups:
+    for (state, agency, folder_name, file_name, document_id), group_df in selected_groups:
         process_pdf(state, agency, folder_name, file_name, document_id,   
                     group_df, source_folder, dest_folder, 
                     extract_mode, exclude_foreign_pages)
