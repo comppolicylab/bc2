@@ -4,6 +4,7 @@ from typing import Sequence
 from pydantic import BaseModel
 
 from ..common.text import RedactedText, Text
+from ..common.types import NameMap
 
 
 class BaseRedactConfig(BaseModel):
@@ -11,18 +12,8 @@ class BaseRedactConfig(BaseModel):
     delimiters: Sequence[str] = ("<", ">")
 
 
-AliasMap = dict[str, str]
-"""A mapping of human names to aliases.
-
-Example:
-{
-    "Leopold Nudell": "Accused 1",
-}
-"""
-
-
 class BaseRedactDriver(ABC):
     @abstractmethod
     def __call__(
-        self, narrative: Text, aliases: AliasMap | None = None
+        self, narrative: Text, aliases: NameMap | None = None
     ) -> RedactedText: ...

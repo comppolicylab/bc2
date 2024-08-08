@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from ..common.context import Context
 from ..common.infer import infer_annotations
 from ..common.text import RedactedText
+from ..common.types import NameMap
 from .base import BaseInspectDriver
 
 
@@ -28,7 +29,9 @@ class InspectAnnotationsDriver(BaseInspectDriver):
     def __init__(self, config: InspectAnnotationsConfig):
         self.config = config
 
-    def __call__(self, input: RedactedText, context: Context) -> RedactedText:
+    def __call__(
+        self, input: RedactedText, context: Context, subjects: NameMap | None = None
+    ) -> RedactedText:
         """Infer annotations from redacted text."""
         annotations = infer_annotations(
             input.original, input.redacted, delimiters=input.delimiters

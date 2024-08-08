@@ -61,7 +61,7 @@ from .annotations import InspectAnnotationsConfig
         ),
     ],
 )
-def test_render_text(original, redacted, expected):
+def test_inspect_annotations(original, redacted, expected):
     cfg = InspectAnnotationsConfig.model_validate(
         {
             "engine": "inspect:annotations",

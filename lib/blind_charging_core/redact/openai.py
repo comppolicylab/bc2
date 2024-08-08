@@ -3,7 +3,8 @@ from typing import Literal
 
 from ..common.openai import OpenAIChatConfig, OpenAICompletionConfig, OpenAIConfig
 from ..common.text import RedactedText, Text
-from .base import AliasMap, BaseRedactConfig, BaseRedactDriver
+from ..common.types import NameMap
+from .base import BaseRedactConfig, BaseRedactDriver
 
 
 class OpenAIRedactConfig(BaseRedactConfig, OpenAIConfig):
@@ -22,13 +23,11 @@ class OpenAIRedactDriver(BaseRedactDriver):
         self.config = config
         self.client = config.client.init()
 
-    def __call__(
-        self, narrative: Text, aliases: AliasMap | None = None
-    ) -> RedactedText:
+    def __call__(self, narrative: Text, aliases: NameMap | None = None) -> RedactedText:
         redacted = self.generate(narrative.text, aliases=aliases)
         return RedactedText(redacted, narrative.text, self.config.delimiters)
 
-    def generate(self, input: str, aliases: AliasMap | None = None) -> str:
+    def generate(self, input: str, aliases: NameMap | None = None) -> str:
         """Generate text from the config and the user input.
 
         This method only supports textual inputs.
