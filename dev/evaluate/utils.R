@@ -1,9 +1,9 @@
 
 # Common paths
-user_dir               <- "/Users/alexcw"
-project_dir            <- "Development/bc2"
+user_dir               <- "/home/stfdusr1"
+project_dir            <- "bc2"
 project_path           <- glue("{file.path(user_dir, project_dir)}")
-onedrive_dir           <- "Library/CloudStorage/OneDrive-HarvardUniversity"
+onedrive_dir           <- ""
 data_dir               <- "public_police_reports"
 label_dir              <- "labels/all_labels/public_police_reports"
 inventory_dir          <- "inventories"

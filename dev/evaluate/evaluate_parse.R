@@ -30,12 +30,12 @@ add_full_pdfs <- TRUE
 
 inventory_name             <- "cpl_inventory_2024-07-23.xlsx"
 
-pipe_folder                <- file.path(user_dir, "Development", 
+pipe_folder                <- file.path(user_dir,  
                                         "blind-charging-secrets", 
                                         "templates")
-extract_pipe_template_name <- "extract_2024-07-09.toml"
+extract_pipe_template_name <- "extract.karpel_2024-07-27.toml"
 extract_pipe_template_path <- file.path(pipe_folder, extract_pipe_template_name)
-parse_pipe_template_name   <- "parse_2024-07-09.toml"
+parse_pipe_template_name   <- "parse.karpel_2024-07-27.toml"
 parse_pipe_template_path   <- file.path(pipe_folder, parse_pipe_template_name)
 
 
@@ -184,7 +184,8 @@ writeLines(parse_pipe_injected, parse_pipe_injected_path)
 # ------------------------------------------------------------------------------
 # Run pipeline to extract narrative on sample of documents
 # And cache these results 
-command_prefix <- glue("PYTHONPATH={project_path} poetry run -C {project_path}")
+command_prefix <- glue('export PATH="/home/stfdusr1/.local/bin/:$PATH"; \
+                       PYTHONPATH={project_path} poetry run -C {project_path}')
 base_command   <- glue("{command_prefix} python -m lib.blind_charging_core")
 
 run_pipeline <- function(source_dir, source_pattern, 
@@ -214,6 +215,15 @@ run_pipeline <- function(source_dir, source_pattern,
     })
   
 }
+
+pyenv_shims <- path.expand("~/.pyenv/shims")
+poetry_path <- path.expand("~/.local/bin/")
+Sys.setenv(PATH = paste(pyenv_shims, poetry_path, Sys.getenv("PATH"), 
+                        sep=":"))
+
+system('echo $PATH')
+system('python --version')
+system('poetry --version')
 
 run_pipeline(input_dir, "pdf$", 
              "extracted.txt", extract_dir, 
