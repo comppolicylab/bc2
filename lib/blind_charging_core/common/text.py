@@ -108,6 +108,20 @@ class RedactedText:
 
         return final
 
+    def __repr__(self) -> str:
+        return (
+            f"RedactedText({self.redacted!r}, {self.original!r}, {self.delimiters!r})"
+        )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, RedactedText):
+            return NotImplemented
+        return (
+            self.redacted == other.redacted
+            and self.original == other.original
+            and self.delimiters == other.delimiters
+        )
+
 
 def escape_for_xml(ts: TextSegment, type_: EscapeType, debug: bool = False) -> str:
     """Escape text for HTML-style markup languages (HTML, platypus, etc).
