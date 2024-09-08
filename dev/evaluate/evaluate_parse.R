@@ -40,7 +40,7 @@ parse_pipe_template_path   <- file.path(pipe_folder, parse_pipe_template_name)
 
 
 
-# Set up cache 
+# Set up evaluation cache 
 # ------------------------------------------------------------------------------
 evaluation_dir         <- "evaluations/extraction"
 
