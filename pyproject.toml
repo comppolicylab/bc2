@@ -1,12 +1,15 @@
 [tool.poetry]
 name = "bc2"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 authors = ["Joe Nudell <jnudell@hks.harvard.edu>"]
 license = ""
 readme = "README.md"
 packages = [
-    { include = "blind_charging_core", from = "lib" }
+    { include = "blind_charging_core", from = "lib" },
+]
+include = [
+    {path = "data", format = ["sdist", "wheel"] }
 ]
 
 [tool.poetry.dependencies]
