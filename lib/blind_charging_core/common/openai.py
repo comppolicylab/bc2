@@ -1,4 +1,5 @@
 import json
+import os
 from abc import abstractmethod
 from functools import cached_property
 from typing import Any, Literal, Sequence
@@ -166,7 +167,35 @@ class OpenAIChatPromptFile(BaseModel, ChatPrompt):
         return messages
 
 
-OpenAIChatPrompt = OpenAIChatPromptInline | OpenAIChatPromptFile
+class OpenAIChatPromptEnv(BaseModel, ChatPrompt):
+    """A prompt file for an OpenAI model."""
+
+    prompt_env: str
+    examples_env: str | None = None
+
+    @cached_property
+    def prompt_value(self) -> str:
+        """Load the prompt from the environment variable"""
+        s = os.getenv(self.prompt_env)
+        if s is None:
+            raise ValueError(f"Environment variable {self.prompt_env} not set")
+        return s
+
+    @cached_property
+    def examples_value(self) -> list[dict[str, str]]:
+        """Load the examples from the environment variable"""
+        messages: list[dict[str, str]] = []
+        if self.examples_env is not None:
+            s = os.getenv(self.examples_env)
+            if s is None:
+                raise ValueError(f"Environment variable {self.examples_env} not set")
+            for example in s.split("\n"):
+                new_turn = json.loads(example)
+                messages.append(new_turn)
+        return messages
+
+
+OpenAIChatPrompt = OpenAIChatPromptInline | OpenAIChatPromptFile | OpenAIChatPromptEnv
 
 
 class CompletionPrompt:
@@ -201,7 +230,25 @@ class OpenAICompletionPromptFile(BaseModel, CompletionPrompt):
             return f.read()
 
 
-OpenAICompletionPrompt = OpenAICompletionPromptInline | OpenAICompletionPromptFile
+class OpenAICompletionPromptEnv(BaseModel, CompletionPrompt):
+    """A prompt file for an OpenAI model."""
+
+    prompt_env: str
+
+    @cached_property
+    def prompt(self) -> str:
+        """Load the prompt from the environment variable"""
+        s = os.getenv(self.prompt_env)
+        if s is None:
+            raise ValueError(f"Environment variable {self.prompt_env} not set")
+        return s
+
+
+OpenAICompletionPrompt = (
+    OpenAICompletionPromptInline
+    | OpenAICompletionPromptFile
+    | OpenAICompletionPromptEnv
+)
 
 
 class OpenAIChatConfig(BaseModel):
