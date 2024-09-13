@@ -1,11 +1,33 @@
 import tempfile
+from pathlib import Path
 
 from .openai import (
     OpenAIChatInputText,
+    OpenAIChatPromptBuiltIn,
     OpenAIChatPromptFile,
     OpenAIChatPromptInline,
     OpenAIChatTurn,
+    OpenAICompletionPromptBuiltIn,
 )
+
+
+def test_chat_prompt_builtin():
+    c = OpenAIChatPromptBuiltIn(prompt_id="redact")
+    # Real file is in ../../../data/prompts/redact.txt
+    cur_dur = Path(__file__).parent
+    assert (
+        c.prompt_value
+        == (cur_dur / "../../../data/prompts/redact.txt").resolve().read_text()
+    )
+
+
+def test_completion_prompt_builtin():
+    c = OpenAICompletionPromptBuiltIn(prompt_id="redact")
+    # Real file is in ../../../data/prompts/redact.txt
+    cur_dur = Path(__file__).parent
+    assert (
+        c.prompt == (cur_dur / "../../../data/prompts/redact.txt").resolve().read_text()
+    )
 
 
 def test_format_prompt_inline_jinja():

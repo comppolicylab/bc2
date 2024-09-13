@@ -7,6 +7,7 @@ from typing import Any, Literal, Sequence
 from openai import AzureOpenAI, OpenAI
 from pydantic import BaseModel
 
+from .datafile import DataType, load_data_file, load_data_file_from_path
 from .image import ImageUrl
 from .template import TemplateEngine, get_formatter
 
@@ -151,20 +152,31 @@ class OpenAIChatPromptFile(BaseModel, ChatPrompt):
     @cached_property
     def prompt_value(self) -> str:
         """Format the prompt file."""
-        with open(self.prompt_file, "r") as f:
-            return f.read()
+        return load_data_file_from_path(DataType.prompt, self.prompt_file)
 
     @cached_property
     def examples_value(self) -> list[dict[str, str]]:
         """Load the examples file."""
-        messages: list[dict[str, str]] = []
-        if self.examples_file is not None:
-            # Examples should be specified as JSONL
-            with open(self.examples_file, "r") as f:
-                for example in f:
-                    new_turn = json.loads(example)
-                    messages.append(new_turn)
-        return messages
+        if self.examples_file is None:
+            return []
+        return load_data_file_from_path(DataType.example, self.examples_file)
+
+
+class OpenAIChatPromptBuiltIn(BaseModel, ChatPrompt):
+    """A built-in prompt for an OpenAI model."""
+
+    prompt_id: str
+    examples_id: str | None = None
+
+    @cached_property
+    def prompt_value(self) -> str:
+        return load_data_file(DataType.prompt, self.prompt_id)
+
+    @cached_property
+    def examples_value(self) -> list[dict[str, str]]:
+        if not self.examples_id:
+            return []
+        return load_data_file(DataType.example, self.examples_id)
 
 
 class OpenAIChatPromptEnv(BaseModel, ChatPrompt):
@@ -195,7 +207,12 @@ class OpenAIChatPromptEnv(BaseModel, ChatPrompt):
         return messages
 
 
-OpenAIChatPrompt = OpenAIChatPromptInline | OpenAIChatPromptFile | OpenAIChatPromptEnv
+OpenAIChatPrompt = (
+    OpenAIChatPromptInline
+    | OpenAIChatPromptFile
+    | OpenAIChatPromptEnv
+    | OpenAIChatPromptBuiltIn
+)
 
 
 class CompletionPrompt:
@@ -226,8 +243,17 @@ class OpenAICompletionPromptFile(BaseModel, CompletionPrompt):
     @cached_property
     def prompt(self) -> str:
         """Load the prompt file"""
-        with open(self.prompt_file, "r") as f:
-            return f.read()
+        return load_data_file_from_path(DataType.prompt, self.prompt_file)
+
+
+class OpenAICompletionPromptBuiltIn(BaseModel, CompletionPrompt):
+    """A built-in prompt for an OpenAI model."""
+
+    prompt_id: str
+
+    @cached_property
+    def prompt(self) -> str:
+        return load_data_file(DataType.prompt, self.prompt_id)
 
 
 class OpenAICompletionPromptEnv(BaseModel, CompletionPrompt):
@@ -248,6 +274,7 @@ OpenAICompletionPrompt = (
     OpenAICompletionPromptInline
     | OpenAICompletionPromptFile
     | OpenAICompletionPromptEnv
+    | OpenAICompletionPromptBuiltIn
 )
 
 
