@@ -17,7 +17,9 @@ def test_chat_prompt_builtin():
     cur_dur = Path(__file__).parent
     assert (
         c.prompt_value
-        == (cur_dur / "../../../data/prompts/redact.txt").resolve().read_text()
+        == (cur_dur / "../../blind_charging_data/prompts/redact.txt")
+        .resolve()
+        .read_text()
     )
 
 
@@ -26,7 +28,10 @@ def test_completion_prompt_builtin():
     # Real file is in ../../../data/prompts/redact.txt
     cur_dur = Path(__file__).parent
     assert (
-        c.prompt == (cur_dur / "../../../data/prompts/redact.txt").resolve().read_text()
+        c.prompt
+        == (cur_dur / "../../blind_charging_data/prompts/redact.txt")
+        .resolve()
+        .read_text()
     )
 
 
