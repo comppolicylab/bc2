@@ -119,7 +119,7 @@ class Pipeline:
             last_output = sig.return_annotation
 
         # Validate that last step returns `None`
-        if last_output is not None and last_output != type(None):
+        if last_output is not None and last_output is not type(None):
             raise ValueError(
                 f"Expected final step to return `None` but got {last_output}"
             )
