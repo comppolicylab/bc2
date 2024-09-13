@@ -2,10 +2,16 @@ import tempfile
 
 from .openai import (
     OpenAIChatInputText,
+    OpenAIChatPromptBuiltIn,
     OpenAIChatPromptFile,
     OpenAIChatPromptInline,
     OpenAIChatTurn,
 )
+
+
+def test_prompt_builtin():
+    c = OpenAIChatPromptBuiltIn(prompt_id="redact")
+    assert c.prompt_file == "prompts/redact.txt"
 
 
 def test_format_prompt_inline_jinja():
