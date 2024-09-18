@@ -1,19 +1,26 @@
+require(yaml)
 
-# Common paths
-user_dir               <- "/home/stfdusr1"
-project_dir            <- "bc2"
-project_path           <- glue("{file.path(user_dir, project_dir)}")
-onedrive_dir           <- ""
-data_dir               <- "public_police_reports"
-label_dir              <- "labels/all_labels/public_police_reports"
-inventory_dir          <- "inventories"
+# Load configuration variables from local .yaml file
+# ------------------------------------------------------------------------------
 
+# Here's an example:
+# user_dir: "/Users/alexcw"
+# project_dir: "bc2"
+# onedrive_dir: "OneDrive - Harvard University"
+# data_dir: "public_police_reports"
+# label_dir: "labels/all_labels/public_police_reports"
+# inventory_dir: "inventories"
+
+yaml.load_file("dev/evaluate/eval_config.yaml") %>% 
+  list2env(envir = .GlobalEnv)
+project_path <- glue("{file.path(user_dir, project_dir)}")
 
 
 # Label extraction functions
 # ------------------------------------------------------------------------------
 # Extract labeled narratives from Document Intelligence labels
 extract_narrative <- function(label_filepath) {
+  print(label_filepath)
   page_number <- str_match(label_filepath, "__pg(\\d{3})\\.pdf")[,2] %>% 
     as.numeric()
   
