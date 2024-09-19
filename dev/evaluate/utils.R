@@ -6,6 +6,7 @@ require(yaml)
 # Here's an example:
 # user_dir: "/Users/alexcw"
 # project_dir: "bc2"
+# project_path: "/Users/alexcw/Development/bc2"
 # onedrive_dir: "OneDrive - Harvard University"
 # data_dir: "public_police_reports"
 # label_dir: "labels/all_labels/public_police_reports"
@@ -13,14 +14,13 @@ require(yaml)
 
 yaml.load_file("dev/evaluate/eval_config.yaml") %>% 
   list2env(envir = .GlobalEnv)
-project_path <- glue("{file.path(user_dir, project_dir)}")
 
 
 # Label extraction functions
 # ------------------------------------------------------------------------------
 # Extract labeled narratives from Document Intelligence labels
 extract_narrative <- function(label_filepath) {
-  print(label_filepath)
+  
   page_number <- str_match(label_filepath, "__pg(\\d{3})\\.pdf")[,2] %>% 
     as.numeric()
   
@@ -88,7 +88,7 @@ extract_labels <- function(inventory_page_basis) {
   
   label_files %>% 
     pull(label_filepath) %>% 
-    map_dfr(extract_narrative) %>% 
+    map_dfr(extract_narrative, .progress = TRUE) %>% 
     arrange(label_filepath, page_number, 
             narrative_num, desc(label_type)) %>% 
     mutate(label_filename = basename(label_filepath),
@@ -158,4 +158,17 @@ incident_to_page_crosswalk <- function(inventory) {
                                             label_dir, page_src_name)
     ) %>% 
     ungroup()
+}
+
+
+diff_make_try <- function(target, current, method) {
+  tryCatch(
+    {
+      diff_make(target, current, method)
+    },
+    error = function(cond) {
+      message(conditionMessage(cond))
+      NA_character_
+    }
+  )
 }

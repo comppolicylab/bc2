@@ -283,18 +283,6 @@ raw_eval <- narrative_sample %>%
 raw_eval %>% 
   write_csv(file.path(cache_path, "evaluation.csv"))
 
-diff_make_try <- function(target, current, method) {
-  tryCatch(
-    {
-      diff_make(target, current, method)
-    },
-    error = function(cond) {
-      message(conditionMessage(cond))
-      NA_character_
-    }
-  )
-}
-
 evaluation <- raw_eval %>% 
   mutate(text_diff   = pmap(list(redact_input,
                                  redact_output,

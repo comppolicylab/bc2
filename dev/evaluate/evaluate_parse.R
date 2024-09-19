@@ -4,6 +4,7 @@ require(glue)
 require(jsonlite)
 require(diffmatchpatch)
 require(qpdf)
+require(parallel)
 
 source("dev/evaluate/utils.R")
 
@@ -30,12 +31,14 @@ add_full_pdfs <- TRUE
 
 inventory_name             <- "cpl_inventory_2024-07-23.xlsx"
 
-pipe_folder                <- file.path(user_dir,  
+pipe_folder                <- file.path(user_dir, 
+                                        "Development",
                                         "blind-charging-secrets", 
+                                        "dev",
                                         "templates")
-extract_pipe_template_name <- "extract.karpel_2024-07-27.toml"
+extract_pipe_template_name <- "extract.harvard_2024-07-09.toml"
 extract_pipe_template_path <- file.path(pipe_folder, extract_pipe_template_name)
-parse_pipe_template_name   <- "parse.karpel_2024-07-27.toml"
+parse_pipe_template_name   <- "parse.harvard_2024-07-09.toml"
 parse_pipe_template_path   <- file.path(pipe_folder, parse_pipe_template_name)
 
 
@@ -82,12 +85,13 @@ inventory_incident_basis <- file.path(user_dir, onedrive_dir, data_dir,
 inventory_page_basis <- inventory_incident_basis %>% 
   incident_to_page_crosswalk()
 
-labels <- extract_labels(inventory_page_basis)
+pdf_labels <- extract_labels(inventory_page_basis)
 
 set.seed(cache_name %>% str_split_1("_") %>% last())
 doc_sample <- inventory_incident_basis %>% 
+  mutate(doc_length = document_end - document_start) %>% filter(doc_length >= 20) %>% ### TEMP filter to long documents 
   # Filter to labeled incidents 
-  inner_join(labels, by = "document_save_name") %>% 
+  inner_join(pdf_labels, by = "document_save_name") %>% 
   group_by(referring_agency) %>%
   # Set weights to prioritize samples from agencies with fewer samples
   mutate(n = n(),
@@ -136,20 +140,27 @@ parse_pipe_template     <- paste(parse_pipe_template_raw, collapse = "\n")
 parse_prompt            <- glue("
 I am providing you with text from a police report provided by OCR using Azure Document Intelligence. Review this input and extract ALL freely-written text from the following categories:
 1. *Narratives*: A narrative is a freely-written account of events that occurred during a crime. It typically includes information such as the date, time, location, and description of the incident, as well as the actions taken by the police officers involved. It may also include legal statements or policing jargon. They often start with \"On MMDDYY, at approximately HH:MM, I...\", or a couple words about body worn camera (BWC) footage, e.g., \"BWC activated\" or \"No BWC\". Sometimes they end with \"End of report\", a certification under penalty of perjury, a recommendation, or the officer's name.
-2. *Synposis*, *Summary*, or *Probable Cause*: These are like narratives, but are often 1-2 sentences long, giving high-level details of the crime.
-3. *Statements*: A statement is a recounting of events written from the first person's perspective. It is often written by the victim, witness, or suspect involved in the incident. It often includes statments like \"I was doing X\" or \"He said Y\". These statements may focus on actions, discussions, and even violent events that occurred during the incident. These should include a listed author (e.g., \"Name of Person\"). They may also include line numbers at the beginning of each line, which you can try to remove. A statement can also be a \"probable cause statement\", which is very similar to a narrative. 
+2. *Synposis*, *Summary*, or *Probable Cause*: These are like narratives. Sometimes they are 1-2 sentences long, but they can be much longer. They also give high-level details of the crime.
+3. *Statements*: A statement is a recounting of events written from the first person's perspective. It is often written by the victim, witness, or suspect involved in the incident. It often includes phrases like \"I was doing X\" or \"He said Y\". Statements may focus on actions, discussions, and even violent events that occurred during the incident. These should include a listed author (e.g., \"Name of Person\"). A statement can also be a \"probable cause statement\", which is very similar to a narrative. 
 
-Make sure to extract ALL freely-written text, even if it is not explicitly labeled as a narrative or statement. 
+Alongside this text, you should also extract headers if they exist. Headers typically immediately precede a block of freely written text. They often includes words like \"Narrative\", \"Main\", \"Primary\", \"Follow-Up\", \"Supplemental\", \"Investigative\", or \"Synposis\" to indicate the type of narrative, or \"Statement\" to indicate a witness, suspect, or victim statement, or probable cause statement. Extract the entire header, not just one of these words. Be sure to only extract this field if it exists on the page. Sometimes multiple headers are used for the same narrative; make sure to extract them all.
 
-Headers are an important field to extract if it exists. It typically immediately precedes a block of freely written text. It often includes words like \"Main\", \"Primary\", \"Follow-Up\", \"Supplemental\", \"Investigative\", or \"Synposis\" to indicate the type of narrative, or \"Statement\" to indicate a witness, suspect, or victim statement, or probable cause statement. Extract the entire header, not just one of these words. Be sure to only extract this field if it exists on the page. Sometimes multiple headers are used for the same narrative; make sure to extract them all.
+Sometimes freely-written text from the above categories appears without a header. You should still extract ALL freely-written text, even if it is not explicitly labeled as a narrative or statement. For example, freely-written text can spill across multiple pages. As a result, the last few sentence(s) of a long narrative may appear without any header at the top of a page. It is very important to extract these stubs so that we can merge them into a single block of text at a later time. These hanging paragraphs may be tricky to identify, especially if the page contains the start of the next block of freely-written text. So keep your eye out for pages with a hanging sentence or two.
 
-Sometimes freely-written text from the above categories appears without a header. You should still include these passages. For example, freely-written text can spill across multiple pages. As a result, the last few sentence(s) of a long narrative may appear without any header at the top of a page. It is very important to extract these stubs so that we can merge them into a single block of text at a later time. These hanging paragraphs may be tricky to identify, especially if the page contains the start of the next block of freely-written text. So keep your eye out for pages with a hanging sentence or two.
+Very often there is more than one narrative or statement in the document provided. You should return ALL narratives and statements. Be VERY careful to read through all the text provided and extract ALL narratives or statements provided without any truncation or omission. 
 
-If you find one or more narratives or statements, you should return them as simple plain-text paragraphs, with the header (if it exists) followed by the narrative content. Paragraphs should be presented in the order they appeared in the input. 
+In the past, you often missed the last few paragraphs of the last narrative of a document. So this time, make sure to look *all the way* to the very end of the provided text, and then be sure to extract all freely written text as instructed. Here are some signs that you may have missed part of a narrative or statement:
+- The extracted text ends abruptly in the middle of a sentence
+- The extracted text ends without a conclusion or follow-up
+- The extracted text ends without a signature or certification
 
-Important: add a visual divider between each extracted narrative The divider should be a line of dashes like this: \"------------------------------------------------------\". You only need to add this line between narratives if there is more than one extracted narrative; no need to add these breaks at the beginning or end of your output.
+Triple-check the very last line in your extracted text. Does it end in the middle of a sentence? If so, it's highly likely you missed something. Go back and extract the rest of that narrative, and look to see if any more narratives or statements follow. Be highly suspicious and skeptical if you are tempted to end your extracted text with a hanging sentence.
 
-If you do not find any narratives, or if you are not provided with any text, return \"No narratives found.\" 
+As a sign of how important it is to extract all the provided narratives and statements, YOU WILL BE FINED $20 if you miss part of a narrative or statement, or $50 if you miss an entire narrative or statement. Alternatively, if you perfectly extract all narratives and statements, you will receive a tip of $100.
+
+Extracted text should be returned as simple plain-text paragraphs, with the header (if it exists) followed by the narrative content. Paragraphs should be presented in the order they appeared in the input. Add a visual divider between each extracted narrative. The divider should be a line of dashes like this: \"------------------------------------------------------\". You only need to add this line between narratives if there is more than one extracted narrative. There is also no need to add these breaks at the very beginning or very end of your output.
+
+If you do not find any narratives, return \"No narratives found.\" If you are not provided with any text, return \"No text provided.\"
 
 NEVER include text from the following categories:
 1. Do NOT extract lists of labels and values (e.g., DOB, Zipcode, weight, etc.), unless they are embedded within freely-written text. One exception: occasionally a list of labels and freely-written values will be part of a larger narrative, so you can extract these.
@@ -184,13 +195,14 @@ writeLines(parse_pipe_injected, parse_pipe_injected_path)
 # ------------------------------------------------------------------------------
 # Run pipeline to extract narrative on sample of documents
 # And cache these results 
-command_prefix <- glue('export PATH="/home/stfdusr1/.local/bin/:$PATH"; \
-                       PYTHONPATH={project_path} poetry run -C {project_path}')
+# export PATH="/home/stfdusr1/.local/bin/:$PATH"; \
+command_prefix <- glue('PYTHONPATH={project_path} poetry run -C {project_path}')
 base_command   <- glue("{command_prefix} python -m lib.blind_charging_core")
 
 run_pipeline <- function(source_dir, source_pattern, 
                          output_suffix, output_dir, 
-                         pipeline_path) {
+                         pipeline_path,
+                         n_cores = 1) {
                            
   pipeline_input <- list.files(path = file.path(cache_path, source_dir), 
                                pattern = source_pattern, 
@@ -208,17 +220,25 @@ run_pipeline <- function(source_dir, source_pattern,
            command = glue("{base_command} {pipeline_path} {args}")
            )
   
-  pipeline_input %>% 
-    pmap(function(...) {
-      args <- list(...)
+  if (n_cores == 1) {
+    pipeline_input %>% 
+      pmap(function(...) {
+        args <- list(...)
+        system(args$command)
+      })
+  } else {
+    # Use mclapply from the parallel package for parallel processing
+    mclapply(1:nrow(pipeline_input), function(i) {
+      args <- pipeline_input[i, ]
       system(args$command)
-    })
+    }, mc.cores = n_cores) # Specify the number of cores to use
+  }
   
 }
 
 pyenv_shims <- path.expand("~/.pyenv/shims")
 poetry_path <- path.expand("~/.local/bin/")
-Sys.setenv(PATH = paste(pyenv_shims, poetry_path, Sys.getenv("PATH"), 
+Sys.setenv(PATH = paste(pyenv_shims, poetry_path, Sys.getenv("PATH"),
                         sep=":"))
 
 system('echo $PATH')
@@ -227,11 +247,13 @@ system('poetry --version')
 
 run_pipeline(input_dir, "pdf$", 
              "extracted.txt", extract_dir, 
-             extract_pipe_path)
+             extract_pipe_path,
+             n_cores = 5)
 
 run_pipeline(extract_dir, "\\.extracted\\.txt$", 
              "parsed.txt", parsed_dir, 
-             parse_pipe_injected_path)
+             parse_pipe_injected_path,
+             n_cores = 5)
 
 
 # Evaluate output
@@ -284,11 +306,11 @@ evaluation <- raw_eval %>%
     text_diff_narr_only   = pmap(list(label_narr_only_document,
                                       parse_output,
                                       "lossless"),
-                                 diff_make),
+                                 diff_make_try),
     text_diff_narr_head   = pmap(list(label_narr_and_head_document,
                                       parse_output,
                                       "lossless"),
-                                 diff_make)
+                                 diff_make_try)
     
   )
 
@@ -329,12 +351,14 @@ narr_recovery %>%
   relocate(row_numb) %>% 
   View()
 
+# Create a log for notetaking
 narr_recovery %>% 
   select(label_narr_only_document, 
          extract_output, parse_output,
          pct_narr_recovered_doc) %>% 
   mutate(row_numb = row_number()) %>% 
-  relocate(row_numb) %>% write_csv(file.path(cache_path, "notes.csv"))
+  relocate(row_numb) %>% 
+  write_csv(file.path(cache_path, "notes.csv"))
 
 examine_doc <- function(ix_num) {
   doc_deets <- narr_recovery %>% 
@@ -361,44 +385,6 @@ examine_doc <- function(ix_num) {
   
 }
 
-examine_doc(58)
+examine_doc(1)
 
-
-
-# Prompt changes:
-# - Don't get lazy at end of narrative
-# - Some extremely short narratives should still count (e.g., "Assigned to J. Doe"), "2 males arrested on gun charges." Differentiate between this and categorical information perhaps?
-# - Really highlight importance of BWC evidence "BWC available"
-# - Potential short table of information at start of narrative (author, date of entry, report type)
-# - Expand on importance of headers "original narrative", "police report", etc.
-# - fields to ignore: addresses, physical descriptions, phone numbers, contact info. often included in intro to statemetnts it seems, so we can ignore for statemnts 
-# - Underscore probable cause statements
-# - We don't need these:
-#   "This report was submitted from an electronic device owned, issued, or maintained by a law enforcement agency using my user ID and password. 
-#   I certify or declare under penalty of perjury under the laws of the State of ____ that the foregoing is true and correct.
-# - Add "list of attachments" to end matter description
-# - Describe attached reports that shouldn't be included. 
-#   e.g., "victim notification of no contact provision", i.e., a restraining order 
-#   detailing the specifics of a restraining order
-#   e.g., "notice to victims" of domestic violence, desc
-#   detailing how soon someone may be released from jail after an arrest 
-
-# To engineer:
-# - Compare to input to detect hallucination 
-
-# To change:
-# - Add "hallucination" metric (not extracted text)
-# - Add "extra material" metric (extracted text, just not part of the label)
-
-# Ideas for Joe:
-# - Quality check vs. input at extraction step (see doc #32)
-# Hallucination examples: 27, 
-
-# Muskan re-label:
-# - Recommendation letter update?
-# - in_bloomington_pd__felonies__B23-51932_redacted.pdf: why label metadata entries as part of narrative?
-# - Lewis County: remove end-matter if it is just "I DECLARE UNDER PENALTY OF PERJURY..." boilerplate
-# - NV Elko CAD examples (#83-90)
-# - MN Duluth CAD examples (#52)
-# - WA Yakima CAD examples
 
