@@ -232,7 +232,12 @@ class CompletionPrompt:
 class OpenAICompletionPromptInline(BaseModel, CompletionPrompt):
     """A completion prompt for an OpenAI model."""
 
-    prompt: str
+    prompt_text: str
+
+    @property
+    def prompt(self) -> str:
+        """Echo the prompt text."""
+        return self.prompt_text
 
 
 class OpenAICompletionPromptFile(BaseModel, CompletionPrompt):
