@@ -9,6 +9,7 @@ from .extract.azuredi import AzureDIExtractConfig
 from .extract.openai import OpenAIExtractConfig
 from .extract.raw import RawExtractConfig
 from .extract.tesseract import TesseractExtractConfig
+from .extract.noop import NoOpExtractConfig
 from .input.azureblob import AzureBlobInputConfig
 from .input.file import FileInputConfig
 from .input.memory import MemoryInputConfig
@@ -19,6 +20,7 @@ from .output.file import FileOutputConfig
 from .output.memory import MemoryOutputConfig
 from .output.stdout import StdoutOutputConfig
 from .parse.openai import OpenAIParseConfig
+from .parse.noop import NoOpParseConfig
 from .redact.noop import NoOpRedactConfig
 from .redact.openai import OpenAIRedactConfig
 from .render.html import HtmlRenderConfig
@@ -34,11 +36,11 @@ InputConfig = Union[
 
 
 ExtractConfig = Union[
-    AzureDIExtractConfig, OpenAIExtractConfig, TesseractExtractConfig, RawExtractConfig
+    AzureDIExtractConfig, OpenAIExtractConfig, TesseractExtractConfig, RawExtractConfig, NoOpExtractConfig
 ]
 
 
-ParseConfig = Union[OpenAIParseConfig]
+ParseConfig = Union[OpenAIParseConfig, NoOpParseConfig]
 
 
 RedactConfig = Union[OpenAIRedactConfig, NoOpRedactConfig]
@@ -51,7 +53,8 @@ RenderConfig = Union[PdfRenderConfig, HtmlRenderConfig, TextRenderConfig]
 
 
 OutputConfig = Union[
-    AzureBlobOutputConfig, FileOutputConfig, StdoutOutputConfig, MemoryOutputConfig
+    AzureBlobOutputConfig, FileOutputConfig, StdoutOutputConfig, 
+    MemoryOutputConfig
 ]
 
 
