@@ -67,7 +67,7 @@ redact_pipe_template     <- paste(redact_pipe_template_raw, collapse = "\n")
 Sys.setenv(PATH = paste("/home/alex/.local/bin", Sys.getenv("PATH"), sep = ":"))
 Sys.setenv(PATH = paste("/home/alex/.pyenv/bin", Sys.getenv("PATH"), sep = ":"))
 command_prefix <- glue("PYTHONPATH={bc2_path} poetry run -C {bc2_path}")
-base_command   <- glue("{command_prefix} python -m lib.blind_charging_core")
+base_command   <- glue("{command_prefix} python -m blind_charging_core")
 
 run_pipeline <- function(source_dir, source_pattern,
                          output_dir, cache_path, 

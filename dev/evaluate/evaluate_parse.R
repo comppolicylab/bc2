@@ -197,7 +197,7 @@ writeLines(parse_pipe_injected, parse_pipe_injected_path)
 # And cache these results 
 # export PATH="/home/stfdusr1/.local/bin/:$PATH"; \
 command_prefix <- glue('PYTHONPATH={project_path} poetry run -C {project_path}')
-base_command   <- glue("{command_prefix} python -m lib.blind_charging_core")
+base_command   <- glue("{command_prefix} python -m blind_charging_core")
 
 run_pipeline <- function(source_dir, source_pattern, 
                          output_suffix, output_dir, 

@@ -46,5 +46,5 @@ find "$INPUT_DIR" -name "*.pdf" | parallel -j "$NUM_JOBS" --eta '
     base_filename=${stripped_filename%.pdf}  # Remove the .pdf extension
     temp_toml="$TEMP_DIR/${base_filename}.toml";
     sed "s/{{filename}}/${base_filename}/g" "$CONFIG_FILE" > "$temp_toml";
-    poetry run python -m lib.blind_charging_core "$temp_toml" --input-path {} --output-path "$OUTPUT_DIR/${filename%.pdf}-redacted.pdf"
+    poetry run python -m blind_charging_core "$temp_toml" --input-path {} --output-path "$OUTPUT_DIR/${filename%.pdf}-redacted.pdf"
 '
