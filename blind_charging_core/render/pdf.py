@@ -65,11 +65,9 @@ class PDFRenderer(BaseRenderer):
         paras = [p + "</para>" for p in formatted.split("</para>") if p]
 
         doc.build(
-            # [
-            #     Paragraph(self.DISCLAIMER, styles["Italic"]),
-            # ]
-            # + 
-            [Paragraph(p, styles["Normal"]) for p in paras],
+            [Paragraph(p, styles["Normal"]) for p in paras]
+            + 
+            [Paragraph(self.DISCLAIMER, styles["Disclaimer"])],
             onFirstPage=partial(self.layout_pdf, styles=styles),
             onLaterPages=partial(self.layout_pdf, styles=styles),
         )
@@ -121,7 +119,10 @@ class PDFRenderer(BaseRenderer):
         styles = StyleSheet1()
         styles.add(
             ParagraphStyle(
-                name="Header", fontName="Times-Bold", fontSize=10, leading=14
+                name="Header", 
+                fontName="Times-Bold", 
+                fontSize=10, 
+                leading=14,
             )
         )
         styles.add(
@@ -135,13 +136,20 @@ class PDFRenderer(BaseRenderer):
         )
         styles.add(
             ParagraphStyle(
-                name="Italic",
+                name="Disclaimer",
                 parent=styles["Normal"],
                 fontName="Times-Italic",
                 fontSize=10,
+                color="dimgray",
             )
         )
-        styles.add(ParagraphStyle(name="Footer", parent=styles["Normal"], fontSize=10))
+        styles.add(
+            ParagraphStyle(
+                name="Footer", 
+                parent=styles["Normal"], 
+                fontSize=10,
+            )
+        )
         styles.add(
             ParagraphStyle(
                 name="Redaction",
@@ -155,8 +163,9 @@ class PDFRenderer(BaseRenderer):
             ParagraphStyle(
                 name="RedactError",
                 parent=styles["Redaction"],
-                fontName="Times",
-                color="dimgray",
+                # # fontName="Courier",
+                # # fontSize=12,
+                # color="gray",
             )
         )
         return styles

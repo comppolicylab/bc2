@@ -17,11 +17,13 @@ class BaseRenderer(ABC):
     TITLE = "Redacted Narrative for Race-Blind Charging"
 
     DISCLAIMER = """
-The following passages have been automatically extracted from referral \
-documents. These passages have been automatically redacted to hide \
-race-related information. Please report any issues to 
-<a href="mailto:issues@blindcharging.org">\
-        issues@blindcharging.org</a>.
+--------------------------------------------------------------------------------------------------------------------------------------------------------------\
+The above passages have been automatically extracted from referral \
+documents and automatically redacted to hide race-related information. \
+Occasionally, words may be automatically inserted to improve readability. \
+These words will appear in grey. \
+Please report any issues to <a href="mailto:blind_charging@hks.harvard.edu">\
+blind_charging@hks.harvard.edu</a>.
 """
 
     @abstractmethod
