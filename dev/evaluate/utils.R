@@ -2,7 +2,6 @@ require(yaml)
 
 # Load configuration variables from local .yaml file
 # ------------------------------------------------------------------------------
-
 # Here's an example:
 # user_dir: "/Users/alexcw"
 # project_dir: "bc2"

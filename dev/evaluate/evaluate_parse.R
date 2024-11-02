@@ -26,7 +26,7 @@ source("dev/evaluate/utils.R")
 # With GPT-4 Turbo and 100 records with full PDFs, it took 1.25 hours,
 # so about 45 s / record
 
-num_samples   <- 5
+num_samples   <- 3
 add_full_pdfs <- TRUE
 
 inventory_name             <- "cpl_inventory_2024-07-23.xlsx"
