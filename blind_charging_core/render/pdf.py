@@ -140,7 +140,12 @@ class PDFRenderer(BaseRenderer):
                 parent=styles["Normal"],
                 fontName="Times-Italic",
                 fontSize=10,
-                color="dimgray",
+                # ACW note: I think since this applies to an entire paragraph,
+                # `textColor` is the way to set the color for the disclaimer.
+                # For the `Redaction` and `RedactError` styles below, they 
+                # appear as text within paragraphs, so we should use the 
+                # `color` attribute for those styles.
+                textColor="dimgrey",
             )
         )
         styles.add(
@@ -163,9 +168,7 @@ class PDFRenderer(BaseRenderer):
             ParagraphStyle(
                 name="RedactError",
                 parent=styles["Redaction"],
-                # # fontName="Courier",
-                # # fontSize=12,
-                # color="gray",
+                color="lightgrey",
             )
         )
         return styles

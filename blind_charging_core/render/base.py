@@ -20,8 +20,8 @@ class BaseRenderer(ABC):
 --------------------------------------------------------------------------------------------------------------------------------------------------------------\
 The above passages have been automatically extracted from referral \
 documents and automatically redacted to hide race-related information. \
-Occasionally, words may be automatically inserted to improve readability. \
-These words will appear in grey. \
+In rare circumstances, words or punctuation may be automatically inserted to fix typos. \
+These additions will appear in light grey. \
 Please report any issues to <a href="mailto:blind_charging@hks.harvard.edu">\
 blind_charging@hks.harvard.edu</a>.
 """
