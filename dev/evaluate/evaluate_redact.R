@@ -3,35 +3,35 @@ require(glue)
 require(janitor)
 require(diffmatchpatch)
 
-# Evaluation parameters 
+# Evaluation parameters
 # ------------------------------------------------------------------------------
 num_samples    <- 100
-raw_narratives <- read_delim(file.path("/home", "alex", "data", 
+raw_narratives <- read_delim(file.path("/home", "alex", "data",
                                        "yolo", "narratives",
                                        "Stanford_Redaction_Engine_IO_tidied.txt"),
-                             delim = "|") %>% 
-  clean_names() %>% 
+                             delim = "|") %>%
+  clean_names() %>%
   mutate(across(everything(), as.character),
-         report_narrative = iconv(report_narrative, 
+         report_narrative = iconv(report_narrative,
                                   from = "windows-1252", to = "UTF-8"))
 
 bc2_path <- file.path("/home", "alex", "bc2")
 
-template_folder           <- file.path("/home", "alex", 
-                                       "blind-charging-secrets", 
+template_folder           <- file.path("/home", "alex",
+                                       "blind-charging-secrets",
                                        "dev", "templates")
 redact_pipe_template_name <- "redact.hks.L3_2024-08-06.toml"
-redact_pipe_template_path <- file.path(template_folder, 
+redact_pipe_template_path <- file.path(template_folder,
                                        redact_pipe_template_name)
 
 
-# Set up evaluation cache 
+# Set up evaluation cache
 # ------------------------------------------------------------------------------
 evaluation_dir         <- "evaluations/redaction"
 
 cache_name        <- now() %>% str_replace_all(" |:|\\.|\\-", "_")
-cache_path        <- file.path("/home", "alex", "data", 
-                               "yolo", 
+cache_path        <- file.path("/home", "alex", "data",
+                               "yolo",
                                evaluation_dir, cache_name)
 
 input_dir         <- "input"
@@ -45,11 +45,11 @@ dir.create(file.path(cache_path, assess_dir), recursive = TRUE)
 # Draw sample and write to files
 # ------------------------------------------------------------------------------
 set.seed(cache_name %>% str_split_1("_") %>% last())
-narrative_sample <- raw_narratives %>% 
-  sample_n(num_samples) 
+narrative_sample <- raw_narratives %>%
+  sample_n(num_samples)
 
 write_narrative <- function(report_narrative, case_id, ...) {
-  writeLines(report_narrative, 
+  writeLines(report_narrative,
              paste0(file.path(cache_path, input_dir, case_id), ".txt"))
 }
 
@@ -58,7 +58,7 @@ narrative_sample %>%
   pmap(write_narrative)
 
 
-# Prepare pipeline 
+# Prepare pipeline
 # ------------------------------------------------------------------------------
 # Inject the prompt below into the redact pipe
 redact_pipe_template_raw <- readLines(redact_pipe_template_path, warn = TRUE)
@@ -70,22 +70,22 @@ command_prefix <- glue("PYTHONPATH={bc2_path} poetry run -C {bc2_path}")
 base_command   <- glue("{command_prefix} python -m blind_charging_core")
 
 run_pipeline <- function(source_dir, source_pattern,
-                         output_dir, cache_path, 
-                         pipe_template, prompt, 
+                         output_dir, cache_path,
+                         pipe_template, prompt,
                          suffix) {
-  
+
   # Replace the placeholder with the long string
   pipe_injected <- gsub("\\{prompt\\}", prompt, pipe_template)
-  
+
   # Write the modified content back to the cache, to be used below
-  pipe_injected_path <- file.path(cache_path, 
+  pipe_injected_path <- file.path(cache_path,
                                   glue("pipeline_{suffix}.toml"))
   writeLines(pipe_injected, pipe_injected_path)
-  
-  pipeline_input <- list.files(path = file.path(cache_path, source_dir), 
-                               pattern = source_pattern, 
-                               full.names = TRUE) %>% 
-    tibble(src_filepath = .) %>% 
+
+  pipeline_input <- list.files(path = file.path(cache_path, source_dir),
+                               pattern = source_pattern,
+                               full.names = TRUE) %>%
+    tibble(src_filepath = .) %>%
     mutate(src_filename  = basename(src_filepath),
            output_name   = glue("{src_filename}.{suffix}.txt"),
            output_path   = file.path(cache_path, output_dir, output_name),
@@ -97,17 +97,17 @@ run_pipeline <- function(source_dir, source_pattern,
            args          = glue("{input_arg} {output_arg}"),
            command = glue("{base_command} {pipe_injected_path} {args}")
     )
-  
-  pipeline_input %>% 
+
+  pipeline_input %>%
     pmap(function(...) {
       args <- list(...)
       system(args$command)
     })
-  
+
 }
 
 
-# Run redaction 
+# Run redaction
 # ------------------------------------------------------------------------------
 redact_prompt <- glue("
 Your job is to redact all race-related information in the provided text. Race-related information is any word from the following categories:
@@ -152,14 +152,14 @@ Do not provide any commentary.
 
 # redact_prompt <- glue("
 # Instructions for Redacting Race-Related Information
-# 
+#
 # Objective:
 # Your task is to redact all race-related information from the provided text. Follow these instructions carefully to ensure consistency and accuracy.
-# 
+#
 # 1. Categories of Information to Redact
-# 
+#
 # Redact any information that falls into the following categories:
-# 
+#
 # - Race/Ethnicity:
 #   - Explicit mentions of race or ethnicity (e.g., “the black man”)
 #   - Racial slurs
@@ -185,22 +185,22 @@ Do not provide any commentary.
 #   - Restaurant names (e.g., “McDonald's”)
 #   - Neighborhood names and precinct names (e.g., “Midtown”)
 #   - City names and police department names or abbreviations (e.g., “the Chicago Police Department” or “CPD 28402”)
-# 
+#
 # 2. Information You Should Not Redact
-# 
+#
 # Do not redact or alter any information outside of the categories listed above. This includes:
-# 
+#
 #  - Dates
 #  - Objects
 #  - General colors not linked to skin tone
 #  - Other entities not explicitly listed above (e.g., vehicles)
-# 
+#
 # 3. Placeholder Replacement Guidelines
-# 
+#
 # For All Types of Redacted Information:
-#   - Use a generic placeholder that describes the type of information redacted and a number to uniquely and consistently identify that entity across the entire narrative (e.g., “[Victim X]” or “[Neighborhood X]”) 
-#   - The X represents a counter for that specific redacted concept, NOT any other associated entities (e.g., the phrase \"Victim 1 (a black woman) and Victim 2 (an African-American man)\" should become \"[Victim 1] (a [Race 1] woman) and [Victim 2] (a [Race 1] man)\"). 
-#   
+#   - Use a generic placeholder that describes the type of information redacted and a number to uniquely and consistently identify that entity across the entire narrative (e.g., “[Victim X]” or “[Neighborhood X]”)
+#   - The X represents a counter for that specific redacted concept, NOT any other associated entities (e.g., the phrase \"Victim 1 (a black woman) and Victim 2 (an African-American man)\" should become \"[Victim 1] (a [Race 1] woman) and [Victim 2] (a [Race 1] man)\").
+#
 # For People's Names, Nicknames, and Social Media Handles Specifically:
 #   - Roles are often abbreviated in police reports, e.g., \"S1\" refers to \"Suspect 1\", and \"V1\" refers to \"Victim 1\". These roles may appear in slightly different formats (e.g., \"S-1\" or \"S.1\").
 #   - Other common roles are \"Witness\" (W), \"Accused\" (A), \"Reporting Party\" (RP), or \"Reporting Victim\" (RV).
@@ -208,45 +208,45 @@ Do not provide any commentary.
 #   - If a person's role is not clear, use gendered placeholders like “[Man X]” or “[Woman X]”
 #   - If a person's role is not clear AND gender is unclear, use “[Person X]”
 #   - Make sure that roles are identified correctly (e.g., suspects should NEVER be labeled as victims).
-# 
+#
 # For Locations (Addresses, Streets, etc.) Specifically:
-#   - Redact addresses and intersections in each of its component parts: 
+#   - Redact addresses and intersections in each of its component parts:
 #     - \"123 Main St.\" should be redacted as \"[Address 1 on Street 1]\"
-#     - \"The incident occurred at Main Street and Oak Court\" should become \"The incident occurred at [Street 1] and [Street 2]\". 
+#     - \"The incident occurred at Main Street and Oak Court\" should become \"The incident occurred at [Street 1] and [Street 2]\".
 #   - This allows you to later reference the street specifically, e.g., you could later say \"Then [Suspect 1] escaped on [Street 1].\"
-#   - Make sure to redact location information for cities or more local jurisdictions, e.g., city names, police departments, local agency names, precinct names, and neighborhood names. 
+#   - Make sure to redact location information for cities or more local jurisdictions, e.g., city names, police departments, local agency names, precinct names, and neighborhood names.
 #   - You do NOT need to redact regional geographic indicators, like county or state names, since they do not give away race information; but you should redact country names, since they may indicate someone's country of origin.For example, the phrase \"CPD arrested the Brazilian suspect in Chicago and booked them in Cook County Jail in Illinois\" should become \"[Police Department 1] arrested the [Ethnicity 1] suspect in [City 1] and booked them in Cook County Jail in Illinois.\"
 #   - Be careful to redact police department abbreviations, which often end in \"PD\", like \"CPD\", and may be parts of case numbers, e.g., \"WSPD 2023-0295\" should become \"[Police Department X] 2023-0295\".
-# 
+#
 # 4. Handling Variations in Names and Descriptors
-# 
-#   - In the past, you have missed lots of nicknames, so be very careful with nicknames. They are quite difficult to redact consistently. 
+#
+#   - In the past, you have missed lots of nicknames, so be very careful with nicknames. They are quite difficult to redact consistently.
 #   - Names and nicknames may appear with inconsistent formatting, e.g., all capitals or within quotes (e.g., GONZO or \"Gonzo\" instead of Gonzo). These should still be redacted just like any other instances of that person's name.
 #   - If a name appears in different forms (e.g., John Doe and Johnny D.), use context to decide if they are the same person and if you should use the same placeholder.
 #   - If a redacted entity (e.g., “Safeway” as “[Store 1]”) is referred to with more specificity, redact using the same placeholder as before (e.g., “Safeway Deli” should become “[Store 1] Deli”).
-# 
+#
 # 5. Grammar and Formatting Rules
-# 
+#
 #  - Do not change any characters outside of the brackets. All changes should happen within the brackets.
 #  - If grammar needs to be corrected, do so within the brackets (e.g., “Ms. Smith black bag” becomes “[Person 1’s] black bag”).
 #  - Do not alter the spacing between paragraphs or the overall formatting of the text.
 #  - Do not translate the text or change its capitalization.
 #  - Do not truncate the provided text; you should redact the entire block of text that was given to you. Do not remove any headers or titles in the text provided.
-# 
+#
 # 6. Important Final Checks
-# 
+#
 #  - Ensure that all placeholders are clearly labeled and numbered where appropriate.
 #  - Carefully check that suspects, victims, and other roles are labeled consistently.
 #  - Triple-check your work for accuracy and completeness. Take your time to ensure quality.
-# 
+#
 # 7. Output Requirements
-# 
+#
 #  - Provide the redacted text as simple plain-text paragraphs.
 #  - If no narrative is found in the provided text, return: “No narratives found.”
 #  - Do not add any commentary or explanations.
 # ")
 
-run_pipeline(input_dir, "txt$", 
+run_pipeline(input_dir, "txt$",
              redact_dir, cache_path,
              redact_pipe_template, redact_prompt,
              "redaction")
@@ -256,54 +256,54 @@ run_pipeline(input_dir, "txt$",
 # ------------------------------------------------------------------------------
 load_txt_files <- function(file_dir, search_pattern,
                            strip_pattern, colname_base) {
-  file_paths <- list.files(file.path(cache_path, file_dir), 
-                           pattern = search_pattern, 
-                           full.names = TRUE) 
-  tibble(!!paste0(colname_base, "_filepath") := file_paths) %>% 
-    mutate(!!colname_base := 
-             map_chr(!!sym(paste0(colname_base, "_filepath")), 
-                     ~ paste(readLines(.), 
+  file_paths <- list.files(file.path(cache_path, file_dir),
+                           pattern = search_pattern,
+                           full.names = TRUE)
+  tibble(!!paste0(colname_base, "_filepath") := file_paths) %>%
+    mutate(!!colname_base :=
+             map_chr(!!sym(paste0(colname_base, "_filepath")),
+                     ~ paste(readLines(.),
                              collapse = "\n")),
-           input_filename := str_remove(basename(!!sym(paste0(colname_base, "_filepath"))), 
+           input_filename := str_remove(basename(!!sym(paste0(colname_base, "_filepath"))),
                                         strip_pattern))
 }
 
-redact_input  <- load_txt_files(input_dir,  "\\.txt$", "\\.txt$", 
+redact_input  <- load_txt_files(input_dir,  "\\.txt$", "\\.txt$",
                                 "redact_input")
-redact_output <- load_txt_files(redact_dir, "\\.txt$", 
-                                "\\.txt\\.redaction\\.txt$", 
+redact_output <- load_txt_files(redact_dir, "\\.txt$",
+                                "\\.txt\\.redaction\\.txt$",
                                 "redact_output")
 
-raw_eval <- narrative_sample %>% 
-  left_join(redact_input, 
+raw_eval <- narrative_sample %>%
+  left_join(redact_input,
             by = c("case_id" = "input_filename")) %>%
-  left_join(redact_output, 
+  left_join(redact_output,
             by = c("case_id" = "input_filename"))
 
-raw_eval %>% 
+raw_eval %>%
   write_csv(file.path(cache_path, "evaluation.csv"))
 
-evaluation <- raw_eval %>% 
+evaluation <- raw_eval %>%
   mutate(text_diff   = pmap(list(redact_input,
                                  redact_output,
                                  "lossless"),
                             diff_make_try))
 
-evaluation %>% 
-  slice(1) %>% 
+evaluation %>%
+  slice(1) %>%
   pull(text_diff)
 
 
 # Run individual checks on redacted narratives
 # ------------------------------------------------------------------------------
 assess_names_prompt <- glue("
-You will be given a police narrative that has been automatically redacted. Redactions should have been applied as generic placeholders surrounded by square brackets, i.e., replacing  \"Destiny Green\" with \"[Victim 1]\". 
+You will be given a police narrative that has been automatically redacted. Redactions should have been applied as generic placeholders surrounded by square brackets, i.e., replacing  \"Destiny Green\" with \"[Victim 1]\".
 
 Your job is to assess whether the automated redaction process missed any person's name, nickname, or social media handle. You will do so by examining whether any person's name or nickname remains unredacted in the narrative provided.
 
 You are only assessing whether people's names, nicknames, or social media handles still appear in the redacted narrative. However, here are some important exceptions:
-- It is OK if person names appear as part of a brand name, like \"Jack in the Box\" or \"Dave's Killer Bread\". 
-- It is OK if the names of institutions, businesses, government entities, or locations appear in the narrative. 
+- It is OK if person names appear as part of a brand name, like \"Jack in the Box\" or \"Dave's Killer Bread\".
+- It is OK if the names of institutions, businesses, government entities, or locations appear in the narrative.
 - It is OK if an obviously generic name like \"Jane Doe\" or \"John Doe\" appears in the narrative---unredacted generic names should NOT be considered a failure.
 - It is OK if generic placeholders appear in the narrative, like \"[Officer 3]\".
 
@@ -318,7 +318,7 @@ failures:
 - etc.
 ")
 
-run_pipeline(redact_dir, "txt$", 
+run_pipeline(redact_dir, "txt$",
              assess_dir, cache_path,
              redact_pipe_template, assess_names_prompt,
              "assess_names")
@@ -326,7 +326,7 @@ run_pipeline(redact_dir, "txt$",
 
 
 assess_race_prompt <- glue("
-You will be given a police narrative that has been automatically redacted. Redactions should have been applied as generic placeholders surrounded by square brackets, i.e., replacing  \"Destiny Green\" with \"[Victim 1]\". 
+You will be given a police narrative that has been automatically redacted. Redactions should have been applied as generic placeholders surrounded by square brackets, i.e., replacing  \"Destiny Green\" with \"[Victim 1]\".
 
 Your job is to assess whether the automated redaction process missed any explicit mentions of race. You will do so by examining whether the provided narrative contains any explicit mentions of a person's race, ethnicity, nationality, or language.
 
@@ -343,7 +343,7 @@ failures: []
 ```
 ")
 
-run_pipeline(redact_dir, "txt$", 
+run_pipeline(redact_dir, "txt$",
              assess_dir, cache_path,
              redact_pipe_template, assess_race_prompt,
              "assess_race")
@@ -351,12 +351,12 @@ run_pipeline(redact_dir, "txt$",
 
 
 assess_location_prompt <- glue("
-You will be given a police narrative that has been automatically redacted. Redactions should be appear as generic placeholders, i.e., \"City 1\" or \"Street 1\". Your job is to assess whether the automated redaction process accidentally missed any location information. 
+You will be given a police narrative that has been automatically redacted. Redactions should be appear as generic placeholders, i.e., \"City 1\" or \"Street 1\". Your job is to assess whether the automated redaction process accidentally missed any location information.
 
 Specifically, all information from the following categories should be redacted in the general form \"Type X\", e.g., \"Street 4\". I have provided 1-2 examples from each category so you understand how location information should appear:
 - Street names:
-  - \"Main Street\" should be redacted as \"Street X\" 
-  - \"Elm Road\" should be redacted as \"Road X\" 
+  - \"Main Street\" should be redacted as \"Street X\"
+  - \"Elm Road\" should be redacted as \"Road X\"
 - Addresses:
   - \"123 Poplar Court\" should be redacted as \"Address X on Street X\"
 - Intersections:
@@ -364,7 +364,7 @@ Specifically, all information from the following categories should be redacted i
 - Neighborhoods:
   - \"Silver Lake\" should be redacted as \"Neighborhood X\"
 - Commercial establishments:
-  - \"McDonald's\" should be redacted as \"Restaurant X\" 
+  - \"McDonald's\" should be redacted as \"Restaurant X\"
   - \"Safeway\" should be redacted as \"Grocery Store X\"
 - City names:
   - \"Sacramento\" should be redacted as \"City X\"
@@ -386,7 +386,7 @@ NOTE: the following categories do NOT constitute mistakes and are OK to appear i
 
 NOTE: Do NOT assess whether non-location information appears to be unredacted.
 
-Respond with an assessment of OK if location information from the specified categories appears to be redacted correctly. 
+Respond with an assessment of OK if location information from the specified categories appears to be redacted correctly.
 
 Respond with an assessment of FAIL if location information from the specified categories is still unredacted, i.e., if any word from the above categories does not appear in the form \"Type X\". If so, provide all LOCATION mistakes that appear in the narrative in a bulleted list, with the pre-specified category preceding the example. E.g., \"- Street name: Elm Street\". Do not provide any further explanations.
 
@@ -398,30 +398,30 @@ failures: []
 ```
 ")
 
-run_pipeline(redact_dir, "txt$", 
+run_pipeline(redact_dir, "txt$",
              assess_dir, cache_path,
              redact_pipe_template, assess_location_prompt,
              "assess_location")
 
 
 
-load_txt_files(assess_dir, "\\.assess_names.txt$", "\\.txt$", "assess_names") %>% 
+load_txt_files(assess_dir, "\\.assess_names.txt$", "\\.txt$", "assess_names") %>%
   mutate(assessment = str_detect(assess_names, "assessment: OK"),
-         failures   = str_extract_all(assess_names, "- (.*)", simplify = TRUE)) %>% 
-  unnest(failures, keep_empty = T) %>% 
-  select(input_filename, assessment, failures) %>% 
+         failures   = str_extract_all(assess_names, "- (.*)", simplify = TRUE)) %>%
+  unnest(failures, keep_empty = T) %>%
+  select(input_filename, assessment, failures) %>%
   print(n = 100)
 
 load_txt_files(assess_dir, "\\.assess_race.txt$", "\\.txt$", "assess_race") %>%
   mutate(assessment = str_detect(assess_race, "assessment: OK"),
-         failures   = str_extract_all(assess_race, "- (.*)", simplify = TRUE)) %>% 
-  unnest(failures, keep_empty = T) %>% 
-  select(input_filename, assessment, failures) %>% 
+         failures   = str_extract_all(assess_race, "- (.*)", simplify = TRUE)) %>%
+  unnest(failures, keep_empty = T) %>%
+  select(input_filename, assessment, failures) %>%
   print(n = 100)
 
 load_txt_files(assess_dir, "\\.assess_location.txt$", "\\.txt$", "assess_location") %>%
   mutate(assessment = str_detect(assess_location, "assessment: OK"),
-         failures   = str_extract_all(assess_location, "- (.*)")) %>% 
-  unnest(failures, keep_empty = T) %>% 
-  select(input_filename, assessment, failures) %>% 
+         failures   = str_extract_all(assess_location, "- (.*)")) %>%
+  unnest(failures, keep_empty = T) %>%
+  select(input_filename, assessment, failures) %>%
   print(n = 100)

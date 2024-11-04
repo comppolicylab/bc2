@@ -6,10 +6,10 @@ from pydantic import BaseModel
 
 from .common.context import Context
 from .extract.azuredi import AzureDIExtractConfig
+from .extract.noop import NoOpExtractConfig
 from .extract.openai import OpenAIExtractConfig
 from .extract.raw import RawExtractConfig
 from .extract.tesseract import TesseractExtractConfig
-from .extract.noop import NoOpExtractConfig
 from .input.azureblob import AzureBlobInputConfig
 from .input.file import FileInputConfig
 from .input.memory import MemoryInputConfig
@@ -19,8 +19,8 @@ from .output.azureblob import AzureBlobOutputConfig
 from .output.file import FileOutputConfig
 from .output.memory import MemoryOutputConfig
 from .output.stdout import StdoutOutputConfig
-from .parse.openai import OpenAIParseConfig
 from .parse.noop import NoOpParseConfig
+from .parse.openai import OpenAIParseConfig
 from .redact.noop import NoOpRedactConfig
 from .redact.openai import OpenAIRedactConfig
 from .render.html import HtmlRenderConfig
@@ -36,7 +36,11 @@ InputConfig = Union[
 
 
 ExtractConfig = Union[
-    AzureDIExtractConfig, OpenAIExtractConfig, TesseractExtractConfig, RawExtractConfig, NoOpExtractConfig
+    AzureDIExtractConfig,
+    OpenAIExtractConfig,
+    TesseractExtractConfig,
+    RawExtractConfig,
+    NoOpExtractConfig,
 ]
 
 
@@ -53,8 +57,7 @@ RenderConfig = Union[PdfRenderConfig, HtmlRenderConfig, TextRenderConfig]
 
 
 OutputConfig = Union[
-    AzureBlobOutputConfig, FileOutputConfig, StdoutOutputConfig, 
-    MemoryOutputConfig
+    AzureBlobOutputConfig, FileOutputConfig, StdoutOutputConfig, MemoryOutputConfig
 ]
 
 

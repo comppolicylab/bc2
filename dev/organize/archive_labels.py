@@ -1,10 +1,12 @@
 import os
 import shutil
+
 import click
 
+
 @click.command()
-@click.argument('source_dir')
-@click.argument('destination_dir')
+@click.argument("source_dir")
+@click.argument("destination_dir")
 def copy_files(source_dir, destination_dir):
     """
     Copies PDF files and their corresponding OCR and label JSON files from SOURCE_DIR to DESTINATION_DIR,
@@ -18,7 +20,9 @@ def copy_files(source_dir, destination_dir):
     for file in os.listdir(source_dir):
         # Check if it's the fields.json file and copy that over if so
         if file == "fields.json":
-            shutil.copy(os.path.join(source_dir, file), os.path.join(destination_dir, file))
+            shutil.copy(
+                os.path.join(source_dir, file), os.path.join(destination_dir, file)
+            )
             print(f"Copied {file}.")
             continue
 
@@ -29,12 +33,23 @@ def copy_files(source_dir, destination_dir):
             label_file = f"{base_name}.pdf.labels.json"
 
             # Check if both the OCR and label files exist
-            if os.path.exists(os.path.join(source_dir, ocr_file)) and os.path.exists(os.path.join(source_dir, label_file)):
+            if os.path.exists(os.path.join(source_dir, ocr_file)) and os.path.exists(
+                os.path.join(source_dir, label_file)
+            ):
                 # Copy the PDF, OCR, and label files to the destination directory
-                shutil.copy(os.path.join(source_dir, file), os.path.join(destination_dir, file))
-                shutil.copy(os.path.join(source_dir, ocr_file), os.path.join(destination_dir, ocr_file))
-                shutil.copy(os.path.join(source_dir, label_file), os.path.join(destination_dir, label_file))
+                shutil.copy(
+                    os.path.join(source_dir, file), os.path.join(destination_dir, file)
+                )
+                shutil.copy(
+                    os.path.join(source_dir, ocr_file),
+                    os.path.join(destination_dir, ocr_file),
+                )
+                shutil.copy(
+                    os.path.join(source_dir, label_file),
+                    os.path.join(destination_dir, label_file),
+                )
                 print(f"Copied {file} and its corresponding OCR and label files.")
+
 
 if __name__ == "__main__":
     copy_files()

@@ -14,15 +14,15 @@ existing_inventory <- read_excel(existing_file_path, col_types = "text")
 new_inventory      <- read_csv(new_file_path, col_types = "c")
 
 # Join data
-updated_inventory  <- existing_inventory %>% 
+updated_inventory  <- existing_inventory %>%
   full_join(new_inventory, by = c("file_name", "folder_name",
-                                  "referring_agency", 
+                                  "referring_agency",
                                   "referring_agency_state",
-                                  "file_type")) %>% 
+                                  "file_type")) %>%
   arrange(referring_agency_state,
           referring_agency,
           folder_name,
-          file_name) %>% 
+          file_name) %>%
   mutate(fill = dense_rank(pick(referring_agency_state,
                          referring_agency,
                          folder_name,
@@ -37,6 +37,6 @@ updated_inventory  <- existing_inventory %>%
   select(-fixed_document_id)
 
 # Export data
-updated_inventory %>% 
+updated_inventory %>%
   mutate_all(as.character) %>%
   write_xlsx(output_file_path)

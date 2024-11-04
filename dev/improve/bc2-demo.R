@@ -27,7 +27,7 @@ docs <- list_docs("public_police_reports")
 models <- list_extraction_models()
 
 # Train a model. (Takes a long time! only uncomment if you want to wait ~30mins.)
-# train_extraction_model("test-from-R", 
+# train_extraction_model("test-from-R",
 #                        filter(docs, has_labels)$name)
 
 # Run the model on a couple documents.
@@ -38,4 +38,3 @@ extraction <- run_extraction_model("test-from-R",
 # Load ground-truth labeled documents.
 labeled <- load_true_labels(c("autoeval/17-182586_Assault_Rpt_R_page_4.pdf",
                               "autoeval/16-187153_Assault_Rpt_R_page_4.pdf"))
-

@@ -22,7 +22,7 @@ class NoOpExtractDriver(BaseExtractDriver[str]):
 
     def extract(self, text: Text) -> str:
         return text.text
-    
+
     @register_preprocessor(r"^text/.*")
     def convert_text(self, file: MemoryFile) -> Text:
         return Text(file.content().decode())

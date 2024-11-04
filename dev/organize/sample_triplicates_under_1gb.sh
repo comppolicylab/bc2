@@ -44,12 +44,12 @@ while IFS= read -r triplicate; do
         labels_size=$(get_size "$labels_file")
         ocr_size=$(get_size "$ocr_file")
         triplicate_size=$((pdf_size + labels_size + ocr_size))
-        
+
         # Check if adding this triplicate will exceed the target size
         if [ $(($current_size + $triplicate_size)) -gt $target_size ]; then
             break
         fi
-        
+
         # Copy the triplicate files to the output directory
         cp "$pdf_file" "$output_dir"
         cp "$labels_file" "$output_dir"

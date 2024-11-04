@@ -3,17 +3,17 @@ require(glue)
 require(janitor)
 require(diffmatchpatch)
 
-# Evaluation parameters 
+# Evaluation parameters
 # ------------------------------------------------------------------------------
 bc2_path <- file.path("/data", "bc2")
 
 template_folder    <- file.path("/data", "templates")
 pipe_template_name <- "pipeline_bc.org_demo.toml"
-pipe_template_path <- file.path(template_folder, 
+pipe_template_path <- file.path(template_folder,
                                 pipe_template_name)
 
 
-# Set up evaluation cache 
+# Set up evaluation cache
 # ------------------------------------------------------------------------------
 evaluation_dir         <- "evaluations/pipeline"
 
@@ -28,12 +28,12 @@ dir.create(file.path(cache_path, output_dir), recursive = TRUE)
 
 # Copy over sample
 # ------------------------------------------------------------------------------
-file.copy(list.files("/data/data/demo_pdfs/original/", full.names = TRUE), 
+file.copy(list.files("/data/data/demo_pdfs/original/", full.names = TRUE),
           file.path(cache_path, input_dir),
           overwrite = TRUE)
 
 
-# Prepare pipeline 
+# Prepare pipeline
 # ------------------------------------------------------------------------------
 # Inject the prompt below into the redact pipe
 pipe_template_raw <- readLines(pipe_template_path, warn = TRUE)
@@ -46,24 +46,24 @@ pipe_template     <- paste(pipe_template_raw, collapse = "\n")
 base_command   <- glue("python -m blind_charging_core")
 
 run_pipeline <- function(source_dir, source_pattern,
-                         output_dir, cache_path, 
-                         pipe_template, 
+                         output_dir, cache_path,
+                         pipe_template,
                          redact_prompt, parse_prompt,
                          suffix) {
-  
+
   # Replace the placeholder with the long string
   pipe_injected <- gsub("\\{redact_prompt\\}", redact_prompt, pipe_template)
   pipe_injected <- gsub("\\{parse_prompt\\}",  parse_prompt,  pipe_injected)
-  
+
   # Write the modified content back to the cache, to be used below
-  pipe_injected_path <- file.path(cache_path, 
+  pipe_injected_path <- file.path(cache_path,
                                   glue("pipeline_{suffix}.toml"))
   writeLines(pipe_injected, pipe_injected_path)
-  
-  pipeline_input <- list.files(path = file.path(cache_path, source_dir), 
-                               pattern = source_pattern, 
-                               full.names = TRUE) %>% 
-    tibble(src_filepath = .) %>% 
+
+  pipeline_input <- list.files(path = file.path(cache_path, source_dir),
+                               pattern = source_pattern,
+                               full.names = TRUE) %>%
+    tibble(src_filepath = .) %>%
     mutate(src_filename  = basename(src_filepath),
            output_name   = glue("{src_filename}.{suffix}.txt"),
            output_path   = file.path(cache_path, output_dir, output_name),
@@ -75,13 +75,13 @@ run_pipeline <- function(source_dir, source_pattern,
            args          = glue("{input_arg} {output_arg}"),
            command = glue("{base_command} {pipe_injected_path} {args}")
     )
-  
-  pipeline_input %>% 
+
+  pipeline_input %>%
     pmap(function(...) {
       args <- list(...)
       system(args$command)
     })
-  
+
 }
 
 
@@ -91,13 +91,13 @@ parse_prompt            <- glue("
 I am providing you with text from a police report provided by OCR using Azure Document Intelligence. Review this input and extract ALL freely-written text from the following categories:
 1. *Narratives*: A narrative is a freely-written account of events that occurred during a crime. It typically includes information such as the date, time, location, and description of the incident, as well as the actions taken by the police officers involved. It may also include legal statements or policing jargon. They often start with \"On MMDDYY, at approximately HH:MM, I...\", or a couple words about body worn camera (BWC) footage, e.g., \"BWC activated\" or \"No BWC\". Sometimes they end with \"End of report\", a certification under penalty of perjury, a recommendation, or the officer's name.
 2. *Synposis*, *Summary*, or *Probable Cause*: These are like narratives. Sometimes they are 1-2 sentences long, but they can be much longer. They also give high-level details of the crime.
-3. *Statements*: A statement is a recounting of events written from the first person's perspective. It is often written by the victim, witness, or suspect involved in the incident. It often includes phrases like \"I was doing X\" or \"He said Y\". Statements may focus on actions, discussions, and even violent events that occurred during the incident. These should include a listed author (e.g., \"Name of Person\"). A statement can also be a \"probable cause statement\", which is very similar to a narrative. 
+3. *Statements*: A statement is a recounting of events written from the first person's perspective. It is often written by the victim, witness, or suspect involved in the incident. It often includes phrases like \"I was doing X\" or \"He said Y\". Statements may focus on actions, discussions, and even violent events that occurred during the incident. These should include a listed author (e.g., \"Name of Person\"). A statement can also be a \"probable cause statement\", which is very similar to a narrative.
 
 Alongside this text, you should also extract headers if they exist. Headers typically immediately precede a block of freely written text. They often includes words like \"Narrative\", \"Main\", \"Primary\", \"Follow-Up\", \"Supplemental\", \"Investigative\", or \"Synposis\" to indicate the type of narrative, or \"Statement\" to indicate a witness, suspect, or victim statement, or probable cause statement. Extract the entire header, not just one of these words. Be sure to only extract this field if it exists on the page. Sometimes multiple headers are used for the same narrative; make sure to extract them all.
 
 Sometimes freely-written text from the above categories appears without a header. You should still extract ALL freely-written text, even if it is not explicitly labeled as a narrative or statement. For example, freely-written text can spill across multiple pages. As a result, the last few sentence(s) of a long narrative may appear without any header at the top of a page. It is very important to extract these stubs so that we can merge them into a single block of text at a later time. These hanging paragraphs may be tricky to identify, especially if the page contains the start of the next block of freely-written text. So keep your eye out for pages with a hanging sentence or two.
 
-Very often there is more than one narrative or statement in the document provided. You should return ALL narratives and statements. Be VERY careful to read through all the text provided and extract ALL narratives or statements provided without any truncation or omission. 
+Very often there is more than one narrative or statement in the document provided. You should return ALL narratives and statements. Be VERY careful to read through all the text provided and extract ALL narratives or statements provided without any truncation or omission.
 
 In the past, you often missed the last few paragraphs of the last narrative of a document. So this time, make sure to look *all the way* to the very end of the provided text, and then be sure to extract all freely written text as instructed. Here are some signs that you may have missed part of a narrative or statement:
 - The extracted text ends abruptly in the middle of a sentence
@@ -114,8 +114,8 @@ If you do not find any narratives, return \"No narratives found.\" If you are no
 
 NEVER include text from the following categories:
 1. Do NOT extract lists of labels and values (e.g., DOB, Zipcode, weight, etc.), unless they are embedded within freely-written text. One exception: occasionally a list of labels and freely-written values will be part of a larger narrative, so you can extract these.
-2. Do NOT extract text that seems like a boilerplate part of the police report (e.g., information from a page header or page footer). ONLY include freely written text by a police officer or involved person. 
-3. Do NOT extract \"CAD Narratives\", which are sometimes labeled as such. You can also recognize CAD narratives as long lists of timestamps and very short notes about actions. 
+2. Do NOT extract text that seems like a boilerplate part of the police report (e.g., information from a page header or page footer). ONLY include freely written text by a police officer or involved person.
+3. Do NOT extract \"CAD Narratives\", which are sometimes labeled as such. You can also recognize CAD narratives as long lists of timestamps and very short notes about actions.
 
 When in doubt, opt to include text.
 
@@ -174,9 +174,8 @@ Please provide the redacted text as simple plain-text paragraphs. If you do not 
 Do not provide any commentary.
 ")
 
-run_pipeline(input_dir, "pdf$", 
+run_pipeline(input_dir, "pdf$",
              output_dir, cache_path,
-             pipe_template, 
+             pipe_template,
              redact_prompt, parse_prompt,
              "processed")
-

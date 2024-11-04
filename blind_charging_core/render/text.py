@@ -1,4 +1,3 @@
-import re
 from functools import cached_property, partial
 from typing import Literal
 

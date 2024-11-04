@@ -66,8 +66,7 @@ class PDFRenderer(BaseRenderer):
 
         doc.build(
             [Paragraph(p, styles["Normal"]) for p in paras]
-            + 
-            [Paragraph(self.DISCLAIMER, styles["Disclaimer"])],
+            + [Paragraph(self.DISCLAIMER, styles["Disclaimer"])],
             onFirstPage=partial(self.layout_pdf, styles=styles),
             onLaterPages=partial(self.layout_pdf, styles=styles),
         )
@@ -119,9 +118,9 @@ class PDFRenderer(BaseRenderer):
         styles = StyleSheet1()
         styles.add(
             ParagraphStyle(
-                name="Header", 
-                fontName="Times-Bold", 
-                fontSize=10, 
+                name="Header",
+                fontName="Times-Bold",
+                fontSize=10,
                 leading=14,
             )
         )
@@ -142,16 +141,16 @@ class PDFRenderer(BaseRenderer):
                 fontSize=10,
                 # ACW note: I think since this applies to an entire paragraph,
                 # `textColor` is the way to set the color for the disclaimer.
-                # For the `Redaction` and `RedactError` styles below, they 
-                # appear as text within paragraphs, so we should use the 
+                # For the `Redaction` and `RedactError` styles below, they
+                # appear as text within paragraphs, so we should use the
                 # `color` attribute for those styles.
                 textColor="dimgrey",
             )
         )
         styles.add(
             ParagraphStyle(
-                name="Footer", 
-                parent=styles["Normal"], 
+                name="Footer",
+                parent=styles["Normal"],
                 fontSize=10,
             )
         )

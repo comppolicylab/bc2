@@ -1,24 +1,28 @@
+import os
 import re
 import sys
-import os
+
 
 def extract_base_filename(filename):
     # Pattern to remove specific suffix patterns: '_page_XXX', '.ocr.json', and '.labels.json'
     # This pattern matches these specific parts and will be used to remove them
     suffix_pattern = re.compile(r"_page_.+$")
     # Remove the matched patterns (if any) to get the base filename
-    base_filename = re.sub(suffix_pattern, '', filename)
+    base_filename = re.sub(suffix_pattern, "", filename)
     return base_filename
+
 
 def extract_base_pagename(filename):
     suffix_pattern = re.compile(r"pdf.*$")
-    base_pagename = re.sub(suffix_pattern, '', filename)
+    base_pagename = re.sub(suffix_pattern, "", filename)
     return base_pagename
+
 
 def extract_base_department(filename):
     suffix_pattern = re.compile(r"_(pd|sheriff)_.+$")
-    base_department = re.sub(suffix_pattern, '', filename)
+    base_department = re.sub(suffix_pattern, "", filename)
     return base_department
+
 
 def main(folder_path):
     unique_bases = set()
@@ -42,6 +46,7 @@ def main(folder_path):
     print(f"Number of departments: {len(unique_depts)}")
     print(f"Number of reports: {len(unique_bases)}")
     print(f"Number of pages: {len(unique_pages)}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
