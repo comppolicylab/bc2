@@ -4,7 +4,8 @@ import sys
 
 
 def extract_base_filename(filename):
-    # Pattern to remove specific suffix patterns: '_page_XXX', '.ocr.json', and '.labels.json'
+    # Pattern to remove specific suffix patterns:
+    # '_page_XXX', '.ocr.json', and '.labels.json'
     # This pattern matches these specific parts and will be used to remove them
     suffix_pattern = re.compile(r"_page_.+$")
     # Remove the matched patterns (if any) to get the base filename
@@ -30,7 +31,7 @@ def main(folder_path):
     unique_pages = set()
 
     # Walk through the files in the specified folder
-    for root, dirs, files in os.walk(folder_path):
+    for _, _, files in os.walk(folder_path):
         for filename in files:
             base = extract_base_filename(filename)
             dept = extract_base_department(filename)

@@ -9,8 +9,8 @@ import click
 @click.argument("destination_dir")
 def copy_files(source_dir, destination_dir):
     """
-    Copies PDF files and their corresponding OCR and label JSON files from SOURCE_DIR to DESTINATION_DIR,
-    only if all three files exist for a given PDF.
+    Copies PDF files and their corresponding OCR and label JSON files from
+    SOURCE_DIR to DESTINATION_DIR if all three files exist for a given PDF.
     """
     # Ensure the destination directory exists
     if not os.path.exists(destination_dir):

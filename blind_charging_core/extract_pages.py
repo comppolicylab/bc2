@@ -30,7 +30,8 @@ def extract_pages(
 
         # Format the output filename to include the relative path,
         # zero padding to three digits:
-        new_base_name = f"{relative_path.replace('/', '_').replace('.pdf', '')}_page_{page_number + 1:03}.pdf"
+        relative_path_str = relative_path.replace("/", "_").replace(".pdf", "")
+        new_base_name = f"{relative_path_str}_page_{page_number + 1:03}.pdf"
         new_base_name = new_base_name.replace(
             " ", "_"
         )  # Replace spaces with underscores
@@ -43,14 +44,16 @@ def extract_pages(
 
 
 def find_pdfs(base_dir: str, exclude_pattern: str = None):
-    """Recursively find all PDF files within a base directory, excluding specific subfolders.
+    """Recursively find all PDF files within a base directory,
+    excluding specific subfolders.
 
     Args:
         base_dir: The base directory to search in.
         exclude_pattern: Regex pattern to match folder names to exclude.
 
     Returns:
-        A list of tuples containing the full path and the relative path of each PDF found.
+        A list of tuples containing the full path
+        and the relative path of each PDF found.
     """
     for root, _, files in os.walk(base_dir):
         if exclude_pattern and re.search(exclude_pattern, root):
@@ -83,7 +86,8 @@ def main(
     page_numbers: str | None = None,
     exclude_folders: str | None = None,
 ):
-    """Explode PDFs found in a base directory into single pages, excluding specified folders.
+    """Explode PDFs found in a base directory into single pages,
+    excluding specified folders.
 
     Args:
         base_dir: The base directory containing the PDF files to explode.

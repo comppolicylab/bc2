@@ -63,14 +63,36 @@ def main():
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a helpful assistant in a police department. Your job is to examine narratives in crime reports that are being prepared for public release to see if they have been redacted yet. You will be examining these reports one page at at time. You should specifically check two things: first, check if there is narrative text on the page that describes the detail of an incident in plain language; and two, if there is a narrative, check whether it contain redactions. Ignore other parts of the page that are not freely written text. Redactions often appear as black boxes on the page. Sometimes these black boxes are digitally generated, othertimes they appear to be drawn with a marker. These black-box redactions may also include placeholder text, e.g., the legal statute that justifies the redaction. But sometimes instead of black boxes, they just appear as blank white space in the middle of a sentence where a word would be. (Don't confuse this with indentation, which isn't an indication that redaction has been applied.)",
+                    "content": """You are a helpful assistant in a police
+                    department. Your job is to examine narratives in crime
+                    reports that are being prepared for public release to see
+                    if they have been redacted yet. You will be examining these
+                    reports one page at at time. You should specifically check
+                    two things: first, check if there is narrative text on the
+                    page that describes the detail of an incident in plain
+                    language; and two, if there is a narrative, check whether
+                    it contain redactions. Ignore other parts of the page that
+                    are not freely written text. Redactions often appear as
+                    black boxes on the page. Sometimes these black boxes are
+                    digitally generated, othertimes they appear to be drawn
+                    with a marker. These black-box redactions may also include
+                    placeholder text, e.g., the legal statute that justifies
+                    the redaction. But sometimes instead of black boxes, they
+                    just appear as blank white space in the middle of a
+                    sentence where a word would be. (Don't confuse this with
+                    indentation, which isn't an indication that redaction has
+                    been applied.)""",
                 },
                 {
                     "role": "user",
                     "content": [
                         {
                             "type": "text",
-                            "text": "Respond with 'Black box' if the page has any narrative text obscured by black boxes or ink, 'white box' if there are gaps in the narrative, or 'no redactions' if it has no redacted narrative text. Do not provide any other commentary.",
+                            "text": """Respond with 'Black box' if the page has
+                            any narrative text obscured by black boxes or ink,
+                            'white box' if there are gaps in the narrative, or
+                            'no redactions' if it has no redacted narrative
+                            text. Do not provide any other commentary.""",
                         },
                         {
                             "type": "image_url",

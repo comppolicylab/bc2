@@ -15,8 +15,7 @@ def format_filename(text):
 
 
 def process_pdf(
-    state,
-    agency,
+    state_agency,
     folder_name,
     filename,
     case_id,
@@ -26,9 +25,7 @@ def process_pdf(
     extract_mode,
     exclude_foreign_pages,
 ):
-    print(f"Processing {state} - {agency} - {folder_name} - {filename} - {case_id}")
-    agency_filename = format_filename(agency)
-    agency_folder = f"{state.lower()}_{agency_filename}"
+    print(f"Processing {state_agency} - {folder_name} - {filename} - {case_id}")
     pdf_path = os.path.join(
         source_folder, agency_folder, "raw", folder_name, str(filename)
     )
@@ -177,9 +174,9 @@ def main(
         file_name,
         document_id,
     ), group_df in selected_groups:
+        state_agency = format_filename(f"{state}_{agency}")
         process_pdf(
-            state,
-            agency,
+            state_agency,
             folder_name,
             file_name,
             document_id,
@@ -217,7 +214,7 @@ if __name__ == "__main__":
         type=str,
         choices=["page", "document"],
         default="page",
-        help='Mode of extraction: "page" for page-by-page, "document" for entire document',
+        help='"page" for page-by-page, "document" for entire document',
     )
     parser.add_argument(
         "--exclude_foreign_pages",
