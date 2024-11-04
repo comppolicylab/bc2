@@ -1,3 +1,4 @@
+import re
 from functools import cached_property, partial
 from typing import Literal
 
@@ -6,7 +7,6 @@ from ..common.file import MemoryFile
 from ..common.text import RedactedText, escape_for_txt
 from .base import BaseRenderConfig, BaseRenderer
 
-import re
 
 class TextRenderConfig(BaseRenderConfig):
     """Text Render config."""

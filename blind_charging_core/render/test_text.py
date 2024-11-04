@@ -7,9 +7,7 @@ from .text import TextRenderConfig
 
 def decorate(txt: str) -> bytes:
     """Add the disclaimer header / footer to the given text."""
-    header = (
-        b"Redacted Narrative for Race-Blind Charging\n\n\n=== NARRATIVE ===\n"
-    )
+    header = b"Redacted Narrative for Race-Blind Charging\n\n\n=== NARRATIVE ===\n"
     footer = (
         b"\n\n\n---------------------------------------------------------------"
         b"---------------------------------------------------------------------"
