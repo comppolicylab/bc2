@@ -14,7 +14,7 @@ def format_filename(text):
     return text
 
 
-def process_pdf(
+def process_pdf( # noqa: C901
     state_agency,
     folder_name,
     filename,
@@ -27,7 +27,7 @@ def process_pdf(
 ):
     print(f"Processing {state_agency} - {folder_name} - {filename} - {case_id}")
     pdf_path = os.path.join(
-        source_folder, agency_folder, "raw", folder_name, str(filename)
+        source_folder, state_agency, "raw", folder_name, str(filename)
     )
 
     with open(pdf_path, "rb") as file:
@@ -56,7 +56,7 @@ def process_pdf(
                 output_filename = (
                     "__".join(
                         [
-                            agency_folder,
+                            state_agency,
                             folder_name,
                             str(filename),
                             f"doc_{doc_start}_{doc_end}",
@@ -83,7 +83,7 @@ def process_pdf(
                     output_filename = (
                         "__".join(
                             [
-                                agency_folder,
+                                state_agency,
                                 folder_name,
                                 str(filename),
                                 f"pg{page + 1:03}",
