@@ -20,8 +20,8 @@ class NoOpExtractDriver(BaseExtractDriver[str]):
     def __init__(self, config: NoOpExtractConfig) -> None:
         self.config = config
 
-    def extract(self, text: Text) -> str:
-        return text.text
+    def extract(self, text: str) -> str:
+        return text
 
     @register_preprocessor(r"^text/.*")
     def convert_text(self, file: MemoryFile) -> Text:

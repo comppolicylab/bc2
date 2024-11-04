@@ -14,7 +14,7 @@ def format_filename(text):
     return text
 
 
-def process_pdf( # noqa: C901
+def process_pdf(  # noqa: C901
     state_agency,
     folder_name,
     filename,

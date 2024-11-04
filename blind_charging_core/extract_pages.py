@@ -1,5 +1,6 @@
 import os
 import re  # Import regex module
+from typing import Optional
 
 import click
 from pypdf import PdfReader, PdfWriter
@@ -43,7 +44,7 @@ def extract_pages(
         writer.write(output_path)
 
 
-def find_pdfs(base_dir: str, exclude_pattern: str = None):
+def find_pdfs(base_dir: str, exclude_pattern: Optional[str] = None):
     """Recursively find all PDF files within a base directory,
     excluding specific subfolders.
 
