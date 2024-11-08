@@ -6,7 +6,6 @@ from pydantic import BaseModel
 
 from .common.context import Context
 from .extract.azuredi import AzureDIExtractConfig
-from .extract.noop import NoOpExtractConfig
 from .extract.openai import OpenAIExtractConfig
 from .extract.raw import RawExtractConfig
 from .extract.tesseract import TesseractExtractConfig
@@ -19,7 +18,6 @@ from .output.azureblob import AzureBlobOutputConfig
 from .output.file import FileOutputConfig
 from .output.memory import MemoryOutputConfig
 from .output.stdout import StdoutOutputConfig
-from .parse.noop import NoOpParseConfig
 from .parse.openai import OpenAIParseConfig
 from .redact.noop import NoOpRedactConfig
 from .redact.openai import OpenAIRedactConfig
@@ -40,11 +38,10 @@ ExtractConfig = Union[
     OpenAIExtractConfig,
     TesseractExtractConfig,
     RawExtractConfig,
-    NoOpExtractConfig,
 ]
 
 
-ParseConfig = Union[OpenAIParseConfig, NoOpParseConfig]
+ParseConfig = Union[OpenAIParseConfig]
 
 
 RedactConfig = Union[OpenAIRedactConfig, NoOpRedactConfig]

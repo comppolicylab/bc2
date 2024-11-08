@@ -12,7 +12,8 @@ class TextRenderConfig(BaseRenderConfig):
     """Text Render config."""
 
     engine: Literal["render:text"]
-    ancillary_content: bool = True
+    header: bool = False
+    footer: bool = False
 
     @cached_property
     def driver(self) -> "TextRenderer":
@@ -26,7 +27,7 @@ class TextRenderer(BaseRenderer):
     def __call__(self, redaction: RedactedText, context: Context) -> MemoryFile:
         f = MemoryFile()
 
-        if self.config.ancillary_content:
+        if self.config.header:
             f.write(f"=== {self.TITLE} ===")
             f.write("\n\n\n")
 
@@ -39,7 +40,7 @@ class TextRenderer(BaseRenderer):
             )
         )
 
-        if self.config.ancillary_content:
+        if self.config.footer:
             f.write("\n")
             f.write("---------------------------------------------------------")
             # Strip HTML tags from the normal disclaimer

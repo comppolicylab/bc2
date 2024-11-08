@@ -10,7 +10,7 @@ def test_pipeline_simple_debug():
                 {"engine": "in:memory"},
                 {"engine": "extract:raw"},
                 {"engine": "redact:noop", "delimiters": ["[", "]"]},
-                {"engine": "render:text"},
+                {"engine": "render:text", "header": True, "footer": True},
                 {"engine": "out:memory"},
             ],
         }
@@ -34,15 +34,13 @@ def test_pipeline_simple_debug():
     )
 
     assert out_buf.getvalue() == (
-        b"Redacted Narrative for Race-Blind Charging\n\n\n"
-        b"=== NARRATIVE ===\n"
-        b"Hello, world!\n\n"
+        b"=== Redacted Narrative for Race-Blind Charging ===\n\n\n"
+        b"Hello, world!\n\n\n"
         b"---------------------------------------------------------\n"
-        b"The above passages have been automatically extracted from referral "
+        b"The above passages were automatically extracted from referral "
         b"documents and automatically redacted to hide race-related "
-        b"information. In rare circumstances, words or punctuation may be "
+        b"information. Occasionally, words or punctuation may be "
         b"automatically added to fix typos. Please report any issues to "
-        b"blind_charging@hks.harvard.edu.\n\n"
-        b"=== END OF DOCUMENT ===\n"
+        b"blind_charging@hks.harvard.edu."
     )
     assert ctx.debug is True
