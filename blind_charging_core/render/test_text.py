@@ -15,8 +15,7 @@ def decorate(txt: str) -> bytes:
         b"The above passages have been automatically extracted from referral "
         b"documents and automatically redacted to hide race-related "
         b"information. In rare circumstances, words or punctuation may be "
-        b"automatically added to fix typos. These additions will appear in "
-        b"light grey. Please report any issues to "
+        b"automatically added to fix typos. Please report any issues to "
         b"blind_charging@hks.harvard.edu."
         b"\n\n\n=== END OF DOCUMENT ===\n"
     )

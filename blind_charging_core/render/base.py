@@ -16,13 +16,15 @@ class BaseRenderConfig(BaseModel):
 class BaseRenderer(ABC):
     TITLE = "Redacted Narrative for Race-Blind Charging"
 
-    DISCLAIMER = """
+    REDACT_ERROR_APPEARANCE = ""
+
+    DISCLAIMER = f"""
 -------------------------------------------------------------------------------\
 -------------------------------------------------------------------------------\
 The above passages have been automatically extracted from referral \
 documents and automatically redacted to hide race-related information. \
-In rare circumstances, words or punctuation may be automatically added to fix typos. \
-These additions will appear in light grey. \
+In rare circumstances, words or punctuation may be automatically added to fix \
+typos. {REDACT_ERROR_APPEARANCE}\
 Please report any issues to <a href="mailto:blind_charging@hks.harvard.edu">\
 blind_charging@hks.harvard.edu</a>.
 """

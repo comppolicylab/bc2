@@ -9,7 +9,8 @@ from reportlab.platypus import Frame, PageTemplate, Paragraph, SimpleDocTemplate
 from ..common.context import Context
 from ..common.file import MemoryFile
 from ..common.text import RedactedText, escape_for_xml
-from .base import BaseRenderConfig, BaseRenderer
+from .base import BaseRenderConfig
+from .rich_text import RichTextRenderer
 
 
 class PdfRenderConfig(BaseRenderConfig):
@@ -22,7 +23,7 @@ class PdfRenderConfig(BaseRenderConfig):
         return PDFRenderer(self)
 
 
-class PDFRenderer(BaseRenderer):
+class PDFRenderer(RichTextRenderer):
     def __init__(self, config: PdfRenderConfig) -> None:
         self.config = config
 
