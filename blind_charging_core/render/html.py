@@ -79,6 +79,7 @@ tpl = Template(
     <div class="Normal">
         {{ narrative }}
     </div>
+    <br/>
     <hr>
     <p class="Disclaimer">{{ disclaimer }}</p>
 </body>

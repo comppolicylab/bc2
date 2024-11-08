@@ -27,9 +27,8 @@ class TextRenderer(BaseRenderer):
         f = MemoryFile()
 
         if self.config.ancillary_content:
-            f.write(self.TITLE)
+            f.write(f"=== {self.TITLE} ===")
             f.write("\n\n\n")
-            f.write("=== NARRATIVE ===\n")
 
         # TODO: might want to add some formatting for the diff
         f.write(
@@ -41,10 +40,9 @@ class TextRenderer(BaseRenderer):
         )
 
         if self.config.ancillary_content:
+            f.write("\n")
             f.write("---------------------------------------------------------")
             # Strip HTML tags from the normal disclaimer
             f.write(re.sub(r"<[^>]*>", "", self.disclaimer()))
-            f.write("\n\n")
-            f.write("=== END OF DOCUMENT ===\n")
 
         return f
