@@ -1,5 +1,5 @@
 import os
-import re  # Import regex module
+import re
 from typing import Optional
 
 import click
