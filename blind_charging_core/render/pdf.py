@@ -1,10 +1,18 @@
 from functools import cached_property, partial
 from typing import Literal
 
+from reportlab.lib.colors import gray
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, StyleSheet1
 from reportlab.lib.units import inch
-from reportlab.platypus import Frame, PageTemplate, Paragraph, SimpleDocTemplate
+from reportlab.platypus import (
+    Frame,
+    KeepTogether,
+    PageTemplate,
+    Paragraph,
+    SimpleDocTemplate,
+)
+from reportlab.platypus.flowables import HRFlowable
 
 from ..common.context import Context
 from ..common.file import MemoryFile
@@ -65,9 +73,15 @@ class PDFRenderer(RichTextRenderer):
         # SimpleDocTemplate builder?
         paras = [p + "</para>" for p in formatted.split("</para>") if p]
 
+        horizontal_line = HRFlowable(
+            width="100%", color=gray, spaceBefore=20, spaceAfter=5, dash=(3, 2)
+        )
+        disclaimer_block = KeepTogether(
+            [horizontal_line, Paragraph(self.disclaimer(), styles["Disclaimer"])]
+        )
+
         doc.build(
-            [Paragraph(p, styles["Normal"]) for p in paras]
-            + [Paragraph(self.DISCLAIMER, styles["Disclaimer"])],
+            [Paragraph(p, styles["Normal"]) for p in paras] + [disclaimer_block],
             onFirstPage=partial(self.layout_pdf, styles=styles),
             onLaterPages=partial(self.layout_pdf, styles=styles),
         )

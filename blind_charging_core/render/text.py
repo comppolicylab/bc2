@@ -41,8 +41,9 @@ class TextRenderer(BaseRenderer):
         )
 
         if self.config.ancillary_content:
+            f.write("---------------------------------------------------------")
             # Strip HTML tags from the normal disclaimer
-            f.write(re.sub(r"<[^>]*>", "", self.DISCLAIMER))
+            f.write(re.sub(r"<[^>]*>", "", self.disclaimer()))
             f.write("\n\n")
             f.write("=== END OF DOCUMENT ===\n")
 

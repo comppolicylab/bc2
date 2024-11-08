@@ -79,6 +79,7 @@ tpl = Template(
     <div class="Normal">
         {{ narrative }}
     </div>
+    <hr>
     <p class="Disclaimer">{{ disclaimer }}</p>
 </body>
 </html>
@@ -128,7 +129,7 @@ class HTMLRenderer(RichTextRenderer):
         f.write(
             tpl.render(
                 title=self.TITLE,
-                disclaimer=self.DISCLAIMER,
+                disclaimer=self.disclaimer(),
                 narrative=redaction.format(
                     style=apply_css_style,
                     p=format_html_paragraph,

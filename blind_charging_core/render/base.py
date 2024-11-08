@@ -18,16 +18,16 @@ class BaseRenderer(ABC):
 
     REDACT_ERROR_APPEARANCE = ""
 
-    DISCLAIMER = f"""
--------------------------------------------------------------------------------\
--------------------------------------------------------------------------------\
+    @classmethod
+    def disclaimer(cls):
+        return f"""
 The above passages have been automatically extracted from referral \
 documents and automatically redacted to hide race-related information. \
-In rare circumstances, words or punctuation may be automatically added to fix \
-typos. {REDACT_ERROR_APPEARANCE}\
-Please report any issues to <a href="mailto:blind_charging@hks.harvard.edu">\
-blind_charging@hks.harvard.edu</a>.
-"""
+In rare circumstances, words or punctuation may be automatically added \
+to fix typos. {cls.REDACT_ERROR_APPEARANCE}\
+Please report any issues to \
+<a href="mailto:blind_charging@hks.harvard.edu">\
+blind_charging@hks.harvard.edu</a>."""
 
     @abstractmethod
     def __call__(self, redaction: RedactedText, context: Context) -> MemoryFile: ...
