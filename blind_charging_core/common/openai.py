@@ -4,6 +4,7 @@ from abc import abstractmethod
 from functools import cached_property
 from typing import Any, Literal, Sequence
 
+import tiktoken
 from openai import AzureOpenAI, OpenAI
 from pydantic import BaseModel
 
@@ -283,6 +284,14 @@ OpenAICompletionPrompt = (
 )
 
 
+class OpenAIExtendOutput(BaseModel):
+    """Config for circumventing OpenAI token output limits."""
+
+    underlying_model: str
+    output_token_limit: int
+    max_extensions: int = 5
+
+
 class OpenAIChatConfig(BaseModel):
     """OpenAI Chat config."""
 
@@ -291,6 +300,7 @@ class OpenAIChatConfig(BaseModel):
     system: OpenAIChatPrompt
     frequency_penalty: float | None = None
     max_tokens: int | None = None
+    extend_output: OpenAIExtendOutput | None = None
     n: int = 1
     presence_penalty: float | None = None
     seed: int | None = None
@@ -304,11 +314,36 @@ class OpenAIChatConfig(BaseModel):
         settings = self.model_dump()
         settings.pop("method")
         settings.pop("system")
+        settings.pop("extend_output")
         messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
         # Remove any setting whose value is `None`
         settings = {k: v for k, v in settings.items() if v is not None}
         completion = client.chat.completions.create(**settings, messages=messages)
-        return completion.choices[0].message.content
+        output = completion.choices[0].message.content
+        if self.extend_output:
+            encoding = tiktoken.encoding_for_model(self.extend_output.underlying_model)
+            num_tokens = len(encoding.encode(output))
+            num_extensions = 0
+            while (
+                num_tokens == self.extend_output.output_token_limit
+                and num_extensions < self.extend_output.max_extensions
+            ):
+                message_extension = [
+                    {"role": "assistant", "content": output},
+                    {
+                        "role": "user",
+                        "content": "It looks like you got cut off. Please continue.",
+                    },
+                ]
+                extended_messages = messages + message_extension
+                completion = client.chat.completions.create(
+                    **settings, messages=extended_messages
+                )
+                output_extension = completion.choices[0].message.content
+                num_tokens = len(encoding.encode(output_extension))
+                output += output_extension
+                num_extensions += 1
+        return output
 
 
 class OpenAICompletionConfig(BaseModel):
