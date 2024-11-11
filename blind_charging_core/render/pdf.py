@@ -1,15 +1,24 @@
 from functools import cached_property, partial
 from typing import Literal
 
+from reportlab.lib.colors import gray
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, StyleSheet1
 from reportlab.lib.units import inch
-from reportlab.platypus import Frame, PageTemplate, Paragraph, SimpleDocTemplate
+from reportlab.platypus import (
+    Frame,
+    KeepTogether,
+    PageTemplate,
+    Paragraph,
+    SimpleDocTemplate,
+)
+from reportlab.platypus.flowables import HRFlowable
 
 from ..common.context import Context
 from ..common.file import MemoryFile
 from ..common.text import RedactedText, escape_for_xml
-from .base import BaseRenderConfig, BaseRenderer
+from .base import BaseRenderConfig
+from .rich_text import RichTextRenderer
 
 
 class PdfRenderConfig(BaseRenderConfig):
@@ -22,7 +31,7 @@ class PdfRenderConfig(BaseRenderConfig):
         return PDFRenderer(self)
 
 
-class PDFRenderer(BaseRenderer):
+class PDFRenderer(RichTextRenderer):
     def __init__(self, config: PdfRenderConfig) -> None:
         self.config = config
 
@@ -41,7 +50,7 @@ class PDFRenderer(BaseRenderer):
             pagesize=letter,
             rightMargin=inch / 2,
             leftMargin=inch / 2,
-            topMargin=inch / 2,
+            topMargin=inch,
             bottomMargin=inch / 2,
         )
         frame = Frame(
@@ -64,11 +73,15 @@ class PDFRenderer(BaseRenderer):
         # SimpleDocTemplate builder?
         paras = [p + "</para>" for p in formatted.split("</para>") if p]
 
+        horizontal_line = HRFlowable(
+            width="100%", color=gray, spaceBefore=20, spaceAfter=5, dash=(3, 2)
+        )
+        disclaimer_block = KeepTogether(
+            [horizontal_line, Paragraph(self.disclaimer(), styles["Disclaimer"])]
+        )
+
         doc.build(
-            [
-                Paragraph(self.DISCLAIMER, styles["Italic"]),
-            ]
-            + [Paragraph(p, styles["Normal"]) for p in paras],
+            [Paragraph(p, styles["Normal"]) for p in paras] + [disclaimer_block],
             onFirstPage=partial(self.layout_pdf, styles=styles),
             onLaterPages=partial(self.layout_pdf, styles=styles),
         )
@@ -92,7 +105,7 @@ class PDFRenderer(BaseRenderer):
         canvas.setLineWidth(line_thickness)
 
         # Draw the header.
-        header_text = Paragraph(self.TITLE, styles["Header"])
+        header_text = Paragraph(self.config.title, styles["Header"])
         w, h = header_text.wrap(doc.width, doc.topMargin)
         header_text_y = doc.height + (doc.topMargin / 2) + doc.bottomMargin - h
         header_text_x = doc.leftMargin
@@ -120,7 +133,10 @@ class PDFRenderer(BaseRenderer):
         styles = StyleSheet1()
         styles.add(
             ParagraphStyle(
-                name="Header", fontName="Times-Bold", fontSize=10, leading=14
+                name="Header",
+                fontName="Times-Bold",
+                fontSize=10,
+                leading=14,
             )
         )
         styles.add(
@@ -134,28 +150,39 @@ class PDFRenderer(BaseRenderer):
         )
         styles.add(
             ParagraphStyle(
-                name="Italic",
+                name="Disclaimer",
                 parent=styles["Normal"],
                 fontName="Times-Italic",
                 fontSize=10,
+                # ACW note: I think since this applies to an entire paragraph,
+                # `textColor` is the way to set the color for the disclaimer.
+                # For the `Redaction` and `RedactError` styles below, they
+                # appear as text within paragraphs, so we should use the
+                # `color` attribute for those styles.
+                textColor="dimgrey",
             )
         )
-        styles.add(ParagraphStyle(name="Footer", parent=styles["Normal"], fontSize=10))
+        styles.add(
+            ParagraphStyle(
+                name="Footer",
+                parent=styles["Normal"],
+                fontSize=10,
+            )
+        )
         styles.add(
             ParagraphStyle(
                 name="Redaction",
                 parent=styles["Normal"],
                 fontName="Courier",
                 fontSize=12,
-                color="orange",
+                color="tomato",
             )
         )
         styles.add(
             ParagraphStyle(
                 name="RedactError",
                 parent=styles["Redaction"],
-                fontName="Courier-Bold",
-                color="red",
+                color="lightgrey",
             )
         )
         return styles

@@ -24,12 +24,11 @@ class TextRenderer(BaseRenderer):
 
     def __call__(self, redaction: RedactedText, context: Context) -> MemoryFile:
         f = MemoryFile()
-        f.write(self.TITLE)
-        f.write("\n\n")
-        # Strip HTML tags from the normal disclaimer
-        f.write(re.sub(r"<[^>]*>", "", self.DISCLAIMER))
-        f.write("\n\n")
-        f.write("=== NARRATIVE ===\n")
+
+        if self.config.title:
+            f.write(f"=== {self.config.title} ===")
+            f.write("\n\n\n")
+
         # TODO: might want to add some formatting for the diff
         f.write(
             redaction.format(
@@ -38,5 +37,11 @@ class TextRenderer(BaseRenderer):
                 escape=partial(escape_for_txt, debug=context.debug),
             )
         )
-        f.write("=== END OF DOCUMENT ===\n")
+
+        if self.config.disclaimer:
+            f.write("\n")
+            f.write("-------------------------------------------------------\n")
+            # Strip HTML tags from the normal disclaimer
+            f.write(re.sub(r"<[^>]*>", "", self.disclaimer()))
+
         return f
