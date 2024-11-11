@@ -34,7 +34,10 @@ InputConfig = Union[
 
 
 ExtractConfig = Union[
-    AzureDIExtractConfig, OpenAIExtractConfig, TesseractExtractConfig, RawExtractConfig
+    AzureDIExtractConfig,
+    OpenAIExtractConfig,
+    TesseractExtractConfig,
+    RawExtractConfig,
 ]
 
 

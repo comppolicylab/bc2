@@ -24,6 +24,6 @@ class RawExtractDriver(BaseExtractDriver[str]):
     def extract(self, data: str) -> str:
         return data
 
-    @register_preprocessor("^text/plain")
+    @register_preprocessor("^text/*")
     def format_text(self, file: MemoryFile) -> str:
         return file.buffer.getvalue().decode("utf-8")

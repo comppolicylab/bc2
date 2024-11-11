@@ -6,7 +6,8 @@ from jinja2 import Template
 from ..common.context import Context
 from ..common.file import MemoryFile
 from ..common.text import RedactedText, escape_for_xml
-from .base import BaseRenderConfig, BaseRenderer
+from .base import BaseRenderConfig
+from .rich_text import RichTextRenderer
 
 
 class HtmlRenderConfig(BaseRenderConfig):
@@ -53,8 +54,10 @@ tpl = Template(
         line-height: 1.5em;
     }
 
-    .Italic {
+    .Disclaimer {
+        font-size: 10pt;
         font-style: italic;
+        color: dimgrey;
     }
 
     .Footer {
@@ -63,20 +66,22 @@ tpl = Template(
 
     .Redaction {
        font-family: monospace;
-       color: #FFA500;
+       color: tomato;
     }
 
     .RedactError {
         font-family: monospace;
-        color: #FF0000;
+        color: lightgrey;
     }
 </style>
 <body>
     <h1 class="Header">{{ title }}</h1>
-    <p class="Italic">{{ disclaimer }}</p>
     <div class="Normal">
         {{ narrative }}
     </div>
+    <br/>
+    <hr>
+    <p class="Disclaimer">{{ disclaimer }}</p>
 </body>
 </html>
 """
@@ -108,7 +113,7 @@ def format_html_paragraph(text: str) -> str:
     return f"<p>{text}</p>"
 
 
-class HTMLRenderer(BaseRenderer):
+class HTMLRenderer(RichTextRenderer):
     def __init__(self, config: HtmlRenderConfig) -> None:
         self.config = config
 
@@ -124,8 +129,8 @@ class HTMLRenderer(BaseRenderer):
         f = MemoryFile()
         f.write(
             tpl.render(
-                title=self.TITLE,
-                disclaimer=self.DISCLAIMER,
+                title=self.config.title,
+                disclaimer=self.disclaimer(),
                 narrative=redaction.format(
                     style=apply_css_style,
                     p=format_html_paragraph,
