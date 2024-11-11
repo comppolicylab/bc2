@@ -10,23 +10,26 @@ from ..common.text import RedactedText
 class BaseRenderConfig(BaseModel):
     """Common settings for all renderers."""
 
-    ...
-
-
-class BaseRenderer(ABC):
-    TITLE = "Redacted Narrative for Race-Blind Charging"
-
-    REDACT_ERROR_APPEARANCE = ""
-
-    @classmethod
-    def disclaimer(cls):
-        return f"""
+    title: str = "Redacted Narrative for Race-Blind Charging"
+    disclaimer: str = """\
 The above passages were automatically extracted from referral documents and \
 automatically redacted to hide race-related information. Occasionally, words \
 or punctuation may be automatically added to fix typos. \
-{cls.REDACT_ERROR_APPEARANCE}\
+{REDACT_ERROR_APPEARANCE}\
 Please report any issues to <a href="mailto:blind_charging@hks.harvard.edu">\
 blind_charging@hks.harvard.edu</a>."""
+
+
+class BaseRenderer(ABC):
+    def __init__(self, config: BaseRenderConfig) -> None:
+        self.config = config
+
+    REDACT_ERROR_APPEARANCE = ""
+
+    def disclaimer(self):
+        return self.config.disclaimer.format(
+            REDACT_ERROR_APPEARANCE=self.__class__.REDACT_ERROR_APPEARANCE
+        )
 
     @abstractmethod
     def __call__(self, redaction: RedactedText, context: Context) -> MemoryFile: ...

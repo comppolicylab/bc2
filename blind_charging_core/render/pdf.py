@@ -105,7 +105,7 @@ class PDFRenderer(RichTextRenderer):
         canvas.setLineWidth(line_thickness)
 
         # Draw the header.
-        header_text = Paragraph(self.TITLE, styles["Header"])
+        header_text = Paragraph(self.config.title, styles["Header"])
         w, h = header_text.wrap(doc.width, doc.topMargin)
         header_text_y = doc.height + (doc.topMargin / 2) + doc.bottomMargin - h
         header_text_x = doc.leftMargin

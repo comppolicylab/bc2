@@ -12,8 +12,6 @@ class TextRenderConfig(BaseRenderConfig):
     """Text Render config."""
 
     engine: Literal["render:text"]
-    header: bool = False
-    footer: bool = False
 
     @cached_property
     def driver(self) -> "TextRenderer":
@@ -27,8 +25,8 @@ class TextRenderer(BaseRenderer):
     def __call__(self, redaction: RedactedText, context: Context) -> MemoryFile:
         f = MemoryFile()
 
-        if self.config.header:
-            f.write(f"=== {self.TITLE} ===")
+        if self.config.title:
+            f.write(f"=== {self.config.title} ===")
             f.write("\n\n\n")
 
         # TODO: might want to add some formatting for the diff
@@ -40,9 +38,9 @@ class TextRenderer(BaseRenderer):
             )
         )
 
-        if self.config.footer:
+        if self.config.disclaimer:
             f.write("\n")
-            f.write("---------------------------------------------------------")
+            f.write("-------------------------------------------------------\n")
             # Strip HTML tags from the normal disclaimer
             f.write(re.sub(r"<[^>]*>", "", self.disclaimer()))
 

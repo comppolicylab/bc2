@@ -9,7 +9,7 @@ def decorate(txt: str) -> bytes:
     """Add the disclaimer header / footer to the given text."""
     header = b"=== Redacted Narrative for Race-Blind Charging ===\n\n\n"
     footer = (
-        b"\n\n\n---------------------------------------------------------\n"
+        b"\n\n\n-------------------------------------------------------\n"
         b"The above passages were automatically extracted from referral "
         b"documents and automatically redacted to hide race-related "
         b"information. Occasionally, words or punctuation may be "
@@ -40,8 +40,6 @@ def test_render_text(original, redacted, expected, debug):
     cfg = TextRenderConfig.model_validate(
         {
             "engine": "render:text",
-            "header": True,
-            "footer": True,
         }
     )
     rt = RedactedText(redacted, original, "[]")

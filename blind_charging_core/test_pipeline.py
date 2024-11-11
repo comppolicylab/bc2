@@ -10,7 +10,7 @@ def test_pipeline_simple_debug():
                 {"engine": "in:memory"},
                 {"engine": "extract:raw"},
                 {"engine": "redact:noop", "delimiters": ["[", "]"]},
-                {"engine": "render:text", "header": True, "footer": True},
+                {"engine": "render:text"},
                 {"engine": "out:memory"},
             ],
         }
@@ -36,7 +36,7 @@ def test_pipeline_simple_debug():
     assert out_buf.getvalue() == (
         b"=== Redacted Narrative for Race-Blind Charging ===\n\n\n"
         b"Hello, world!\n\n\n"
-        b"---------------------------------------------------------\n"
+        b"-------------------------------------------------------\n"
         b"The above passages were automatically extracted from referral "
         b"documents and automatically redacted to hide race-related "
         b"information. Occasionally, words or punctuation may be "

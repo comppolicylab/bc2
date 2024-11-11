@@ -129,7 +129,7 @@ class HTMLRenderer(RichTextRenderer):
         f = MemoryFile()
         f.write(
             tpl.render(
-                title=self.TITLE,
+                title=self.config.title,
                 disclaimer=self.disclaimer(),
                 narrative=redaction.format(
                     style=apply_css_style,
