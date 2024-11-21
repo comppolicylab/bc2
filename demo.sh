@@ -40,11 +40,10 @@ trap 'rm -rf "$TEMP_DIR"' EXIT
 
 export TEMP_DIR
 
-find "$INPUT_DIR" -name "*.pdf" | parallel -j "$NUM_JOBS" --eta '
+find "$INPUT_DIR" -name "*.*" | parallel -j "$NUM_JOBS" --eta '
     filename=$(basename -- {});
     stripped_filename=${filename:4}  # Strip the first four characters
-    base_filename=${stripped_filename%.pdf}  # Remove the .pdf extension
-    temp_toml="$TEMP_DIR/${base_filename}.toml";
-    sed "s/{{filename}}/${base_filename}/g" "$CONFIG_FILE" > "$temp_toml";
-    poetry run python -m blind_charging_core "$temp_toml" --input-path {} --output-path "$OUTPUT_DIR/${filename%.pdf}-redacted.pdf"
+    temp_toml="$TEMP_DIR/${stripped_filename}.toml";
+    sed "s/{{filename}}/${stripped_filename}/g" "$CONFIG_FILE" > "$temp_toml";
+    poetry run python -m blind_charging_core "$temp_toml" --input-path {} --output-path "$OUTPUT_DIR/${filename}"
 '

@@ -284,14 +284,6 @@ OpenAICompletionPrompt = (
 )
 
 
-class OpenAIExtendOutput(BaseModel):
-    """Config for circumventing OpenAI token output limits."""
-
-    underlying_model: str
-    output_token_limit: int
-    max_extensions: int = 5
-
-
 class OpenAIChatConfig(BaseModel):
     """OpenAI Chat config."""
 
@@ -299,8 +291,9 @@ class OpenAIChatConfig(BaseModel):
     model: str
     system: OpenAIChatPrompt
     frequency_penalty: float | None = None
-    max_tokens: int | None = None
-    extend_output: OpenAIExtendOutput | None = None
+    max_completion_tokens: int | None = None
+    api_completion_token_limit: int = 4096
+    max_extensions: int = 20
     n: int = 1
     presence_penalty: float | None = None
     seed: int | None = None
@@ -310,39 +303,34 @@ class OpenAIChatConfig(BaseModel):
     def invoke(
         self, client: OpenAI, input: AnyChatInput | Sequence[AnyChatInput], **kwargs
     ) -> str:
+
         """Invoke the chat."""
         settings = self.model_dump()
         settings.pop("method")
         settings.pop("system")
-        settings.pop("extend_output")
-        messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
+        settings.pop("api_completion_token_limit")
+        settings.pop("max_extensions")
         # Remove any setting whose value is `None`
         settings = {k: v for k, v in settings.items() if v is not None}
-        completion = client.chat.completions.create(**settings, messages=messages)
-        output = completion.choices[0].message.content
-        if self.extend_output:
-            encoding = tiktoken.encoding_for_model(self.extend_output.underlying_model)
-            num_tokens = len(encoding.encode(output))
-            num_extensions = 0
-            while (
-                num_tokens == self.extend_output.output_token_limit
-                and num_extensions < self.extend_output.max_extensions
-            ):
-                message_extension = [
-                    {"role": "assistant", "content": output},
-                    {
-                        "role": "user",
-                        "content": "It looks like you got cut off. Please continue.",
-                    },
-                ]
-                extended_messages = messages + message_extension
-                completion = client.chat.completions.create(
-                    **settings, messages=extended_messages
-                )
-                output_extension = completion.choices[0].message.content
-                num_tokens = len(encoding.encode(output_extension))
-                output += output_extension
-                num_extensions += 1
+        output = ''
+        extensions = 0
+        if self.max_completion_tokens:
+            self.api_completion_token_limit = min(self.api_completion_token_limit, 
+                                                    self.max_completion_tokens)
+        messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
+        while extensions <= self.max_extensions:
+            completion = client.chat.completions.create(**settings, messages=messages)
+            result = completion.choices[0].message.content
+            output += result
+            completion_tokens = completion.usage.completion_tokens
+            if completion_tokens == self.api_completion_token_limit:
+                extensions += 1
+                messages = [messages[0],
+                            {"role": "assistant", "content": output},
+                            {"role": "user",
+                            "content": "It looks like you got cut off. Please continue."}]
+            else:
+                break
         return output
 
 
