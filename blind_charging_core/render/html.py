@@ -13,7 +13,7 @@ from .rich_text import RichTextRenderer
 class HtmlRenderConfig(BaseRenderConfig):
     """HTML Render config."""
 
-    engine: Literal["render:html"]
+    engine: Literal["render:html"] = "render:html"
 
     @cached_property
     def driver(self) -> "HTMLRenderer":
