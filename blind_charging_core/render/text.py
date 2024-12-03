@@ -11,7 +11,7 @@ from .base import BaseRenderConfig, BaseRenderer
 class TextRenderConfig(BaseRenderConfig):
     """Text Render config."""
 
-    engine: Literal["render:text"]
+    engine: Literal["render:text"] = "render:text"
 
     @cached_property
     def driver(self) -> "TextRenderer":
