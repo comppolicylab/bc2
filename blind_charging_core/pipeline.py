@@ -22,6 +22,7 @@ from .parse.openai import OpenAIParseConfig
 from .redact.noop import NoOpRedactConfig
 from .redact.openai import OpenAIRedactConfig
 from .render.html import HtmlRenderConfig
+from .render.json import JsonRenderConfig
 from .render.pdf import PdfRenderConfig
 from .render.text import TextRenderConfig
 
@@ -50,7 +51,9 @@ RedactConfig = Union[OpenAIRedactConfig, NoOpRedactConfig]
 InspectConfig = Union[InspectAnnotationsConfig]
 
 
-RenderConfig = Union[PdfRenderConfig, HtmlRenderConfig, TextRenderConfig]
+RenderConfig = Union[
+    PdfRenderConfig, HtmlRenderConfig, TextRenderConfig, JsonRenderConfig
+]
 
 
 OutputConfig = Union[
