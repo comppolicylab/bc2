@@ -24,7 +24,7 @@ from .rich_text import RichTextRenderer
 class PdfRenderConfig(BaseRenderConfig):
     """PDF Render config."""
 
-    engine: Literal["render:pdf"]
+    engine: Literal["render:pdf"] = "render:pdf"
 
     @cached_property
     def driver(self) -> "PDFRenderer":
