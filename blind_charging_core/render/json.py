@@ -4,6 +4,7 @@ from typing import Literal
 
 from ..common.context import Context
 from ..common.file import MemoryFile
+from ..common.infer import TextSegment
 from ..common.text import RedactedText
 from .base import BaseRenderConfig, BaseRenderer
 
@@ -18,6 +19,17 @@ class JsonRenderConfig(BaseRenderConfig):
         return JsonRenderer(self)
 
 
+def format_annotation(annotation: TextSegment) -> dict:
+    """Condense the annotation into a simpler JSON format."""
+    return {
+        "originalSpan": [annotation.original.start, annotation.original.end],
+        "redactedSpan": [annotation.redacted.start, annotation.redacted.end],
+        "valid": annotation.is_valid,
+        "openDelim": annotation.open_delim,
+        "closeDelim": annotation.close_delim,
+    }
+
+
 class JsonRenderer(BaseRenderer):
     def __init__(self, config: JsonRenderConfig) -> None:
         self.config = config
@@ -30,6 +42,9 @@ class JsonRenderer(BaseRenderer):
                 {
                     "original": redaction.original,
                     "redacted": redaction.redacted,
+                    "annotations": [
+                        format_annotation(a) for a in redaction.annotations
+                    ],
                 }
             )
         )
