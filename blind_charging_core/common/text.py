@@ -74,6 +74,15 @@ class RedactedText:
         self.original = original
         self.delimiters = delimiters
 
+    @property
+    def annotations(self) -> list[TextSegment]:
+        """Return the annotations for the redacted text."""
+        return [
+            s
+            for s in segment(self.original, self.redacted, delimiters=self.delimiters)
+            if s.is_edit
+        ]
+
     def format(
         self,
         style: Styler = default_styler,
