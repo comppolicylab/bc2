@@ -36,4 +36,5 @@ class OpenAIRedactDriver(BaseRedactDriver):
 
         This method is supported for either completion or chat generators.
         """
-        return self.config.generator.invoke(self.client, input, aliases=aliases)
+        return self.config.generator.invoke(self.client, input, aliases=aliases,
+                                            delimiters = self.config.delimiters)

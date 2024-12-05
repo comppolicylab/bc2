@@ -9,7 +9,7 @@ from ..common.types import NameMap
 
 class BaseRedactConfig(BaseModel):
     # The tokens that mark the beginning and end of a redaction.
-    delimiters: Sequence[str] = ("<", ">")
+    delimiters: Sequence[str] = ("[", "]")
 
 
 class BaseRedactDriver(ABC):

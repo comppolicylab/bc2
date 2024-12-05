@@ -13,6 +13,8 @@ from .datafile import DataType, load_data_file, load_data_file_from_path
 from .image import ImageUrl
 from .template import TemplateEngine, get_formatter
 
+import pprint
+
 
 class OpenAIClientConfig(BaseModel):
     """OpenAI API settings."""
@@ -322,32 +324,23 @@ class OpenAIChatConfig(BaseModel):
         while num_extensions <= self.max_extensions:
             completion = client.chat.completions.create(**settings, messages=messages)
             result = completion.choices[0].message.content
-            print("\n\n\n\n")
-            print(f"*** Source:\n{messages[1]['content'][0]['text']}")
-            print(f"*** Result:\n{result}")
-            print(f"*** Result length: {len(result)}")
-            print("\n")
-            result_last_closing = result.rfind("]")
-            result_last_opening = result.rfind("[")
-            if result_last_closing < result_last_opening:
-                result = result[:result_last_opening]
-                print(f"*** Trimmed result:\n{result}")
+            delimiters = kwargs.get("delimiters")
+            # Remove any incomplete redactions, if doing redactions
+            if delimiters:
+                last_opening = result.rfind(delimiters[0])
+                last_closing = result.rfind(delimiters[1])
+                if last_closing < last_opening:
+                    result = result[:last_opening]
             output += result
             completion_tokens = completion.usage.completion_tokens
-            print(f"*** Completion tokens: {completion_tokens}")
-            print(f"*** Number of extensions: {num_extensions}")
             if completion_tokens == self.api_completion_token_limit:
                 num_extensions += 1
-                source = messages[1]["content"][0]["text"]
-                alignment = partial_ratio_alignment(source, result)
-                print(f"*** Alignment: {alignment}")
-                source_abridged = source[alignment.src_end:]
-                messages = [m.model_dump() for m in self.system.format(source_abridged, 
-                                                                       **kwargs)]
+                alignment = partial_ratio_alignment(input, result)
+                input = input[alignment.src_end:]
+                messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
             else:
                 break
 
-        print("\n\n\n\n")
         return output
 
 
