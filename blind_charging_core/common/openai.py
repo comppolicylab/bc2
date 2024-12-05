@@ -4,9 +4,10 @@ from abc import abstractmethod
 from functools import cached_property
 from typing import Any, Literal, Sequence
 
-import tiktoken
 from openai import AzureOpenAI, OpenAI
 from pydantic import BaseModel
+
+from rapidfuzz.fuzz import partial_ratio_alignment
 
 from .datafile import DataType, load_data_file, load_data_file_from_path
 from .image import ImageUrl
@@ -313,36 +314,40 @@ class OpenAIChatConfig(BaseModel):
         # Remove any setting whose value is `None`
         settings = {k: v for k, v in settings.items() if v is not None}
         output = ''
-        extensions = 0
+        num_extensions = 0
         if self.max_tokens:
             self.api_completion_token_limit = min(self.api_completion_token_limit, 
                                                     self.max_tokens)
         messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
-        extension_prompt = """\
-It looks like you got cut off. \
-Look carefully at where you stopped, and then please continue \
-redacting the provided input EXACTLY as instructed in the system prompt \
-picking up immediately after where you were cut off. \
-Do not return "No narratives found", since you're in the middle of a narrative already. \
-Make sure that any unredacted text is an exact copy of the input. \
-Focus in particular on the end of your output. In the past, \
-this is where you tend to lose attention and start to deviate from exact copies of unredacted text. \
-Your ENTIRE output should be derived from the input text alone, \
-and not generated from your imagination.\
-"""
-        while extensions <= self.max_extensions:
+        while num_extensions <= self.max_extensions:
             completion = client.chat.completions.create(**settings, messages=messages)
             result = completion.choices[0].message.content
+            print("\n\n\n\n")
+            print(f"*** Source:\n{messages[1]['content'][0]['text']}")
+            print(f"*** Result:\n{result}")
+            print(f"*** Result length: {len(result)}")
+            print("\n")
+            result_last_closing = result.rfind("]")
+            result_last_opening = result.rfind("[")
+            if result_last_closing < result_last_opening:
+                result = result[:result_last_opening]
+                print(f"*** Trimmed result:\n{result}")
             output += result
             completion_tokens = completion.usage.completion_tokens
+            print(f"*** Completion tokens: {completion_tokens}")
+            print(f"*** Number of extensions: {num_extensions}")
             if completion_tokens == self.api_completion_token_limit:
-                extensions += 1
-                messages = [messages[0],
-                            {"role": "assistant", "content": output},
-                            {"role": "user",
-                            "content": extension_prompt}]
+                num_extensions += 1
+                source = messages[1]["content"][0]["text"]
+                alignment = partial_ratio_alignment(source, result)
+                print(f"*** Alignment: {alignment}")
+                source_abridged = source[alignment.src_end:]
+                messages = [m.model_dump() for m in self.system.format(source_abridged, 
+                                                                       **kwargs)]
             else:
                 break
+
+        print("\n\n\n\n")
         return output
 
 
