@@ -291,7 +291,7 @@ class OpenAIChatConfig(BaseModel):
     model: str
     system: OpenAIChatPrompt
     frequency_penalty: float | None = None
-    max_completion_tokens: int | None = None
+    max_tokens: int | None = None
     api_completion_token_limit: int = 4096
     max_extensions: int = 20
     n: int = 1
@@ -314,10 +314,22 @@ class OpenAIChatConfig(BaseModel):
         settings = {k: v for k, v in settings.items() if v is not None}
         output = ''
         extensions = 0
-        if self.max_completion_tokens:
+        if self.max_tokens:
             self.api_completion_token_limit = min(self.api_completion_token_limit, 
-                                                    self.max_completion_tokens)
+                                                    self.max_tokens)
         messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
+        extension_prompt = """\
+It looks like you got cut off. \
+Look carefully at where you stopped, and then please continue \
+redacting the provided input EXACTLY as instructed in the system prompt \
+picking up immediately after where you were cut off. \
+Do not return "No narratives found", since you're in the middle of a narrative already. \
+Make sure that any unredacted text is an exact copy of the input. \
+Focus in particular on the end of your output. In the past, \
+this is where you tend to lose attention and start to deviate from exact copies of unredacted text. \
+Your ENTIRE output should be derived from the input text alone, \
+and not generated from your imagination.\
+"""
         while extensions <= self.max_extensions:
             completion = client.chat.completions.create(**settings, messages=messages)
             result = completion.choices[0].message.content
@@ -328,7 +340,7 @@ class OpenAIChatConfig(BaseModel):
                 messages = [messages[0],
                             {"role": "assistant", "content": output},
                             {"role": "user",
-                            "content": "It looks like you got cut off. Please continue."}]
+                            "content": extension_prompt}]
             else:
                 break
         return output
