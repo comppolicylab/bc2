@@ -1,3 +1,4 @@
+import logging
 import json
 import os
 from abc import abstractmethod
@@ -13,7 +14,7 @@ from .datafile import DataType, load_data_file, load_data_file_from_path
 from .image import ImageUrl
 from .template import TemplateEngine, get_formatter
 
-import pprint
+logger = logging.getLogger(__name__)
 
 
 class OpenAIClientConfig(BaseModel):
@@ -321,23 +322,34 @@ class OpenAIChatConfig(BaseModel):
             self.api_completion_token_limit = min(self.api_completion_token_limit, 
                                                     self.max_tokens)
         messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
+
+        abridged = input
+        delimiters = kwargs.get("delimiters")
+        entity_prompt = kwargs.get("entity_prompt")
         while num_extensions <= self.max_extensions:
             completion = client.chat.completions.create(**settings, messages=messages)
             result = completion.choices[0].message.content
-            delimiters = kwargs.get("delimiters")
-            # Remove any incomplete redactions, if doing redactions
+            # Remove any incomplete redactions, if we're doing redactions here
             if delimiters:
                 last_opening = result.rfind(delimiters[0])
                 last_closing = result.rfind(delimiters[1])
                 if last_closing < last_opening:
                     result = result[:last_opening]
-            output += result
+            output += f"{result} | "
+            if entity_prompt:
+                entity_completion = client.chat.completions.create(**settings, messages=[
+                    {"role": "system", "content": entity_prompt},
+                    {"role": "user", 
+                     "content": f"INPUT: {input} \n\n OUTPUT: {output}"},
+                ])
+                kwargs["aliases"] = entity_completion.choices[0].message.content
+                logger.debug(f"\n\n{kwargs['aliases']}\n\n")
             completion_tokens = completion.usage.completion_tokens
             if completion_tokens == self.api_completion_token_limit:
                 num_extensions += 1
-                alignment = partial_ratio_alignment(input, result)
-                input = input[alignment.src_end:]
-                messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
+                alignment = partial_ratio_alignment(abridged, result)
+                abridged = abridged[alignment.src_end:]
+                messages = [m.model_dump() for m in self.system.format(abridged, **kwargs)]
             else:
                 break
 

@@ -45,6 +45,6 @@ find "$INPUT_DIR" \( -name "*.txt" -o -name "*.pdf" \) | parallel -j "$NUM_JOBS"
     stripped_filename=${filename:4}  # Strip the first four characters
     temp_toml="$TEMP_DIR/${stripped_filename}.toml";
     sed "s/{{filename}}/${stripped_filename}/g" "$CONFIG_FILE" > "$temp_toml";
-    poetry run python -m blind_charging_core "$temp_toml" --input-path {} --output-path "$OUTPUT_DIR/${filename}.pdf"
+    poetry run python -m blind_charging_core "$temp_toml" --input-path {} --output-path "$OUTPUT_DIR/${filename}.pdf" --debug
 '
 osascript -e 'display notification "demo.sh finished" with title "Alert"' && afplay /System/Library/Sounds/Funk.aiff   

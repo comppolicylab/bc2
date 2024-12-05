@@ -11,6 +11,7 @@ class OpenAIRedactConfig(BaseRedactConfig, OpenAIConfig):
     """OpenAI Redact config."""
 
     engine: Literal["redact:openai"]
+    entity_prompt: str
     generator: OpenAIChatConfig | OpenAICompletionConfig
 
     @cached_property
@@ -36,5 +37,7 @@ class OpenAIRedactDriver(BaseRedactDriver):
 
         This method is supported for either completion or chat generators.
         """
-        return self.config.generator.invoke(self.client, input, aliases=aliases,
+        return self.config.generator.invoke(self.client, input, 
+                                            aliases=aliases,
+                                            entity_prompt=self.config.entity_prompt,
                                             delimiters = self.config.delimiters)
