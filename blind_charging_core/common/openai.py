@@ -335,15 +335,17 @@ class OpenAIChatConfig(BaseModel):
                 last_closing = result.rfind(delimiters[1])
                 if last_closing < last_opening:
                     result = result[:last_opening]
+            # Remove this, or add a check for the debugging flag
             output += f"{result} | "
+            logger.debug(f"\n\nAliases before: {kwargs['aliases']}\n\n")
             if entity_prompt:
                 entity_completion = client.chat.completions.create(**settings, messages=[
                     {"role": "system", "content": entity_prompt},
                     {"role": "user", 
-                     "content": f"INPUT: {input} \n\n OUTPUT: {output}"},
+                     "content": f"INPUT: {input} \n\n OUTPUT: {output} \n\n ENTITIES: {kwargs['aliases']}"},
                 ])
                 kwargs["aliases"] = entity_completion.choices[0].message.content
-                logger.debug(f"\n\n{kwargs['aliases']}\n\n")
+                logger.debug(f"\n\nAliases after: {kwargs['aliases']}\n\n")
             completion_tokens = completion.usage.completion_tokens
             if completion_tokens == self.api_completion_token_limit:
                 num_extensions += 1
