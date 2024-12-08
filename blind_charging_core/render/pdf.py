@@ -46,7 +46,6 @@ class PDFRenderer(RichTextRenderer):
         Args:
             redaction: The redaction to render.
         """
-        logger.debug(f"Context: {context}")
         f = MemoryFile()
         styles = self.get_pdf_styles()
         style = partial(self.apply_platypus_style, styles)

@@ -321,21 +321,20 @@ class OpenAIChatConfig(BaseModel):
         if self.max_tokens:
             self.api_completion_token_limit = min(self.api_completion_token_limit, 
                                                     self.max_tokens)
-        messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
-
         abridged = input
         delimiters = kwargs.get("delimiters")
         entity_prompt = kwargs.get("entity_prompt")
+        if entity_prompt:
+            entity_completion = client.chat.completions.create(**settings, messages=[
+                {"role": "system", "content": entity_prompt},
+                {"role": "user", 
+                    "content": f"NARRATIVE:\n{abridged}\n\nKNOWN ENTITIES:\n{kwargs['aliases']}"},
+            ])
+            kwargs["aliases"] = entity_completion.choices[0].message.content
+        logger.debug(f"\n\nAliases: {kwargs['aliases']}\n\n")
+
+        messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
         while num_extensions <= self.max_extensions:
-            logger.debug(f"\n\nAliases before: {kwargs['aliases']}\n\n")
-            if entity_prompt:
-                entity_completion = client.chat.completions.create(**settings, messages=[
-                    {"role": "system", "content": entity_prompt},
-                    {"role": "user", 
-                     "content": f"NARRATIVE:\n{abridged}\n\nKNOWN ENTITIES:\n{kwargs['aliases']}"},
-                ])
-                kwargs["aliases"] = entity_completion.choices[0].message.content
-                logger.debug(f"\n\nAliases after: {kwargs['aliases']}\n\n")
             completion = client.chat.completions.create(**settings, messages=messages)
             result = completion.choices[0].message.content
             # Remove any incomplete redactions, if we're doing redactions here
@@ -344,8 +343,6 @@ class OpenAIChatConfig(BaseModel):
                 last_closing = result.rfind(delimiters[1])
                 if last_closing < last_opening:
                     result = result[:last_opening]
-            # Remove this, or add a check for the debugging flag
-            output += f"{result} | "
             completion_tokens = completion.usage.completion_tokens
             if completion_tokens == self.api_completion_token_limit:
                 num_extensions += 1
