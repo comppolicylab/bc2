@@ -331,7 +331,7 @@ class OpenAIChatConfig(BaseModel):
                     "content": f"NARRATIVE:\n{abridged}\n\nKNOWN ENTITIES:\n{kwargs['aliases']}"},
             ])
             kwargs["aliases"] = entity_completion.choices[0].message.content
-        logger.debug(f"\n\nAliases: {kwargs['aliases']}\n\n")
+            logger.debug(f"\n\nAliases: {kwargs['aliases']}\n\n")
 
         messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
         while num_extensions <= self.max_extensions:
@@ -343,6 +343,7 @@ class OpenAIChatConfig(BaseModel):
                 last_closing = result.rfind(delimiters[1])
                 if last_closing < last_opening:
                     result = result[:last_opening]
+            output += result
             completion_tokens = completion.usage.completion_tokens
             if completion_tokens == self.api_completion_token_limit:
                 num_extensions += 1
@@ -351,6 +352,8 @@ class OpenAIChatConfig(BaseModel):
                 messages = [m.model_dump() for m in self.system.format(abridged, **kwargs)]
             else:
                 break
+
+        logger.debug(f"\n\nChat output: {output}\n\n")
 
         return output
 
