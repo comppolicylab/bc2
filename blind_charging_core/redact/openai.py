@@ -24,7 +24,7 @@ class OpenAIRedactDriver(BaseRedactDriver):
         self.client = config.client.init()
 
     def __call__(self, narrative: Text, aliases: NameMap | None = None) -> RedactedText:
-        if not narrative.text:
+        if not narrative.text or narrative.text == "No narratives found.":
             raise ValueError("No narrative text in input.")
         redacted = self.generate(narrative.text, aliases=aliases)
         return RedactedText(redacted, narrative.text, self.config.delimiters)
