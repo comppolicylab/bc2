@@ -12,7 +12,10 @@ from rapidfuzz.fuzz import partial_ratio_alignment
 
 from .datafile import DataType, load_data_file, load_data_file_from_path
 from .image import ImageUrl
+from .infer import infer_annotations
 from .template import TemplateEngine, get_formatter
+from .types import NameMap
+
 
 logger = logging.getLogger(__name__)
 
@@ -287,6 +290,109 @@ OpenAICompletionPrompt = (
     | OpenAICompletionPromptBuiltIn
 )
 
+class OpenAIAliasResolver(BaseModel, ChatPrompt):
+    """An inline prompt for resolving aliases using an OpenAI model."""
+
+    prompt: str
+    examples: list[dict[str, str]] | None = None
+
+    @property
+    def prompt_value(self) -> str:
+        return self.prompt
+
+    @property
+    def examples_value(self) -> list[dict[str, str]] | None:
+        return self.examples
+    
+    ALIASES_PROMPT_TPL = """\
+    [MAP#1]
+    {preset_aliases}
+
+    [MAP#2]
+    {inferred_annotations}
+
+    [NARRATIVE]
+    {narrative}"""
+
+    def _generate_with_retry(self, client: OpenAI, settings: dict,
+        original: str, preset_aliases: NameMap, inferred_annotations: NameMap, 
+        retries: int = 3
+    ) -> NameMap:
+        """Resolve aliases from two alias sets and the original text, with retries.
+
+        Args:
+            original: The original text.
+            preset_aliases: The preexisting aliases map.
+            inferred_annotations: The aliases map inferred by the redaction process.
+            retries: The number of retries to attempt.
+
+        Returns:
+            The new aliases map.
+        """
+        last_error: Exception | None = None
+        for i in range(retries):
+            try:
+                return self.generate(original, preset_aliases, inferred_annotations)
+            except Exception as e:
+                logger.error(f"Error generating aliases (attempt {i + 1}): {e}")
+                last_error = e
+
+        raise ValueError("Error generating aliases.") from last_error
+
+    def _generate(self, client: OpenAI, settings: dict,
+        original: str, preset_aliases: NameMap, inferred_annotations: NameMap) -> NameMap:
+        """Resolve aliases from two alias sets and the original text.
+
+        Args:
+            original: The original text.
+            preset_aliases: The preexisting aliases map.
+            inferred_annotations: The aliases map inferred by the redaction process.
+
+        Returns:
+            The new aliases map.
+        """
+        input = self.ALIASES_PROMPT_TPL.format(
+            preset_aliases = json.dumps(preset_aliases, indent=2, sort_keys=True),
+            inferred_annotations = json.dumps(inferred_annotations, indent=2, sort_keys=True),
+            narrative = original,
+        )
+        messages = [m.model_dump() for m in self.format(input)]
+        completion = client.chat.completions.create(**settings,
+                                                    messages=messages)
+        response = completion.choices[0].message.content
+        return self.parse(response, preset_aliases, inferred_annotations)
+    
+    def _parse(self, response: str, preset_aliases: NameMap, inferred_annotations: NameMap) -> NameMap:
+        """Parse the response from the generator.
+
+        The response should be a JSON object mapping IDs to aliases.
+
+        Args:
+            response: The response from the generator.
+            preset_aliases: The preexisting aliases map (for validation).
+            inferred_annotations: The aliases map inferred by the redaction process (for validation).
+
+        Returns:
+            The new aliases map.
+        """
+        try:
+            data = json.loads(response)
+            # TODO: Validate the JSON response matches the alias maps
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing JSON response: {e}")
+            raise ValueError("Error parsing JSON response.") from e
+
+        return data
+
+    def resolve_aliases(self, client: OpenAI, settings: dict,
+                        input: str, result: str, preset_aliases: NameMap, 
+                        delimiters: Sequence[str],) -> NameMap:
+        """Resolve aliases from the redacted text."""
+        inferred_annotations = infer_annotations(input, result,
+                                                 delimiters=delimiters)
+        return _generate_with_retry(client, settings,
+                                    input, preset_aliases, inferred_annotations)
+    
 
 class OpenAIChatConfig(BaseModel):
     """OpenAI Chat config."""
@@ -294,6 +400,7 @@ class OpenAIChatConfig(BaseModel):
     method: Literal["chat"]
     model: str
     system: OpenAIChatPrompt
+    alias_resolver: OpenAIAliasResolver | None = None
     frequency_penalty: float | None = None
     max_tokens: int | None = None
     api_completion_token_limit: int = 4096
@@ -314,6 +421,7 @@ class OpenAIChatConfig(BaseModel):
         settings.pop("system")
         settings.pop("api_completion_token_limit")
         settings.pop("max_extensions")
+        settings.pop("alias_resolver")
         # Remove any setting whose value is `None`
         settings = {k: v for k, v in settings.items() if v is not None}
         output = ''
@@ -321,18 +429,23 @@ class OpenAIChatConfig(BaseModel):
         if self.max_tokens:
             self.api_completion_token_limit = min(self.api_completion_token_limit, 
                                                     self.max_tokens)
-        abridged = input
         delimiters = kwargs.get("delimiters")
         messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
+        abridged = input
         while num_extensions <= self.max_extensions:
             completion = client.chat.completions.create(**settings, messages=messages)
             result = completion.choices[0].message.content
-            # Remove any incomplete redactions, if we're doing redactions here
+            # If we're doing redactions here:
             if delimiters:
+                # Remove any incomplete redactions
                 last_opening = result.rfind(delimiters[0])
                 last_closing = result.rfind(delimiters[1])
                 if last_closing < last_opening:
                     result = result[:last_opening]
+                # Parse the redactions
+                self.alias_resolver.resolve_aliases(client, settings,
+                                                    abridged, result, delimiters, 
+                                                    kwargs.get("preset_aliases"))
             output += result
             completion_tokens = completion.usage.completion_tokens
             if completion_tokens == self.api_completion_token_limit:

@@ -38,4 +38,4 @@ class OpenAIRedactDriver(BaseRedactDriver):
         """
         return self.config.generator.invoke(self.client, input, 
                                             preset_aliases=preset_aliases,
-                                            delimiters = self.config.delimiters)
+                                            delimiters=self.config.delimiters)

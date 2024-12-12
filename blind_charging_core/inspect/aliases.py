@@ -17,16 +17,6 @@ from .base import BaseInspectDriver
 logger = logging.getLogger(__name__)
 
 
-ALIASES_PROMPT_TPL = """\
-[MAP#1]
-{preset_aliases}
-
-[MAP#2]
-{inferred_aliases}
-
-[NARRATIVE]
-{narrative}\
-"""
 
 
 class OpenAIAliasesInspectChatGeneratorConfig(OpenAIChatConfig):
