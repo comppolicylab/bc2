@@ -43,7 +43,7 @@ export TEMP_DIR
 process_file() {
     local file=$1
     filename=$(basename -- "$file")
-    stripped_filename=${filename:4}  # Strip the first four characters
+    stripped_filename=${filename:4}  # Strip the last four characters
     temp_toml="$TEMP_DIR/${stripped_filename}.toml"
     sed "s/{{filename}}/${stripped_filename}/g" "$CONFIG_FILE" > "$temp_toml"
     poetry run python -m blind_charging_core "$temp_toml" --input-path "$file" --output-path "$OUTPUT_DIR/${filename}.pdf" --debug

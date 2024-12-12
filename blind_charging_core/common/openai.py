@@ -323,16 +323,6 @@ class OpenAIChatConfig(BaseModel):
                                                     self.max_tokens)
         abridged = input
         delimiters = kwargs.get("delimiters")
-        entity_prompt = kwargs.get("entity_prompt")
-        if entity_prompt:
-            entity_completion = client.chat.completions.create(**settings, messages=[
-                {"role": "system", "content": entity_prompt},
-                {"role": "user", 
-                    "content": f"NARRATIVE:\n{abridged}\n\nKNOWN ENTITIES:\n{kwargs['aliases']}"},
-            ])
-            kwargs["aliases"] = entity_completion.choices[0].message.content
-            logger.debug(f"\n\nAliases: {kwargs['aliases']}\n\n")
-
         messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
         while num_extensions <= self.max_extensions:
             completion = client.chat.completions.create(**settings, messages=messages)

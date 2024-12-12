@@ -41,7 +41,7 @@ def test_redact_jinja_with_aliases(openai_mock):
 
     result = cfg.driver(
         narrative=Text("Leopold, Pollock, and Abbott went to the store."),
-        aliases={
+        preset_aliases={
             "Subject 1": "Leopold",
             "Subject 2": "Pollock",
             "Subject 3": "Abbott",

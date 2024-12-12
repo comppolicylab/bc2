@@ -11,7 +11,6 @@ class OpenAIRedactConfig(BaseRedactConfig, OpenAIConfig):
     """OpenAI Redact config."""
 
     engine: Literal["redact:openai"]
-    entity_prompt: str
     generator: OpenAIChatConfig | OpenAICompletionConfig
 
     @cached_property
@@ -24,13 +23,13 @@ class OpenAIRedactDriver(BaseRedactDriver):
         self.config = config
         self.client = config.client.init()
 
-    def __call__(self, narrative: Text, aliases: NameMap | None = None) -> RedactedText:
+    def __call__(self, narrative: Text, preset_aliases: NameMap | None = None) -> RedactedText:
         if not narrative.text or narrative.text == "No narratives found.":
             raise ValueError("No narrative text in input.")
-        redacted = self.generate(narrative.text, aliases=aliases)
+        redacted = self.generate(narrative.text, preset_aliases=preset_aliases)
         return RedactedText(redacted, narrative.text, self.config.delimiters)
 
-    def generate(self, input: str, aliases: NameMap | None = None) -> str:
+    def generate(self, input: str, preset_aliases: NameMap | None = None) -> str:
         """Generate text from the config and the user input.
 
         This method only supports textual inputs.
@@ -38,6 +37,5 @@ class OpenAIRedactDriver(BaseRedactDriver):
         This method is supported for either completion or chat generators.
         """
         return self.config.generator.invoke(self.client, input, 
-                                            aliases=aliases,
-                                            entity_prompt=self.config.entity_prompt,
+                                            preset_aliases=preset_aliases,
                                             delimiters = self.config.delimiters)

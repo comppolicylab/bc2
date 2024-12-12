@@ -15,5 +15,5 @@ class BaseRedactConfig(BaseModel):
 class BaseRedactDriver(ABC):
     @abstractmethod
     def __call__(
-        self, narrative: Text, aliases: NameMap | None = None
+        self, narrative: Text, preset_aliases: NameMap | None = None
     ) -> RedactedText: ...
