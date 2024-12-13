@@ -6,7 +6,7 @@ from functools import cached_property
 from typing import Any, Literal, Sequence
 
 from openai import AzureOpenAI, OpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator, FieldValidationInfo
 
 from rapidfuzz.fuzz import partial_ratio_alignment
 
@@ -81,6 +81,16 @@ class OpenAIChatTurn(BaseModel):
 
 AnyChatInput = str | ImageUrl
 
+class OpenAIChatOutput(BaseModel):
+    """A chat output for an OpenAI model."""
+
+    content: str
+    completion_tokens: int
+    aliases: NameMap | None = None
+
+    class Config:
+        allow_mutation = True
+
 
 class ChatPrompt:
     engine: TemplateEngine = "string"
@@ -135,6 +145,17 @@ class ChatPrompt:
                 raise ValueError(f"Unsupported input type: {type(node)}")
         return base_messages + [OpenAIChatTurn(role="user", content=content)]
 
+    def execute(
+        self, client: OpenAI, settings: dict, 
+        input: AnyChatInput | Sequence[AnyChatInput], **kwargs
+    ) -> OpenAIChatOutput:
+        """Execute the prompt."""
+        messages = [m.model_dump() for m in self.format(input, **kwargs)]
+        completion = client.chat.completions.create(**settings, messages=messages)
+        content = completion.choices[0].message.content
+        completion_tokens = completion.usage.completion_tokens
+        return OpenAIChatOutput(content=content, completion_tokens=completion_tokens)
+    
 
 class OpenAIChatPromptInline(BaseModel, ChatPrompt):
     """An inline prompt for an OpenAI model."""
@@ -290,8 +311,19 @@ OpenAICompletionPrompt = (
     | OpenAICompletionPromptBuiltIn
 )
 
-class OpenAIAliasResolver(BaseModel, ChatPrompt):
-    """An inline prompt for resolving aliases using an OpenAI model."""
+
+ALIASES_PROMPT_TPL = """\
+[MAP#1]
+{preset_aliases}
+
+[MAP#2]
+{inferred_annotations}
+
+[NARRATIVE]
+{narrative}"""
+
+class OpenAIAliasResolverConfig(BaseModel, ChatPrompt):
+    """Resolve aliases using an OpenAI model."""
 
     prompt: str
     examples: list[dict[str, str]] | None = None
@@ -304,16 +336,6 @@ class OpenAIAliasResolver(BaseModel, ChatPrompt):
     def examples_value(self) -> list[dict[str, str]] | None:
         return self.examples
     
-    ALIASES_PROMPT_TPL = """\
-    [MAP#1]
-    {preset_aliases}
-
-    [MAP#2]
-    {inferred_annotations}
-
-    [NARRATIVE]
-    {narrative}"""
-
     def _generate_with_retry(self, client: OpenAI, settings: dict,
         original: str, preset_aliases: NameMap, inferred_annotations: NameMap, 
         retries: int = 3
@@ -332,7 +354,8 @@ class OpenAIAliasResolver(BaseModel, ChatPrompt):
         last_error: Exception | None = None
         for i in range(retries):
             try:
-                return self.generate(original, preset_aliases, inferred_annotations)
+                return self._generate(client, settings, original, 
+                                      preset_aliases, inferred_annotations)
             except Exception as e:
                 logger.error(f"Error generating aliases (attempt {i + 1}): {e}")
                 last_error = e
@@ -351,18 +374,16 @@ class OpenAIAliasResolver(BaseModel, ChatPrompt):
         Returns:
             The new aliases map.
         """
-        input = self.ALIASES_PROMPT_TPL.format(
+        inferred_annotations = [{x["original"]: x["redacted"]} for x in inferred_annotations]
+        input = ALIASES_PROMPT_TPL.format(
             preset_aliases = json.dumps(preset_aliases, indent=2, sort_keys=True),
             inferred_annotations = json.dumps(inferred_annotations, indent=2, sort_keys=True),
             narrative = original,
         )
-        messages = [m.model_dump() for m in self.format(input)]
-        completion = client.chat.completions.create(**settings,
-                                                    messages=messages)
-        response = completion.choices[0].message.content
-        return self.parse(response, preset_aliases, inferred_annotations)
+        response = self.execute(client, settings, input)
+        return self._parse(response.content)
     
-    def _parse(self, response: str, preset_aliases: NameMap, inferred_annotations: NameMap) -> NameMap:
+    def _parse(self, response: str) -> NameMap:
         """Parse the response from the generator.
 
         The response should be a JSON object mapping IDs to aliases.
@@ -385,13 +406,89 @@ class OpenAIAliasResolver(BaseModel, ChatPrompt):
         return data
 
     def resolve_aliases(self, client: OpenAI, settings: dict,
-                        input: str, result: str, preset_aliases: NameMap, 
-                        delimiters: Sequence[str],) -> NameMap:
+                        original: str, redacted: str, 
+                        preset_aliases: NameMap, delimiters: Sequence[str]
+    ) -> NameMap:
         """Resolve aliases from the redacted text."""
-        inferred_annotations = infer_annotations(input, result,
+        inferred_annotations = infer_annotations(original, redacted,
                                                  delimiters=delimiters)
-        return _generate_with_retry(client, settings,
-                                    input, preset_aliases, inferred_annotations)
+        return self._generate_with_retry(client, settings, original, 
+                                         preset_aliases, inferred_annotations)
+    
+    def execute_and_resolve(
+        self, client: OpenAI, settings: dict, system: OpenAIChatPrompt,
+        input: AnyChatInput | Sequence[AnyChatInput], 
+        **kwargs            
+    ) -> OpenAIChatOutput:
+        """Execute the prompt and resolve aliases."""
+        preset_aliases = kwargs.get("preset_aliases")
+        delimiters = kwargs.get("delimiters")
+        result = system.execute(client, settings, input, **kwargs)
+        aliases = self.resolve_aliases(client, settings, input, result.content,
+                                       preset_aliases, delimiters)
+        logger.debug(f"\n\nResolved aliases: {aliases}\n\n")
+        result.aliases = aliases
+        return result
+
+
+class OpenAIExtenderConfig(BaseModel, ChatPrompt):
+    """Allow outputs over the OpenAI output token limit."""
+
+    api_completion_token_limit: int
+    max_extensions: int
+
+    @field_validator("api_completion_token_limit", "max_extensions")
+    @classmethod
+    def must_be_positive(cls, value, info: FieldValidationInfo):
+        if value <= 0:
+            raise ValueError(f"{info.field_name} must be greater than zero")
+        return value
+
+    def extend(self, client: OpenAI, settings: dict, system: OpenAIChatPrompt,
+               input: str, alias_resolver: OpenAIAliasResolverConfig, **kwargs
+        ) -> str:
+        """Extract up to the limit, left-truncate the input, try again until done."""
+
+        delimiters = kwargs.get("delimiters")
+        if settings.get("max_tokens"):
+            self.api_completion_token_limit = min(self.api_completion_token_limit, 
+                                                  settings["max_tokens"])
+        output = OpenAIChatOutput(content="", completion_tokens=0)
+        tail = input
+        num_extensions = 0
+        existing_aliases = kwargs.pop("preset_aliases")
+        while num_extensions <= self.max_extensions:
+
+            if alias_resolver:
+                result = alias_resolver.execute_and_resolve(client, settings, system,
+                                                            tail, 
+                                                            preset_aliases=existing_aliases,
+                                                            **kwargs)
+                existing_aliases = result.aliases
+            else:
+                result = self.execute(client, settings, system, tail, 
+                                      preset_aliases=existing_aliases, **kwargs)
+
+            # If we're doing redactions here:
+            if delimiters:
+                # Remove any incomplete redactions
+                last_opening = result.content.rfind(delimiters[0])
+                last_closing = result.content.rfind(delimiters[1])
+                if last_closing < last_opening:
+                    result.content = result.content[:last_opening]
+
+            output.content += result.content + " <suture> "
+            output.completion_tokens += result.completion_tokens
+            output.aliases = existing_aliases
+
+            if result.completion_tokens == self.api_completion_token_limit:
+                num_extensions += 1
+                alignment = partial_ratio_alignment(tail, result.content)
+                tail = tail[alignment.src_end:]
+            else:
+                break
+
+        return output
     
 
 class OpenAIChatConfig(BaseModel):
@@ -400,66 +497,47 @@ class OpenAIChatConfig(BaseModel):
     method: Literal["chat"]
     model: str
     system: OpenAIChatPrompt
-    alias_resolver: OpenAIAliasResolver | None = None
     frequency_penalty: float | None = None
     max_tokens: int | None = None
-    api_completion_token_limit: int = 4096
-    max_extensions: int = 20
     n: int = 1
     presence_penalty: float | None = None
     seed: int | None = None
     temperature: float | None = None
     top_p: float | None = None
 
+    extender: OpenAIExtenderConfig | None = None
+
     def invoke(
         self, client: OpenAI, input: AnyChatInput | Sequence[AnyChatInput], **kwargs
-    ) -> str:
+    ) -> OpenAIChatOutput:
 
         """Invoke the chat."""
         settings = self.model_dump()
         settings.pop("method")
         settings.pop("system")
-        settings.pop("api_completion_token_limit")
-        settings.pop("max_extensions")
-        settings.pop("alias_resolver")
+        settings.pop("extender")
         # Remove any setting whose value is `None`
         settings = {k: v for k, v in settings.items() if v is not None}
-        output = ''
-        num_extensions = 0
-        if self.max_tokens:
-            self.api_completion_token_limit = min(self.api_completion_token_limit, 
-                                                    self.max_tokens)
-        delimiters = kwargs.get("delimiters")
-        messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
-        abridged = input
-        while num_extensions <= self.max_extensions:
-            completion = client.chat.completions.create(**settings, messages=messages)
-            result = completion.choices[0].message.content
-            # If we're doing redactions here:
-            if delimiters:
-                # Remove any incomplete redactions
-                last_opening = result.rfind(delimiters[0])
-                last_closing = result.rfind(delimiters[1])
-                if last_closing < last_opening:
-                    result = result[:last_opening]
-                # Parse the redactions
-                self.alias_resolver.resolve_aliases(client, settings,
-                                                    abridged, result, delimiters, 
-                                                    kwargs.get("preset_aliases"))
-            output += result
-            completion_tokens = completion.usage.completion_tokens
-            if completion_tokens == self.api_completion_token_limit:
-                num_extensions += 1
-                alignment = partial_ratio_alignment(abridged, result)
-                abridged = abridged[alignment.src_end:]
-                messages = [m.model_dump() for m in self.system.format(abridged, **kwargs)]
-            else:
-                break
+
+        resolver = kwargs.get("resolver")
+        if self.extender:
+            logger.debug("Starting extender")
+            output = self.extender.extend(client, settings, self.system,
+                                          input, resolver, **kwargs)
+        elif resolver:
+            logger.debug("Starting resolver")
+            output = resolver.execute_and_resolve(client, settings, self.system,
+                                                  input, **kwargs)
+        else:
+            logger.debug("Starting vanilla chat")
+            output = self.system.execute(client, settings, input, **kwargs)
 
         logger.debug(f"\n\nChat output: {output}\n\n")
 
-        return output
-
+        # ACW: For now I'm just returning the content, we'll need to pass 
+        # aliases somehow for other docs?
+        return output.content
+    
 
 class OpenAICompletionConfig(BaseModel):
     """OpenAI Completion config."""

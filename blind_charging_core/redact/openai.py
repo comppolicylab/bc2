@@ -1,7 +1,7 @@
 from functools import cached_property
 from typing import Literal
 
-from ..common.openai import OpenAIChatConfig, OpenAICompletionConfig, OpenAIConfig
+from ..common.openai import OpenAIChatConfig, OpenAICompletionConfig, OpenAIConfig, OpenAIAliasResolverConfig
 from ..common.text import RedactedText, Text
 from ..common.types import NameMap
 from .base import BaseRedactConfig, BaseRedactDriver
@@ -12,6 +12,7 @@ class OpenAIRedactConfig(BaseRedactConfig, OpenAIConfig):
 
     engine: Literal["redact:openai"]
     generator: OpenAIChatConfig | OpenAICompletionConfig
+    resolver: OpenAIAliasResolverConfig
 
     @cached_property
     def driver(self) -> "OpenAIRedactDriver":
@@ -37,5 +38,6 @@ class OpenAIRedactDriver(BaseRedactDriver):
         This method is supported for either completion or chat generators.
         """
         return self.config.generator.invoke(self.client, input, 
+                                            resolver=self.config.resolver,
                                             preset_aliases=preset_aliases,
                                             delimiters=self.config.delimiters)
