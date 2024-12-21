@@ -20,11 +20,6 @@ from ..common.text import RedactedText, escape_for_xml
 from .base import BaseRenderConfig
 from .rich_text import RichTextRenderer
 
-import logging
-
-logger = logging.getLogger(__name__)
-
-
 
 class PdfRenderConfig(BaseRenderConfig):
     """PDF Render config."""

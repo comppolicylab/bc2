@@ -42,10 +42,8 @@ def run(
         },
         "redact": {
             "preset_aliases": json.loads(aliases) if aliases else None,
-        },
-        "inspect": {
-            "preset_aliases": json.loads(aliases) if aliases else None,
-        },    }
+        },    
+    }
 
     pipe = Pipeline(config)
     if validate:

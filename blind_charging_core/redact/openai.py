@@ -12,7 +12,7 @@ class OpenAIRedactConfig(BaseRedactConfig, OpenAIConfig):
 
     engine: Literal["redact:openai"]
     generator: OpenAIChatConfig | OpenAICompletionConfig
-    resolver: OpenAIAliasResolverConfig
+    # resolver: OpenAIAliasResolverConfig
 
     @cached_property
     def driver(self) -> "OpenAIRedactDriver":
@@ -38,6 +38,6 @@ class OpenAIRedactDriver(BaseRedactDriver):
         This method is supported for either completion or chat generators.
         """
         return self.config.generator.invoke(self.client, input, 
-                                            resolver=self.config.resolver,
+                                            # resolver=self.config.resolver,
                                             preset_aliases=preset_aliases,
                                             delimiters=self.config.delimiters)

@@ -6,11 +6,10 @@ from functools import cached_property
 from typing import Any, Literal, Sequence
 
 from openai import AzureOpenAI, OpenAI
-from pydantic import BaseModel, field_validator, FieldValidationInfo
-
-from rapidfuzz.fuzz import partial_ratio_alignment
+from pydantic import BaseModel, PositiveInt, NonNegativeInt
 
 from .datafile import DataType, load_data_file, load_data_file_from_path
+from .extend import extend
 from .image import ImageUrl
 from .infer import infer_annotations
 from .template import TemplateEngine, get_formatter
@@ -144,17 +143,6 @@ class ChatPrompt:
             else:
                 raise ValueError(f"Unsupported input type: {type(node)}")
         return base_messages + [OpenAIChatTurn(role="user", content=content)]
-
-    def execute(
-        self, client: OpenAI, settings: dict, 
-        input: AnyChatInput | Sequence[AnyChatInput], **kwargs
-    ) -> OpenAIChatOutput:
-        """Execute the prompt."""
-        messages = [m.model_dump() for m in self.format(input, **kwargs)]
-        completion = client.chat.completions.create(**settings, messages=messages)
-        content = completion.choices[0].message.content
-        completion_tokens = completion.usage.completion_tokens
-        return OpenAIChatOutput(content=content, completion_tokens=completion_tokens)
     
 
 class OpenAIChatPromptInline(BaseModel, ChatPrompt):
@@ -434,61 +422,8 @@ class OpenAIAliasResolverConfig(BaseModel, ChatPrompt):
 class OpenAIExtenderConfig(BaseModel, ChatPrompt):
     """Allow outputs over the OpenAI output token limit."""
 
-    api_completion_token_limit: int
-    max_extensions: int
-
-    @field_validator("api_completion_token_limit", "max_extensions")
-    @classmethod
-    def must_be_positive(cls, value, info: FieldValidationInfo):
-        if value <= 0:
-            raise ValueError(f"{info.field_name} must be greater than zero")
-        return value
-
-    def extend(self, client: OpenAI, settings: dict, system: OpenAIChatPrompt,
-               input: str, alias_resolver: OpenAIAliasResolverConfig, **kwargs
-        ) -> str:
-        """Extract up to the limit, left-truncate the input, try again until done."""
-
-        delimiters = kwargs.get("delimiters")
-        if settings.get("max_tokens"):
-            self.api_completion_token_limit = min(self.api_completion_token_limit, 
-                                                  settings["max_tokens"])
-        output = OpenAIChatOutput(content="", completion_tokens=0)
-        tail = input
-        num_extensions = 0
-        existing_aliases = kwargs.pop("preset_aliases")
-        while num_extensions <= self.max_extensions:
-
-            if alias_resolver:
-                result = alias_resolver.execute_and_resolve(client, settings, system,
-                                                            tail, 
-                                                            preset_aliases=existing_aliases,
-                                                            **kwargs)
-                existing_aliases = result.aliases
-            else:
-                result = self.execute(client, settings, system, tail, 
-                                      preset_aliases=existing_aliases, **kwargs)
-
-            # If we're doing redactions here:
-            if delimiters:
-                # Remove any incomplete redactions
-                last_opening = result.content.rfind(delimiters[0])
-                last_closing = result.content.rfind(delimiters[1])
-                if last_closing < last_opening:
-                    result.content = result.content[:last_opening]
-
-            output.content += result.content + " <suture> "
-            output.completion_tokens += result.completion_tokens
-            output.aliases = existing_aliases
-
-            if result.completion_tokens == self.api_completion_token_limit:
-                num_extensions += 1
-                alignment = partial_ratio_alignment(tail, result.content)
-                tail = tail[alignment.src_end:]
-            else:
-                break
-
-        return output
+    max_extensions: NonNegativeInt
+    api_completion_token_limit: PositiveInt = 4096
     
 
 class OpenAIChatConfig(BaseModel):
@@ -498,7 +433,7 @@ class OpenAIChatConfig(BaseModel):
     model: str
     system: OpenAIChatPrompt
     frequency_penalty: float | None = None
-    max_tokens: int | None = None
+    max_tokens: PositiveInt | None = None
     n: int = 1
     presence_penalty: float | None = None
     seed: int | None = None
@@ -507,36 +442,50 @@ class OpenAIChatConfig(BaseModel):
 
     extender: OpenAIExtenderConfig | None = None
 
+    def __init__(self, **data):
+        super().__init__(**data)
+        if self.extender:
+            self.extender.api_completion_token_limit = min(self.max_tokens,
+                                                           self.extender.api_completion_token_limit)
+
     def invoke(
         self, client: OpenAI, input: AnyChatInput | Sequence[AnyChatInput], **kwargs
-    ) -> OpenAIChatOutput:
+    ) -> str:
 
         """Invoke the chat."""
         settings = self.model_dump()
         settings.pop("method")
         settings.pop("system")
         settings.pop("extender")
+        messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
         # Remove any setting whose value is `None`
         settings = {k: v for k, v in settings.items() if v is not None}
 
-        resolver = kwargs.get("resolver")
-        if self.extender:
-            logger.debug("Starting extender")
-            output = self.extender.extend(client, settings, self.system,
-                                          input, resolver, **kwargs)
-        elif resolver:
-            logger.debug("Starting resolver")
-            output = resolver.execute_and_resolve(client, settings, self.system,
-                                                  input, **kwargs)
-        else:
-            logger.debug("Starting vanilla chat")
-            output = self.system.execute(client, settings, input, **kwargs)
+        completion = client.chat.completions.create(**settings, messages=messages)
+        # # ACW: For now I'm just returning the content, we'll need to pass 
+        # # aliases somehow for other docs?
+        return completion.choices[0].message.content
+        # completion_tokens = completion.usage.completion_tokens
+        # return OpenAIChatOutput(content=content, completion_tokens=completion_tokens)
 
-        logger.debug(f"\n\nChat output: {output}\n\n")
+        # # resolver = kwargs.get("resolver")
+        # if self.extender:
+        #     logger.debug("Starting extender")
+        #     output = extend(self, input, self.extender.api_completion_token_limit,
+        #                     self.extender.max_extensions, **kwargs)
+        #     # output = self.extender.extend(client, settings, self.system,
+        #     #                               input, resolver, **kwargs)
+        # # elif resolver:
+        # #     logger.debug("Starting resolver")
+        # #     output = resolver.execute_and_resolve(client, settings, self.system,
+        # #                                           input, **kwargs)
+        # else:
+        #     logger.debug("Starting vanilla chat")
+        #     output = self.system.execute(client, settings, input, **kwargs)
 
-        # ACW: For now I'm just returning the content, we'll need to pass 
-        # aliases somehow for other docs?
-        return output.content
+        # logger.debug(f"\n\nChat output: {output}\n\n")
+
+        # return output.content
     
 
 class OpenAICompletionConfig(BaseModel):
