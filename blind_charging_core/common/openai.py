@@ -299,130 +299,11 @@ OpenAICompletionPrompt = (
 )
 
 
-ALIASES_PROMPT_TPL = """\
-[MAP#1]
-{preset_aliases}
-
-[MAP#2]
-{inferred_annotations}
-
-[NARRATIVE]
-{narrative}"""
-
-class OpenAIAliasResolverConfig(BaseModel, ChatPrompt):
-    """Resolve aliases using an OpenAI model."""
-
-    prompt: str
-    examples: list[dict[str, str]] | None = None
-
-    @property
-    def prompt_value(self) -> str:
-        return self.prompt
-
-    @property
-    def examples_value(self) -> list[dict[str, str]] | None:
-        return self.examples
-    
-    def _generate_with_retry(self, client: OpenAI, settings: dict,
-        original: str, preset_aliases: NameMap, inferred_annotations: NameMap, 
-        retries: int = 3
-    ) -> NameMap:
-        """Resolve aliases from two alias sets and the original text, with retries.
-
-        Args:
-            original: The original text.
-            preset_aliases: The preexisting aliases map.
-            inferred_annotations: The aliases map inferred by the redaction process.
-            retries: The number of retries to attempt.
-
-        Returns:
-            The new aliases map.
-        """
-        last_error: Exception | None = None
-        for i in range(retries):
-            try:
-                return self._generate(client, settings, original, 
-                                      preset_aliases, inferred_annotations)
-            except Exception as e:
-                logger.error(f"Error generating aliases (attempt {i + 1}): {e}")
-                last_error = e
-
-        raise ValueError("Error generating aliases.") from last_error
-
-    def _generate(self, client: OpenAI, settings: dict,
-        original: str, preset_aliases: NameMap, inferred_annotations: NameMap) -> NameMap:
-        """Resolve aliases from two alias sets and the original text.
-
-        Args:
-            original: The original text.
-            preset_aliases: The preexisting aliases map.
-            inferred_annotations: The aliases map inferred by the redaction process.
-
-        Returns:
-            The new aliases map.
-        """
-        inferred_annotations = [{x["original"]: x["redacted"]} for x in inferred_annotations]
-        input = ALIASES_PROMPT_TPL.format(
-            preset_aliases = json.dumps(preset_aliases, indent=2, sort_keys=True),
-            inferred_annotations = json.dumps(inferred_annotations, indent=2, sort_keys=True),
-            narrative = original,
-        )
-        response = self.execute(client, settings, input)
-        return self._parse(response.content)
-    
-    def _parse(self, response: str) -> NameMap:
-        """Parse the response from the generator.
-
-        The response should be a JSON object mapping IDs to aliases.
-
-        Args:
-            response: The response from the generator.
-            preset_aliases: The preexisting aliases map (for validation).
-            inferred_annotations: The aliases map inferred by the redaction process (for validation).
-
-        Returns:
-            The new aliases map.
-        """
-        try:
-            data = json.loads(response)
-            # TODO: Validate the JSON response matches the alias maps
-        except json.JSONDecodeError as e:
-            logger.error(f"Error parsing JSON response: {e}")
-            raise ValueError("Error parsing JSON response.") from e
-
-        return data
-
-    def resolve_aliases(self, client: OpenAI, settings: dict,
-                        original: str, redacted: str, 
-                        preset_aliases: NameMap, delimiters: Sequence[str]
-    ) -> NameMap:
-        """Resolve aliases from the redacted text."""
-        inferred_annotations = infer_annotations(original, redacted,
-                                                 delimiters=delimiters)
-        return self._generate_with_retry(client, settings, original, 
-                                         preset_aliases, inferred_annotations)
-    
-    def execute_and_resolve(
-        self, client: OpenAI, settings: dict, system: OpenAIChatPrompt,
-        input: AnyChatInput | Sequence[AnyChatInput], 
-        **kwargs            
-    ) -> OpenAIChatOutput:
-        """Execute the prompt and resolve aliases."""
-        preset_aliases = kwargs.get("preset_aliases")
-        delimiters = kwargs.get("delimiters")
-        result = system.execute(client, settings, input, **kwargs)
-        aliases = self.resolve_aliases(client, settings, input, result.content,
-                                       preset_aliases, delimiters)
-        logger.debug(f"\n\nResolved aliases: {aliases}\n\n")
-        result.aliases = aliases
-        return result
-
-
 class OpenAIExtenderConfig(BaseModel, ChatPrompt):
     """Allow outputs over the OpenAI output token limit."""
 
     max_extensions: NonNegativeInt
-    api_completion_token_limit: PositiveInt = 4096
+    api_completion_token_limit: PositiveInt
     
 
 class OpenAIChatConfig(BaseModel):
@@ -443,48 +324,85 @@ class OpenAIChatConfig(BaseModel):
 
     def __init__(self, **data):
         super().__init__(**data)
-        if self.extender:
+        if self.extender and self.max_tokens:
             self.extender.api_completion_token_limit = min(self.max_tokens,
                                                            self.extender.api_completion_token_limit)
 
     def invoke(
-        self, client: OpenAI, input: AnyChatInput | Sequence[AnyChatInput], **kwargs
+        self, client: OpenAI, input: AnyChatInput | Sequence[AnyChatInput], 
+        settings_pop: list[str] = ["method", "system", "extender"],
+        **kwargs
     ) -> str:
 
         """Invoke the chat."""
         settings = self.model_dump()
-        settings.pop("method")
-        settings.pop("system")
-        settings.pop("extender")
-        messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
+        for key in settings_pop:
+            settings.pop(key)
         # Remove any setting whose value is `None`
         settings = {k: v for k, v in settings.items() if v is not None}
 
+        messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
         completion = client.chat.completions.create(**settings, messages=messages)
-        # # ACW: For now I'm just returning the content, we'll need to pass 
-        # # aliases somehow for other docs?
         content = completion.choices[0].message.content
         completion_tokens = completion.usage.completion_tokens
         return OpenAIChatOutput(content=content, completion_tokens=completion_tokens)
 
-        # # resolver = kwargs.get("resolver")
-        # if self.extender:
-        #     logger.debug("Starting extender")
-        #     output = extend(self, input, self.extender.api_completion_token_limit,
-        #                     self.extender.max_extensions, **kwargs)
-        #     # output = self.extender.extend(client, settings, self.system,
-        #     #                               input, resolver, **kwargs)
-        # # elif resolver:
-        # #     logger.debug("Starting resolver")
-        # #     output = resolver.execute_and_resolve(client, settings, self.system,
-        # #                                           input, **kwargs)
-        # else:
-        #     logger.debug("Starting vanilla chat")
-        #     output = self.system.execute(client, settings, input, **kwargs)
 
-        # logger.debug(f"\n\nChat output: {output}\n\n")
+class OpenAIResolverConfig(OpenAIChatConfig):
+    """Resolve aliases using an OpenAI model."""
+    message_template: str
+    retries: PositiveInt = 3
 
-        # return output.content
+    def _parse(self, response: str) -> NameMap:
+        """Parse the response from the generator.
+
+        The response should be a JSON object mapping IDs to aliases.
+
+        Args:
+            response: The response from the generator.
+            preset_aliases: The preexisting aliases map (for validation).
+            inferred_annotations: The aliases map inferred by the redaction process (for validation).
+
+        Returns:
+            The new aliases map.
+        """
+        try:
+            data = json.loads(response)
+            # TODO: Validate the JSON response matches the alias maps
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing JSON response: {e}")
+            raise ValueError("Error parsing JSON response.") from e
+
+        return data        
+
+    def resolve(
+        self, 
+        client: OpenAI, 
+        original: AnyChatInput | Sequence[AnyChatInput], 
+        redacted: OpenAIChatOutput,
+        preset_aliases: NameMap, 
+        delimiters: Sequence[str]
+    ) -> str:
+        inferred_annotations = infer_annotations(original, redacted,
+                                                 delimiters=delimiters)
+        inferred_annotations = [{x["original"]: x["redacted"]} 
+                                for x in inferred_annotations]
+        input = self.message_template.format(
+            preset_aliases=json.dumps(preset_aliases, indent=2, sort_keys=True),
+            inferred_annotations=json.dumps(inferred_annotations, indent=2, sort_keys=True),
+            original=original
+        )
+        for i in range(self.retries):
+            try:
+                response = self.invoke(client, input,
+                                       settings_pop=["method", "system", "extender",
+                                                     "message_template", "retries"])
+                raw_resolved_aliases = response.content
+                resolved_aliases = self._parse(raw_resolved_aliases)
+                logger.debug(f"Resolved aliases: {resolved_aliases}")
+                return resolved_aliases
+            except Exception as e:
+                logger.error(f"Error generating aliases (attempt {i + 1}): {e}")
     
 
 class OpenAICompletionConfig(BaseModel):

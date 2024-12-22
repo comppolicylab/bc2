@@ -39,8 +39,6 @@ class OpenAIParseDriver(BaseParseDriver):
             output = extend(self.client,
                             input,
                             self.config.generator,
-                            self.config.generator.extender.api_completion_token_limit,
-                            self.config.generator.extender.max_extensions,
                             debug=debug)
         else:
             output = self.config.generator.invoke(self.client, input)

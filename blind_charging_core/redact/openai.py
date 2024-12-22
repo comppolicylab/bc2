@@ -3,7 +3,7 @@ from typing import Literal
 
 from ..common.context import Context
 from ..common.extend import extend
-from ..common.openai import OpenAIChatConfig, OpenAICompletionConfig, OpenAIConfig, OpenAIAliasResolverConfig
+from ..common.openai import OpenAIChatConfig, OpenAICompletionConfig, OpenAIConfig, OpenAIResolverConfig
 from ..common.text import RedactedText, Text
 from ..common.types import NameMap
 from .base import BaseRedactConfig, BaseRedactDriver
@@ -14,7 +14,7 @@ class OpenAIRedactConfig(BaseRedactConfig, OpenAIConfig):
 
     engine: Literal["redact:openai"]
     generator: OpenAIChatConfig | OpenAICompletionConfig
-    # resolver: OpenAIAliasResolverConfig
+    resolver: OpenAIResolverConfig
 
     @cached_property
     def driver(self) -> "OpenAIRedactDriver":
@@ -44,12 +44,17 @@ class OpenAIRedactDriver(BaseRedactDriver):
             output = extend(self.client,
                             input,
                             self.config.generator,
-                            self.config.generator.extender.api_completion_token_limit,
-                            self.config.generator.extender.max_extensions,
                             preset_aliases,
-                            self.config.delimiters)
+                            self.config.delimiters,
+                            self.config.resolver)
         else:
-            output = self.config.generator.invoke(self.client, input)
+            output = self.config.generator.invoke(self.client, input, 
+                                                  preset_aliases=preset_aliases)
+            output.aliases = self.config.resolver.resolve(self.client, input, 
+                                                          output.content, preset_aliases, 
+                                                          self.config.delimiters)
 
+        # # ACW: For now I'm just returning the content, we'll need to pass 
+        # # aliases somehow for other docs?
         return output.content
 
