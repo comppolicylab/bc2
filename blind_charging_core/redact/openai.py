@@ -26,11 +26,13 @@ class OpenAIRedactDriver(BaseRedactDriver):
         self.config = config
         self.client = config.client.init()
 
-    def __call__(self, narrative: Text, preset_aliases: NameMap | None = None) -> RedactedText:
+    def __call__(self, narrative: Text, context: Context,
+                 preset_aliases: NameMap | None = None) -> RedactedText:
         if not narrative.text or narrative.text == "No narratives found.":
             raise ValueError("No narrative text in input.")
         redacted = self.generate(narrative.text, preset_aliases=preset_aliases)
-        return RedactedText(redacted, narrative.text, self.config.delimiters)
+        context.aliases = redacted.aliases
+        return RedactedText(redacted.content, narrative.text, self.config.delimiters)
 
     def generate(self, input: str, preset_aliases: NameMap | None = None) -> str:
         """Generate text from the config and the user input.
@@ -54,7 +56,5 @@ class OpenAIRedactDriver(BaseRedactDriver):
                                                           output.content, preset_aliases, 
                                                           self.config.delimiters)
 
-        # # ACW: For now I'm just returning the content, we'll need to pass 
-        # # aliases somehow for other docs?
-        return output.content
+        return output
 
