@@ -9,7 +9,6 @@ from openai import AzureOpenAI, OpenAI
 from pydantic import BaseModel, PositiveInt, NonNegativeInt
 
 from .datafile import DataType, load_data_file, load_data_file_from_path
-from .extend import extend
 from .image import ImageUrl
 from .infer import infer_annotations
 from .template import TemplateEngine, get_formatter
@@ -464,9 +463,9 @@ class OpenAIChatConfig(BaseModel):
         completion = client.chat.completions.create(**settings, messages=messages)
         # # ACW: For now I'm just returning the content, we'll need to pass 
         # # aliases somehow for other docs?
-        return completion.choices[0].message.content
-        # completion_tokens = completion.usage.completion_tokens
-        # return OpenAIChatOutput(content=content, completion_tokens=completion_tokens)
+        content = completion.choices[0].message.content
+        completion_tokens = completion.usage.completion_tokens
+        return OpenAIChatOutput(content=content, completion_tokens=completion_tokens)
 
         # # resolver = kwargs.get("resolver")
         # if self.extender:

@@ -1,18 +1,23 @@
 from pydantic.types import PositiveInt
+from openai import OpenAI
+
+from .openai import OpenAIChatOutput, OpenAIChatConfig
 from .infer import Delimiter
 
 from rapidfuzz.fuzz import partial_ratio_alignment
 
-def extend(generator,
+def extend(client: OpenAI,
            input: str,
+           generator: OpenAIChatConfig,
            token_limit: PositiveInt, 
            max_extensions: PositiveInt, 
-           existing_aliases: dict | None = None,
+           preset_aliases: dict | None = None,
            delimiters: list[Delimiter] | None = None, 
+           debug: bool = False,
            ) -> str:
     """Extract up to the limit, left-truncate the input, try again until done."""
 
-    output = {"content": "", "completion_tokens": 0}
+    output = OpenAIChatOutput(content="", completion_tokens= 0)
     tail = input
     num_extensions = 0
     while num_extensions <= max_extensions:
@@ -24,7 +29,10 @@ def extend(generator,
         #                                                 **kwargs)
         #     existing_aliases = result.aliases
         # else:
-        result = generator.invoke(self.client, input)
+        if preset_aliases:
+            result = generator.invoke(client, tail, preset_aliases=preset_aliases)
+        else:
+            result = generator.invoke(client, tail)
 
         if delimiters:
             # Look for, and remove, any incomplete redactions
@@ -33,9 +41,11 @@ def extend(generator,
             if last_closing < last_opening:
                 result.content = result.content[:last_opening]
 
-        output.content += result.content + " <suture> "
+        if debug:
+            result.content += "<suture>"
+        output.content += result.content
         output.completion_tokens += result.completion_tokens
-        output.aliases = existing_aliases
+        output.aliases = preset_aliases
 
         if result.completion_tokens == token_limit:
             num_extensions += 1

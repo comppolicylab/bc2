@@ -1,6 +1,8 @@
 from functools import cached_property
 from typing import Literal
 
+from ..common.context import Context
+from ..common.extend import extend
 from ..common.openai import OpenAIChatConfig, OpenAICompletionConfig, OpenAIConfig
 from ..common.text import Text
 from .base import BaseParseDriver
@@ -22,15 +24,25 @@ class OpenAIParseDriver(BaseParseDriver):
         self.config = config
         self.client = config.client.init()
 
-    def __call__(self, text: Text) -> Text:
-        parsed = self.generate(text.text)
+    def __call__(self, text: Text, context: Context) -> Text:
+        parsed = self.generate(text.text, debug=context.debug)
         return Text(parsed)
 
-    def generate(self, input: str) -> str:
+    def generate(self, input: str, debug: bool = False) -> str:
         """Generate text from the config and the user input.
 
         This method only supports textual inputs.
 
         This method is supported for either completion or chat generators.
         """
-        return self.config.generator.invoke(self.client, input)
+        if self.config.generator.extender:
+            output = extend(self.client,
+                            input,
+                            self.config.generator,
+                            self.config.generator.extender.api_completion_token_limit,
+                            self.config.generator.extender.max_extensions,
+                            debug=debug)
+        else:
+            output = self.config.generator.invoke(self.client, input)
+
+        return output.content

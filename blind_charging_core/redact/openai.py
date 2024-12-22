@@ -1,6 +1,8 @@
 from functools import cached_property
 from typing import Literal
 
+from ..common.context import Context
+from ..common.extend import extend
 from ..common.openai import OpenAIChatConfig, OpenAICompletionConfig, OpenAIConfig, OpenAIAliasResolverConfig
 from ..common.text import RedactedText, Text
 from ..common.types import NameMap
@@ -37,7 +39,17 @@ class OpenAIRedactDriver(BaseRedactDriver):
 
         This method is supported for either completion or chat generators.
         """
-        return self.config.generator.invoke(self.client, input, 
-                                            # resolver=self.config.resolver,
-                                            preset_aliases=preset_aliases,
-                                            delimiters=self.config.delimiters)
+
+        if self.config.generator.extender:
+            output = extend(self.client,
+                            input,
+                            self.config.generator,
+                            self.config.generator.extender.api_completion_token_limit,
+                            self.config.generator.extender.max_extensions,
+                            preset_aliases,
+                            self.config.delimiters)
+        else:
+            output = self.config.generator.invoke(self.client, input)
+
+        return output.content
+
