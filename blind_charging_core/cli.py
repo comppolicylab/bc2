@@ -41,7 +41,7 @@ def run(
             "path": output_path,
         },
         "redact": {
-            "preset_aliases": json.loads(aliases) if aliases else None,
+            "aliases": json.loads(aliases) if aliases else None,
         },    
     }
 

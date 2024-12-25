@@ -41,23 +41,23 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
         self.config = config
         self.client = config.client.init()
 
-    required = ["preset_aliases"]
+    required = ["aliases"]
 
     def __call__(
         self,
         redacted: RedactedText,
         context: Context,
-        preset_aliases: NameMap | None = None,
+        aliases: NameMap | None = None,
     ) -> RedactedText:
-        if not preset_aliases:
-            raise ValueError("Preset aliases are required for alias reconciliation.")
+        if not aliases:
+            raise ValueError("Aliases are required for alias reconciliation.")
 
         if context.annotations is None:
             raise ValueError("Annotations are required for alias reconciliation.")
 
         # Turn list of annotations into a map from name to alias
         inferred_aliases = {a["original"]: a["redacted"] for a in context.annotations}
-        context.aliases = self.generate_with_retry(redacted.original, preset_aliases, inferred_aliases)
+        context.aliases = self.generate_with_retry(redacted.original, aliases, inferred_aliases)
         return redacted
 
     def generate_with_retry(

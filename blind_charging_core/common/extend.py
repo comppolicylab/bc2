@@ -1,15 +1,20 @@
+import logging
+
 from pydantic.types import PositiveInt
 from openai import OpenAI
 
 from .openai import OpenAIChatOutput, OpenAIChatConfig, OpenAIResolverConfig
 from .infer import Delimiter
+from .types import NameMap
 
 from rapidfuzz.fuzz import partial_ratio_alignment
+
+logger = logging.getLogger(__name__)
 
 def extend(client: OpenAI,
            input: str,
            generator: OpenAIChatConfig,
-           preset_aliases: dict | None = None,
+           preset_aliases: NameMap | None = None,
            delimiters: list[Delimiter] | None = None, 
            resolver: OpenAIResolverConfig | None = None,
            debug: bool = False,
@@ -23,12 +28,11 @@ def extend(client: OpenAI,
     tail = input
     num_extensions = 0
     while num_extensions <= max_extensions:
+        logger.debug(f"Running extension #{num_extensions}")
 
-        if preset_aliases:
-            result = generator.invoke(client, tail, 
-                                      preset_aliases=preset_aliases)
-        else:
-            result = generator.invoke(client, tail)
+        # ACW to do: check what happens when preset_aliases is None
+        result = generator.invoke(client, tail, 
+                                  preset_aliases=preset_aliases)
 
         if delimiters:
             # Look for, and remove, any incomplete redactions
