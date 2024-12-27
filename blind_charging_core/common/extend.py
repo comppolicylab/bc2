@@ -34,6 +34,7 @@ def extend(client: OpenAI,
         result = generator.invoke(client, tail, 
                                   preset_aliases=preset_aliases)
 
+        # Redact only
         if delimiters:
             # Look for, and remove, any incomplete redactions
             last_opening = result.content.rfind(delimiters[0])
@@ -41,19 +42,19 @@ def extend(client: OpenAI,
             if last_closing < last_opening:
                 result.content = result.content[:last_opening]
 
+        # Redact only
         if resolver:
             preset_aliases = resolver.resolve(client,
                                               input,
                                               result.content,
                                               preset_aliases,
                                               delimiters)
-
-        if debug:
-            result.content += "<suture>"
-        output.content += result.content
-        output.completion_tokens += result.completion_tokens
+        # Redact only
         if preset_aliases:
             output.aliases = preset_aliases
+
+        output.content += result.content
+        output.completion_tokens += result.completion_tokens
 
         if result.completion_tokens == token_limit:
             num_extensions += 1

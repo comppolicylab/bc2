@@ -86,9 +86,6 @@ class OpenAIChatOutput(BaseModel):
     completion_tokens: int
     aliases: NameMap | None = None
 
-    class Config:
-        allow_mutation = True
-
 
 class ChatPrompt:
     engine: TemplateEngine = "string"
@@ -336,8 +333,9 @@ class OpenAIChatConfig(BaseModel):
 
         """Invoke the chat."""
         settings = self.model_dump()
-        for key in settings_pop:
-            settings.pop(key)
+        openai_api_params = ["model", "frequency_penalty", "max_tokens", "n",
+                             "presence_penalty", "seed", "temperature", "top_p"]
+        settings = {k: v for k, v in settings.items() if k not in openai_api_params}
         # Remove any setting whose value is `None`
         settings = {k: v for k, v in settings.items() if v is not None}
 
