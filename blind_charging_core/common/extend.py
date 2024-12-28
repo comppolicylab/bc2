@@ -64,6 +64,9 @@ def extend(client: OpenAI,
             logger.info("Hit token limit, starting alignment")
             alignment = partial_ratio_alignment(tail, result.content)
             tail = tail[alignment.src_end:]
+            if not tail: 
+                logger.info("Token limit matched exactly length of input string.")
+                break
         else:
             break
 
