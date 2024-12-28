@@ -327,7 +327,6 @@ class OpenAIChatConfig(BaseModel):
 
     def invoke(
         self, client: OpenAI, input: AnyChatInput | Sequence[AnyChatInput], 
-        settings_pop: list[str] = ["method", "system", "extender"],
         **kwargs
     ) -> str:
 
@@ -392,9 +391,7 @@ class OpenAIResolverConfig(OpenAIChatConfig):
         )
         for i in range(self.retries):
             try:
-                response = self.invoke(client, input,
-                                       settings_pop=["method", "system", "extender",
-                                                     "message_template", "retries"])
+                response = self.invoke(client, input)
                 raw_resolved_aliases = response.content
                 resolved_aliases = self._parse(raw_resolved_aliases)
                 logger.debug(f"Resolved aliases: {resolved_aliases}")
