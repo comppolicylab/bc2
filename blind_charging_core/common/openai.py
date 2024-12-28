@@ -335,7 +335,7 @@ class OpenAIChatConfig(BaseModel):
         settings = self.model_dump()
         openai_api_params = ["model", "frequency_penalty", "max_tokens", "n",
                              "presence_penalty", "seed", "temperature", "top_p"]
-        settings = {k: v for k, v in settings.items() if k not in openai_api_params}
+        settings = {k: v for k, v in settings.items() if k in openai_api_params}
         # Remove any setting whose value is `None`
         settings = {k: v for k, v in settings.items() if v is not None}
 
@@ -379,10 +379,10 @@ class OpenAIResolverConfig(OpenAIChatConfig):
         original: AnyChatInput | Sequence[AnyChatInput], 
         redacted: OpenAIChatOutput,
         preset_aliases: NameMap, 
-        delimiters: Sequence[str]
+        raw_delimiters: Sequence[str]
     ) -> str:
         inferred_annotations = infer_annotations(original, redacted,
-                                                 delimiters=delimiters)
+                                                 delimiters=raw_delimiters)
         inferred_annotations = [{x["original"]: x["redacted"]} 
                                 for x in inferred_annotations]
         input = self.message_template.format(

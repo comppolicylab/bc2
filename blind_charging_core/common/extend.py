@@ -1,4 +1,5 @@
 import logging
+from typing import Sequence
 
 from pydantic.types import PositiveInt
 from openai import OpenAI
@@ -15,7 +16,7 @@ def extend(client: OpenAI,
            input: str,
            generator: OpenAIChatConfig,
            preset_aliases: NameMap | None = None,
-           delimiters: list[Delimiter] | None = None, 
+           raw_delimiters: Sequence[str] | None = None, 
            resolver: OpenAIResolverConfig | None = None,
            debug: bool = False,
            ) -> str:
@@ -28,19 +29,21 @@ def extend(client: OpenAI,
     tail = input
     num_extensions = 0
     while num_extensions <= max_extensions:
-        logger.debug(f"Running extension #{num_extensions}")
+        logger.info(f"Running extension #{num_extensions}")
 
         # ACW to do: check what happens when preset_aliases is None
         result = generator.invoke(client, tail, 
                                   preset_aliases=preset_aliases)
 
         # Redact only
-        if delimiters:
+        if raw_delimiters:
             # Look for, and remove, any incomplete redactions
-            last_opening = result.content.rfind(delimiters[0])
-            last_closing = result.content.rfind(delimiters[1])
-            if last_closing < last_opening:
-                result.content = result.content[:last_opening]
+            d_open, d_close = Delimiter.parse(raw_delimiters)
+            last_opening = d_open.find_last(result.content)
+            last_closing = d_close.find_last(result.content)
+            if last_opening and last_closing and \
+                last_closing.start() < last_opening.start():
+                result.content = result.content[:last_opening.start()]
 
         # Redact only
         if resolver:
@@ -48,7 +51,7 @@ def extend(client: OpenAI,
                                               input,
                                               result.content,
                                               preset_aliases,
-                                              delimiters)
+                                              raw_delimiters)
         # Redact only
         if preset_aliases:
             output.aliases = preset_aliases
@@ -58,6 +61,7 @@ def extend(client: OpenAI,
 
         if result.completion_tokens == token_limit:
             num_extensions += 1
+            logger.info("Hit token limit, starting alignment")
             alignment = partial_ratio_alignment(tail, result.content)
             tail = tail[alignment.src_end:]
         else:

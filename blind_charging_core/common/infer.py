@@ -56,6 +56,18 @@ class Delimiter:
         closer_re = re.compile(f"({re.escape(delimiters[1])})")
         closer_len = len(delimiters[1])
         return cls(opener_re, opener_len), cls(closer_re, closer_len)
+    
+    def find_first(self, text: str) -> re.Match | None:
+        try:
+            return list(self.pattern.finditer(text))[0]
+        except IndexError:
+            return None
+            
+    def find_last(self, text: str) -> re.Match | None:
+        try:
+            return list(self.pattern.finditer(text))[-1]
+        except IndexError:
+            return None
 
 
 Op = Literal["replace", "insert", "delete", "equal"]
@@ -184,8 +196,8 @@ def segment(  # noqa: C901
             continue
 
         # Check if the mask contains the delimiters
-        opener = opener_delim.pattern.search(mask)
-        closer = closer_delim.pattern.search(mask)
+        opener = opener_delim.find_first(mask)
+        closer = closer_delim.find_first(mask)
 
         # Simplify the opcodes by splitting them if needed.
         new_ops = _split_opcode(mask, opcode, i1, i2, j1, j2, opener, closer)
