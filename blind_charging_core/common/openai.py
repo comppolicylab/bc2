@@ -344,6 +344,7 @@ class OpenAIChatConfig(BaseModel):
         completion_tokens = completion.usage.completion_tokens
         return OpenAIChatOutput(content=content, completion_tokens=completion_tokens)
 
+class TooManyRetries(Exception): pass
 
 class OpenAIResolverConfig(OpenAIChatConfig):
     """Resolve aliases using an OpenAI model."""
@@ -389,6 +390,7 @@ class OpenAIResolverConfig(OpenAIChatConfig):
             inferred_annotations=json.dumps(inferred_annotations, indent=2, sort_keys=True),
             original=original
         )
+        last_e: Exception | None = None
         for i in range(self.retries):
             try:
                 response = self.invoke(client, input)
@@ -397,7 +399,10 @@ class OpenAIResolverConfig(OpenAIChatConfig):
                 logger.debug(f"Resolved aliases: {resolved_aliases}")
                 return resolved_aliases
             except Exception as e:
+                last_e = e
                 logger.error(f"Error generating aliases (attempt {i + 1}): {e}")
+        else:
+            raise TooManyRetries from last_e
     
 
 class OpenAICompletionConfig(BaseModel):
