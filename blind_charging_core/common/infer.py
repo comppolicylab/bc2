@@ -275,3 +275,27 @@ def infer_annotations(
                     len(seg.open_delim or "") : -len(seg.close_delim or "")
                 ],
             }
+            
+
+def remove_hanging_redactions(redacted: str, 
+                              raw_delimiters: Sequence[str]) -> str:
+    """Remove hanging redactions from text with redactions. This can happen 
+    if we hit an output token limit in the middle of a redaction.
+
+    Args:
+        redacted: The redacted text.
+        raw_delimiters: The delimiters to use.
+
+    Returns:
+        The redacted text, with a hanging redaction removed if present.
+    """
+    d_open, d_close = Delimiter.parse(raw_delimiters)
+
+    last_opening = d_open.find_last(redacted)
+    last_closing = d_close.find_last(redacted)
+    
+    if last_opening and last_closing and \
+        last_closing.start() < last_opening.start():
+        redacted = redacted[:last_opening.start()]
+    
+    return redacted

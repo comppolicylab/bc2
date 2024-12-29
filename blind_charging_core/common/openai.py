@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 import json
 import os
@@ -8,11 +9,14 @@ from typing import Any, Literal, Sequence
 from openai import AzureOpenAI, OpenAI
 from pydantic import BaseModel, PositiveInt, NonNegativeInt
 
+from .align import residual
 from .datafile import DataType, load_data_file, load_data_file_from_path
 from .image import ImageUrl
-from .infer import infer_annotations
+from .infer import remove_hanging_redactions
+from .resolve import prepare_resolve_input
 from .template import TemplateEngine, get_formatter
 from .types import NameMap
+from .validate import validate_json
 
 
 logger = logging.getLogger(__name__)
@@ -327,81 +331,99 @@ class OpenAIChatConfig(BaseModel):
 
     def invoke(
         self, client: OpenAI, input: AnyChatInput | Sequence[AnyChatInput], 
-        **kwargs
-    ) -> str:
-
+        preset_aliases: NameMap | None = None
+    ) -> OpenAIChatOutput:
         """Invoke the chat."""
-        settings = self.model_dump()
+        props = self.model_dump()
         openai_api_params = ["model", "frequency_penalty", "max_tokens", "n",
                              "presence_penalty", "seed", "temperature", "top_p"]
-        settings = {k: v for k, v in settings.items() if k in openai_api_params}
-        # Remove any setting whose value is `None`
-        settings = {k: v for k, v in settings.items() if v is not None}
+        # Only keep populated settings that are in the OpenAI API params list
+        openai_api_settings = {k: v for k, v in props.items() 
+                               if k in openai_api_params and v is not None}
 
-        messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
-        completion = client.chat.completions.create(**settings, messages=messages)
+        messages = [m.model_dump() for m in self.system.format(input, 
+                                                               preset_aliases=preset_aliases)]
+        completion = client.chat.completions.create(**openai_api_settings, 
+                                                    messages=messages)
         content = completion.choices[0].message.content
         completion_tokens = completion.usage.completion_tokens
-        return OpenAIChatOutput(content=content, completion_tokens=completion_tokens)
+        return OpenAIChatOutput(content=content, 
+                                completion_tokens=completion_tokens,
+                                aliases=preset_aliases)
+    
+    def invoke_extend_resolve(
+        self, client: OpenAI, input: AnyChatInput | Sequence[AnyChatInput], 
+        resolver: OpenAIResolverConfig | None = None,
+        raw_delimiters: Sequence[str] | None = None,
+        preset_aliases: NameMap | None = None
+    ) -> OpenAIChatOutput:
+        """Invoke the chat with extensions and/or resolution,
+        if either functions are configured."""
+        if self.extender:
+            token_limit = self.extender.api_completion_token_limit
+            max_extensions = self.extender.max_extensions
+
+            output = OpenAIChatOutput(content="", 
+                                      completion_tokens=0,
+                                      aliases=preset_aliases)
+            tail = input
+            num_extensions = 0
+            while num_extensions <= max_extensions:
+                logger.info(f"Running extension #{num_extensions + 1}")
+                result = self.invoke(client, tail, output.aliases)
+
+                if resolver:
+                    output.aliases, result.content = \
+                        resolver.resolve(client, input, result, raw_delimiters)
+                output.content += result.content + " "
+                output.completion_tokens += result.completion_tokens
+
+                if result.completion_tokens == token_limit:
+                    num_extensions += 1
+                    tail = residual(tail, result.content)
+                    if not tail:
+                        break
+                else:
+                    break
+        else:
+            output = self.invoke(client, input)
+            if resolver:
+                output.aliases, _ = resolver.resolve(client, input, result, 
+                                                     raw_delimiters)
+        return output
+        
 
 class TooManyRetries(Exception): pass
 
 class OpenAIResolverConfig(OpenAIChatConfig):
     """Resolve aliases using an OpenAI model."""
-    message_template: str
     retries: PositiveInt = 3
-
-    def _parse(self, response: str) -> NameMap:
-        """Parse the response from the generator.
-
-        The response should be a JSON object mapping IDs to aliases.
-
-        Args:
-            response: The response from the generator.
-            preset_aliases: The preexisting aliases map (for validation).
-            inferred_annotations: The aliases map inferred by the redaction process (for validation).
-
-        Returns:
-            The new aliases map.
-        """
-        try:
-            data = json.loads(response)
-            # TODO: Validate the JSON response matches the alias maps
-        except json.JSONDecodeError as e:
-            logger.error(f"Error parsing JSON response: {e}")
-            raise ValueError("Error parsing JSON response.") from e
-
-        return data        
 
     def resolve(
         self, 
         client: OpenAI, 
         original: AnyChatInput | Sequence[AnyChatInput], 
         redacted: OpenAIChatOutput,
-        preset_aliases: NameMap, 
         raw_delimiters: Sequence[str]
     ) -> str:
-        inferred_annotations = infer_annotations(original, redacted,
-                                                 delimiters=raw_delimiters)
-        inferred_annotations = [{x["original"]: x["redacted"]} 
-                                for x in inferred_annotations]
-        input = self.message_template.format(
-            preset_aliases=json.dumps(preset_aliases, indent=2, sort_keys=True),
-            inferred_annotations=json.dumps(inferred_annotations, indent=2, sort_keys=True),
-            original=original
-        )
+        redacted.content = remove_hanging_redactions(redacted.content, 
+                                                     raw_delimiters)
+        input = prepare_resolve_input(original, redacted, raw_delimiters)
+
         last_e: Exception | None = None
         for i in range(self.retries):
             try:
+                # Try calling the input and parsing the response
                 response = self.invoke(client, input)
-                raw_resolved_aliases = response.content
-                resolved_aliases = self._parse(raw_resolved_aliases)
-                logger.debug(f"Resolved aliases: {resolved_aliases}")
-                return resolved_aliases
+                aliases = validate_json(response.content)
+                logger.debug(f"Resolved aliases: {aliases}")
+                return (aliases, redacted.content)
             except Exception as e:
                 last_e = e
-                logger.error(f"Error generating aliases (attempt {i + 1}): {e}")
+                logger.warning(f"Error generating aliases (attempt {i + 1} of \
+                               {self.retries}): {e}")
         else:
+            breakpoint()
             raise TooManyRetries from last_e
     
 
