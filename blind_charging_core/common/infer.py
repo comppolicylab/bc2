@@ -25,6 +25,15 @@ TextSegment = NamedTuple(
     ],
 )
 
+class NoMatch:
+    def start(self):
+        return -1
+
+    def end(self):
+        return -1
+
+    def __bool__(self):
+        return False
 
 @dataclass
 class Delimiter:
@@ -57,17 +66,17 @@ class Delimiter:
         closer_len = len(delimiters[1])
         return cls(opener_re, opener_len), cls(closer_re, closer_len)
     
-    def find_first(self, text: str) -> re.Match | None:
+    def find_first(self, text: str) -> re.Match | NoMatch:
         try:
             return list(self.pattern.finditer(text))[0]
         except IndexError:
-            return None
+            return NoMatch()
             
-    def find_last(self, text: str) -> re.Match | None:
+    def find_last(self, text: str) -> re.Match | NoMatch:
         try:
             return list(self.pattern.finditer(text))[-1]
         except IndexError:
-            return None
+            return NoMatch()
 
 
 Op = Literal["replace", "insert", "delete", "equal"]
@@ -275,7 +284,7 @@ def infer_annotations(
                     len(seg.open_delim or "") : -len(seg.close_delim or "")
                 ],
             }
-            
+
 
 def remove_hanging_redactions(redacted: str, 
                               raw_delimiters: Sequence[str]) -> str:
@@ -294,8 +303,7 @@ def remove_hanging_redactions(redacted: str,
     last_opening = d_open.find_last(redacted)
     last_closing = d_close.find_last(redacted)
     
-    if last_opening and last_closing and \
-        last_closing.start() < last_opening.start():
+    if last_closing.start() < last_opening.start():
         redacted = redacted[:last_opening.start()]
     
     return redacted

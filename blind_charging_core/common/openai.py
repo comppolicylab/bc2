@@ -408,7 +408,10 @@ class OpenAIResolverConfig(OpenAIChatConfig):
     ) -> str:
         redacted.content = remove_hanging_redactions(redacted.content, 
                                                      raw_delimiters)
-        input = prepare_resolve_input(original, redacted, raw_delimiters)
+        input = prepare_resolve_input(original, 
+                                      redacted.content, 
+                                      redacted.aliases,
+                                      raw_delimiters)
 
         last_e: Exception | None = None
         for i in range(self.retries):
@@ -423,7 +426,6 @@ class OpenAIResolverConfig(OpenAIChatConfig):
                 logger.warning(f"Error generating aliases (attempt {i + 1} of \
                                {self.retries}): {e}")
         else:
-            breakpoint()
             raise TooManyRetries from last_e
     
 

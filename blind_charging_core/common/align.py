@@ -14,7 +14,7 @@ def residual(original: str, extract: str) -> str | None:
         The original string trimmed to after the best match, 
         or None if no match is found.
     """
-    alignment = partial_ratio_alignment(original, extract)
+    alignment = partial_ratio_alignment(original, extract, score_cutoff=50)
     if not alignment:
         return None
 
