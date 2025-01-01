@@ -375,7 +375,8 @@ class OpenAIChatConfig(BaseModel):
                 if resolver:
                     output.aliases, result.content = \
                         resolver.resolve(client, input, result, raw_delimiters)
-                output.content += result.content + " "
+                # ACW to remove
+                output.content += result.content + " <<<SUTURE>>> "
                 output.completion_tokens += result.completion_tokens
 
                 if result.completion_tokens == token_limit:
