@@ -375,8 +375,7 @@ class OpenAIChatConfig(BaseModel):
                 if resolver:
                     output.aliases, result.content = \
                         resolver.resolve(client, input, result, raw_delimiters)
-                # ACW to remove
-                output.content += result.content + " <<<SUTURE>>> "
+                output.content += result.content
                 output.completion_tokens += result.completion_tokens
 
                 if result.completion_tokens == token_limit:
@@ -384,6 +383,7 @@ class OpenAIChatConfig(BaseModel):
                     tail = residual(tail, result.content)
                     if not tail:
                         break
+                    output.content += " "
                 else:
                     break
         else:
