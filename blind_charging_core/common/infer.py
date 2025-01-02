@@ -68,8 +68,8 @@ class Delimiter:
     
     def find_first(self, text: str) -> re.Match | NoMatch:
         try:
-            return list(self.pattern.finditer(text))[0]
-        except IndexError:
+            return next(self.pattern.finditer(text))
+        except StopIteration:
             return NoMatch()
             
     def find_last(self, text: str) -> re.Match | NoMatch:

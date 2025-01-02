@@ -17,7 +17,7 @@ INPUT_TEMPLATE = """\
 
 def prepare_resolve_input(original: str, 
                           redacted: str, 
-                          aliases: NameMap,
+                          aliases: NameMap | None,
                           raw_delimiters: list[str]) -> str:
     """Prepare input for entity resolution.
 

@@ -5,9 +5,10 @@ import os
 from abc import abstractmethod
 from functools import cached_property
 from typing import Any, Literal, Sequence
+from typing_extensions import Self
 
 from openai import AzureOpenAI, OpenAI
-from pydantic import BaseModel, PositiveInt, NonNegativeInt
+from pydantic import BaseModel, model_validator, PositiveInt, NonNegativeInt
 
 from .align import residual
 from .datafile import DataType, load_data_file, load_data_file_from_path
@@ -323,11 +324,15 @@ class OpenAIChatConfig(BaseModel):
 
     extender: OpenAIExtenderConfig | None = None
 
-    def __init__(self, **data):
-        super().__init__(**data)
+    @model_validator(mode='after')
+    def cap_token_limits(self) -> Self:
         if self.extender and self.max_tokens:
-            self.extender.api_completion_token_limit = min(self.max_tokens,
-                                                           self.extender.api_completion_token_limit)
+            token_cap = min(self.max_tokens,
+                            self.extender.api_completion_token_limit)
+            logger.debug(f"Unequal token limits, capping at {token_cap}")
+            self.max_tokens = token_cap
+            self.extender.api_completion_token_limit = token_cap
+        return self
 
     def invoke(
         self, client: OpenAI, input: AnyChatInput | Sequence[AnyChatInput], 
@@ -335,8 +340,8 @@ class OpenAIChatConfig(BaseModel):
     ) -> OpenAIChatOutput:
         """Invoke the chat."""
         props = self.model_dump()
-        openai_api_params = ["model", "frequency_penalty", "max_tokens", "n",
-                             "presence_penalty", "seed", "temperature", "top_p"]
+        openai_api_params = {"model", "frequency_penalty", "max_tokens", "n",
+                             "presence_penalty", "seed", "temperature", "top_p"}
         # Only keep populated settings that are in the OpenAI API params list
         openai_api_settings = {k: v for k, v in props.items() 
                                if k in openai_api_params and v is not None}
@@ -359,38 +364,36 @@ class OpenAIChatConfig(BaseModel):
     ) -> OpenAIChatOutput:
         """Invoke the chat with extensions and/or resolution,
         if either functions are configured."""
+        max_extensions = 0
+        token_limit = -1
         if self.extender:
-            token_limit = self.extender.api_completion_token_limit
             max_extensions = self.extender.max_extensions
+            token_limit = self.extender.api_completion_token_limit
 
-            output = OpenAIChatOutput(content="", 
-                                      completion_tokens=0,
-                                      aliases=preset_aliases)
-            tail = input
-            num_extensions = 0
-            while num_extensions <= max_extensions:
-                logger.info(f"Running extension #{num_extensions + 1}")
-                result = self.invoke(client, tail, output.aliases)
-
-                if resolver:
-                    output.aliases, result.content = \
-                        resolver.resolve(client, input, result, raw_delimiters)
-                output.content += result.content
-                output.completion_tokens += result.completion_tokens
-
-                if result.completion_tokens == token_limit:
-                    num_extensions += 1
-                    tail = residual(tail, result.content)
-                    if not tail:
-                        break
-                    output.content += " "
-                else:
-                    break
-        else:
-            output = self.invoke(client, input)
+        output = OpenAIChatOutput(content="",
+                                  completion_tokens=0,
+                                  aliases=preset_aliases)
+        tail = input
+        num_extensions = 0
+        while num_extensions <= max_extensions:
+            logger.debug(f"Starting pass #{num_extensions + 1}")
+            result = self.invoke(client, tail, output.aliases)
             if resolver:
-                output.aliases, _ = resolver.resolve(client, input, result, 
-                                                     raw_delimiters)
+                output.aliases, result.content = \
+                    resolver.resolve(client, input, result, raw_delimiters)
+            output.content += result.content
+            output.completion_tokens += result.completion_tokens
+
+            if result.completion_tokens == token_limit:
+                logger.debug(f"Hit token limit on pass #{num_extensions + 1}")
+                num_extensions += 1
+                tail = residual(tail, result.content)
+                if not tail:
+                    break
+                output.content += " "
+            else:
+                break
+
         return output
         
 
