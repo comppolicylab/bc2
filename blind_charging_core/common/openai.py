@@ -233,74 +233,6 @@ OpenAIChatPrompt = (
 )
 
 
-class CompletionPrompt:
-    engine: TemplateEngine = "string"
-
-    @property
-    @abstractmethod
-    def prompt(self) -> str: ...
-
-    def format(self, input: str, **kwargs) -> str:
-        """Format the prompt."""
-        ctx = {**kwargs, "input": input}
-        fmt = get_formatter(self.engine)
-        return fmt(self.prompt, ctx)
-
-
-class OpenAICompletionPromptInline(BaseModel, CompletionPrompt):
-    """A completion prompt for an OpenAI model."""
-
-    prompt_text: str
-
-    @property
-    def prompt(self) -> str:
-        """Echo the prompt text."""
-        return self.prompt_text
-
-
-class OpenAICompletionPromptFile(BaseModel, CompletionPrompt):
-    """A prompt file for an OpenAI model."""
-
-    prompt_file: str
-
-    @cached_property
-    def prompt(self) -> str:
-        """Load the prompt file"""
-        return load_data_file_from_path(DataType.prompt, self.prompt_file)
-
-
-class OpenAICompletionPromptBuiltIn(BaseModel, CompletionPrompt):
-    """A built-in prompt for an OpenAI model."""
-
-    prompt_id: str
-
-    @cached_property
-    def prompt(self) -> str:
-        return load_data_file(DataType.prompt, self.prompt_id)
-
-
-class OpenAICompletionPromptEnv(BaseModel, CompletionPrompt):
-    """A prompt file for an OpenAI model."""
-
-    prompt_env: str
-
-    @cached_property
-    def prompt(self) -> str:
-        """Load the prompt from the environment variable"""
-        s = os.getenv(self.prompt_env)
-        if s is None:
-            raise ValueError(f"Environment variable {self.prompt_env} not set")
-        return s
-
-
-OpenAICompletionPrompt = (
-    OpenAICompletionPromptInline
-    | OpenAICompletionPromptFile
-    | OpenAICompletionPromptEnv
-    | OpenAICompletionPromptBuiltIn
-)
-
-
 class OpenAIExtenderConfig(BaseModel, ChatPrompt):
     """Allow outputs over the OpenAI output token limit."""
 
@@ -386,6 +318,8 @@ class OpenAIChatConfig(BaseModel):
 
             if result.completion_tokens == token_limit:
                 logger.debug(f"Hit token limit on pass #{num_extensions + 1}")
+                logger.debug(f"Haystack length: {len(tail)}")
+                logger.debug(f"Needle length: {len(result.content)}")
                 num_extensions += 1
                 tail = residual(tail, result.content)
                 if not tail:
@@ -432,44 +366,6 @@ class OpenAIResolverConfig(OpenAIChatConfig):
         else:
             raise TooManyRetries from last_e
     
-
-class OpenAICompletionConfig(BaseModel):
-    """OpenAI Completion config."""
-
-    method: Literal["completion"]
-    model: str
-    prompt: OpenAICompletionPrompt
-    best_of: int | None = None
-    frequency_penalty: float | None = None
-    logit_bias: dict[str, int] | None = None
-    max_tokens: int | None = None
-    n: int = 1
-    presence_penalty: float | None = None
-    seed: int | None = None
-    stop: list[str] | None = None
-    temperature: float | None = None
-    top_p: float | None = None
-
-    def __init__(self, **data: Any):
-        super().__init__(**data)
-        if self.best_of is not None and self.n is not None:
-            if self.best_of <= self.n:
-                raise ValueError("best_of must be greater than n")
-
-    def invoke(self, client: OpenAI, input: str, **kwargs) -> str:
-        """Invoke the completion."""
-        settings = self.model_dump()
-        settings.pop("method")
-        settings.pop("prompt")
-        prompt = self.prompt.format(input, **kwargs)
-        # Remove any setting whose value is `None`
-        settings = {k: v for k, v in settings.items() if v is not None}
-        completion = client.completions.create(**settings, prompt=prompt)
-        return completion.choices[0].text
-
-
-OpenAIGeneratorConfig = OpenAIChatConfig | OpenAICompletionConfig
-
 
 class OpenAIConfig(BaseModel):
     client: OpenAIClientConfig

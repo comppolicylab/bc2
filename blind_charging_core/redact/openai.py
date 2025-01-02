@@ -4,7 +4,6 @@ from typing import Literal
 from ..common.context import Context
 from ..common.openai import (OpenAIChatOutput,
                              OpenAIChatConfig, 
-                             OpenAICompletionConfig, 
                              OpenAIConfig, 
                              OpenAIResolverConfig)
 from ..common.text import RedactedText, Text
@@ -16,7 +15,7 @@ class OpenAIRedactConfig(BaseRedactConfig, OpenAIConfig):
     """OpenAI Redact config."""
 
     engine: Literal["redact:openai"]
-    generator: OpenAIChatConfig | OpenAICompletionConfig
+    generator: OpenAIChatConfig
     resolver: OpenAIResolverConfig
 
     @cached_property
@@ -34,6 +33,7 @@ class OpenAIRedactDriver(BaseRedactDriver):
         if not narrative.text or narrative.text == "No narratives found.":
             raise ValueError("No narrative text in input.")
         redacted = self.generate(narrative.text, aliases=aliases)
+        # To do: Change the context prop to whatever name we decide makes sense
         context.aliases = redacted.aliases
         return RedactedText(redacted.content, narrative.text, self.config.delimiters)
 

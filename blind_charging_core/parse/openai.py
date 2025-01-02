@@ -2,7 +2,7 @@ from functools import cached_property
 from typing import Literal
 
 from ..common.context import Context
-from ..common.openai import OpenAIChatConfig, OpenAICompletionConfig, OpenAIConfig
+from ..common.openai import OpenAIChatConfig, OpenAIConfig
 from ..common.text import Text
 from .base import BaseParseDriver
 
@@ -11,7 +11,7 @@ class OpenAIParseConfig(OpenAIConfig):
     """OpenAI Parse config."""
 
     engine: Literal["parse:openai"]
-    generator: OpenAIChatConfig | OpenAICompletionConfig
+    generator: OpenAIChatConfig
 
     @cached_property
     def driver(self) -> "OpenAIParseDriver":
