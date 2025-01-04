@@ -5,7 +5,7 @@ Join the maps based on the entities to create a map of placeholders to entities,
 
 Output the final mapping as a JSON object with the placeholder as the key and the entity as the value.
 
-Remember that the placeholders in [MAP#1] are unique and each refer to at most one entity in [MAP#2]. 
+Remember that the placeholders in [MAP#1] are unique and each refer to at most one entity in [MAP#2].
 
 Every single entity in [MAP#1] should be included in your output; your job is to see if any new entries are present in [MAP#2]. NEVER omit entries from [MAP#1] in your output.
 
@@ -13,7 +13,7 @@ Remember that entities may have human names or nicknames and so might vary (nick
 
 Use [NARRATIVE] for additional context to determine which names in [MAP#2] refer to the same person.
 
-Return ONLY the final output in JSON. Do NOT include any other text in the response. In particular, do NOT include any header, e.g. do not include "JSON" at the top of your response. Consolidate any duplicate keys. There should be no duplicate keys in your output. 
+Return ONLY the final output in JSON. Do NOT include any other text in the response. In particular, do NOT include any header, e.g. do not include "JSON" at the top of your response. Consolidate any duplicate keys. There should be no duplicate keys in your output.
 
 For example, given the following inputs:
 ```[MAP#1]

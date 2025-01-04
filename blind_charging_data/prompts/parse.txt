@@ -1,5 +1,5 @@
 # Your task
-Review the text from a police report extracted using OCR. Extract ALL full sentences, paragraphs, or blocks of freely-written text. 
+Review the text from a police report extracted using OCR. Extract ALL full sentences, paragraphs, or blocks of freely-written text.
 
 You are looking for any text that is coherent and discusses crime details, related evidence, legal justifications, or testimony from people involved. These may include narratives, synopses, probable cause statements, legal documents, affidavits, formal legal entries, and first-person accounts. In essence, any text providing a descriptive or narrative account in full sentences should be returned, even if it is embedded within an otherwise structured sections.
 
@@ -8,14 +8,14 @@ You are looking for any text that is coherent and discusses crime details, relat
 - Also be sure to include unlabeled freely-written text if it clearly fits the criteria above. Sometimes the input may start in the middle of a narrative; if so, include that text as well.
 - Everything from a single standalone (full) sentence to a multi-page narrative should be included.
 - Stitch freely-written text across pages by removing page headers and page footers. Ensure all freely-written text is extracted in its entirety.
-- Include ALL freely-written text included in the input, EVEN IF IT IS DUPLICATED IN THE INPUT. NEVER OMIT DUPLICATES for ANY REASON whatsoever. It is CRUCIAL to preserve redundancy from the input IF it exists in the input, even if this might seem unnecessarily repetitive. 
+- Include ALL freely-written text included in the input, EVEN IF IT IS DUPLICATED IN THE INPUT. NEVER OMIT DUPLICATES for ANY REASON whatsoever. It is CRUCIAL to preserve redundancy from the input IF it exists in the input, even if this might seem unnecessarily repetitive.
 - You will be punished with a $1,000 fine if you do not return any freely-written text. And you will be fined an extra $2,000 if you miss the last narrative in the provided input!
 
 # What to exclude
-- Exclude structured information (e.g., fields/values like DOBs, addresses, sex, race, dates, etc.). which will consitute most of the report. These are often provided in long unstructured lists with each field or value on their own line. 
+- Exclude structured information (e.g., fields/values like DOBs, addresses, sex, race, dates, etc.). which will consitute most of the report. These are often provided in long unstructured lists with each field or value on their own line.
 - Exclude field/value pairs that appear at the end of a narrative.
 - Exclude most "CAD Narratives" except parts that form coherent sentences or paragraphs.
-- Do not correct grammar or spelling. 
+- Do not correct grammar or spelling.
 - Do not create new text.
 
 # Formatting

@@ -1,7 +1,7 @@
-Your job is to redact all race-related information in the provided text. Race-related information is any word from the following categories: 
+Your job is to redact all race-related information in the provided text. Race-related information is any word from the following categories:
 - Explicit mentions of race, ethnicity, nationality, or language
 - People's names, nicknames, and social media handles
-- Physical descriptions: ONLY hair color, hairstyle, eye color, or skin color 
+- Physical descriptions: ONLY hair color, hairstyle, eye color, or skin color
 - Location information: Addresses, streets, intersections, zip codes, store names, restaurant names,  major landmarks, neighborhood names, city names, and police department names or abbreviations
 
 Do NOT redact ANY other types of information, e.g., do not redact dates, objects, or colors that do not refer to a person's skin tone, or other types of entities (e.g., vehicles) not explicitly listed above.
@@ -27,6 +27,6 @@ DO NOT CHANGE ANY characters outside of these brackets. The ONLY changes you mak
 
 Take your time and triple-check your work, quality is better than moving quickly. Make sure to follow these instructions closely.
 
-Please provide the redacted text as simple plain-text paragraphs. If you do not find any narratives, or if you are not provided with any text, return "No narratives found." 
+Please provide the redacted text as simple plain-text paragraphs. If you do not find any narratives, or if you are not provided with any text, return "No narratives found."
 
 Do not provide any commentary.
