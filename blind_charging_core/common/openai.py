@@ -305,9 +305,8 @@ class OpenAIChatConfig(BaseModel):
     def invoke_extend_resolve(
         self,
         client: OpenAI,
-        input: AnyChatInput | Sequence[AnyChatInput],
+        input: str,
         resolver: OpenAIResolverConfig | None = None,
-        raw_delimiters: Sequence[str] | None = None,
         preset_aliases: NameMap | None = None,
     ) -> OpenAIChatOutput:
         """Invoke the chat with extensions and/or resolution,
@@ -327,9 +326,7 @@ class OpenAIChatConfig(BaseModel):
             logger.debug(f"Starting pass #{num_extensions + 1}")
             result = self.invoke(client, tail, output.aliases)
             if resolver:
-                output.aliases, result.content = resolver.resolve(
-                    client, input, result, raw_delimiters
-                )
+                output.aliases, result.content = resolver.resolve(client, input, result)
             output.content += result.content
             output.completion_tokens += result.completion_tokens
 
@@ -356,17 +353,17 @@ class OpenAIResolverConfig(OpenAIChatConfig):
     """Resolve aliases using an OpenAI model."""
 
     retries: PositiveInt = 3
+    delimiters: Sequence[str] = ""
 
     def resolve(
         self,
         client: OpenAI,
-        original: AnyChatInput | Sequence[AnyChatInput],
+        original: str,
         redacted: OpenAIChatOutput,
-        raw_delimiters: Sequence[str],
-    ) -> str:
-        redacted.content = remove_hanging_redactions(redacted.content, raw_delimiters)
+    ) -> tuple[dict, str]:
+        redacted.content = remove_hanging_redactions(redacted.content, self.delimiters)
         input = prepare_resolve_input(
-            original, redacted.content, redacted.aliases, raw_delimiters
+            original, redacted.content, redacted.aliases, self.delimiters
         )
 
         last_e: Exception | None = None

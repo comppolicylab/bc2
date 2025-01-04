@@ -1,7 +1,11 @@
+import logging
+
 from rapidfuzz.fuzz import partial_ratio_alignment
 
+logger = logging.getLogger(__name__)
 
-def residual(original: str, extract: str, needle_size=10000) -> str | None:
+
+def residual(original: str, extract: str, needle_size=10000) -> str:
     """Try to align an extracted string output with its source string.
 
     If a match is found, return everything after the match in the source string.
@@ -17,6 +21,7 @@ def residual(original: str, extract: str, needle_size=10000) -> str | None:
     """
     alignment = partial_ratio_alignment(original, extract[-needle_size:])
     if not alignment:
-        return None
+        logger.error("No alignment found between original and extracted text.")
+        return ""
 
     return original[alignment.src_end :]

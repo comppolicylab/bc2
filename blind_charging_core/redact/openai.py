@@ -22,6 +22,8 @@ class OpenAIRedactConfig(BaseRedactConfig, OpenAIConfig):
 
     @cached_property
     def driver(self) -> "OpenAIRedactDriver":
+        # Inject the delimiters into the resolver instance
+        self.resolver.delimiters = self.delimiters
         return OpenAIRedactDriver(self)
 
 
@@ -49,7 +51,7 @@ class OpenAIRedactDriver(BaseRedactDriver):
         """
 
         output = self.config.generator.invoke_extend_resolve(
-            self.client, input, self.config.resolver, self.config.delimiters, aliases
+            self.client, input, self.config.resolver, aliases
         )
 
         return output

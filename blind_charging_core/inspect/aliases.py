@@ -15,6 +15,17 @@ from .base import BaseInspectDriver
 
 logger = logging.getLogger(__name__)
 
+ALIASES_PROMPT_TPL = """\
+[MAP#1]
+{preset_aliases}
+
+[MAP#2]
+{inferred_aliases}
+
+[NARRATIVE]
+{narrative}
+"""
+
 
 class OpenAIAliasesInspectChatGeneratorConfig(OpenAIChatConfig):
     method: Literal["chat"] = "chat"
@@ -120,7 +131,8 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
         Args:
             response: The response from the generator.
             preset_aliases: The preexisting aliases map (for validation).
-            inferred_aliases: The aliases map inferred by the redaction process (for validation).
+            inferred_aliases: The aliases map inferred by the redaction process
+                (for validation).
 
         Returns:
             The new aliases map.

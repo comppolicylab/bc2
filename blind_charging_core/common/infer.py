@@ -33,6 +33,9 @@ class NoMatch:
     def end(self):
         return -1
 
+    def group(self, _):
+        return None
+
     def __bool__(self):
         return False
 
@@ -97,8 +100,8 @@ def _split_opcode(
     i2: int,
     j1: int,
     j2: int,
-    opener: re.Match[str] | None,
-    closer: re.Match[str] | None,
+    opener: re.Match[str] | NoMatch,
+    closer: re.Match[str] | NoMatch,
 ) -> list[Opcode]:
     """Split an opcode into multiple opcodes if needed.
 

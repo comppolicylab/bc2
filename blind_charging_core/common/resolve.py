@@ -1,4 +1,5 @@
 import json
+from typing import Sequence
 
 from .infer import infer_annotations
 from .types import NameMap
@@ -16,7 +17,7 @@ INPUT_TEMPLATE = """\
 
 
 def prepare_resolve_input(
-    original: str, redacted: str, aliases: NameMap | None, raw_delimiters: list[str]
+    original: str, redacted: str, aliases: NameMap | None, raw_delimiters: Sequence[str]
 ) -> str:
     """Prepare input for entity resolution.
 
@@ -33,7 +34,9 @@ def prepare_resolve_input(
     inferred_annotations = infer_annotations(
         original, redacted, delimiters=raw_delimiters
     )
-    inferred_annotations = {x["original"]: x["redacted"] for x in inferred_annotations}
+    inferred_annotations_dict = {
+        x["original"]: x["redacted"] for x in inferred_annotations
+    }
 
     if not aliases:
         aliases = {}
@@ -41,7 +44,9 @@ def prepare_resolve_input(
     # Prepare the input for the resolver chat
     input = INPUT_TEMPLATE.format(
         preset_aliases=json.dumps(aliases, indent=2, sort_keys=True),
-        inferred_annotations=json.dumps(inferred_annotations, indent=2, sort_keys=True),
+        inferred_annotations=json.dumps(
+            inferred_annotations_dict, indent=2, sort_keys=True
+        ),
         original=original,
     )
 
