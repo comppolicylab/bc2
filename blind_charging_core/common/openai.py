@@ -326,9 +326,6 @@ class OpenAIChatConfig(BaseModel):
             logger.debug(f"Starting pass #{num_extensions + 1}")
             result = self.invoke(client, tail, output.aliases)
             if resolver:
-                print("HELLO WORLD")
-                print(input)
-                print(result)
                 output.aliases, result.content = resolver.resolve(client, input, result)
             output.content += result.content
             output.completion_tokens += result.completion_tokens
