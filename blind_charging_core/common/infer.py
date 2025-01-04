@@ -25,6 +25,7 @@ TextSegment = NamedTuple(
     ],
 )
 
+
 class NoMatch:
     def start(self):
         return -1
@@ -34,6 +35,7 @@ class NoMatch:
 
     def __bool__(self):
         return False
+
 
 @dataclass
 class Delimiter:
@@ -65,13 +67,13 @@ class Delimiter:
         closer_re = re.compile(f"({re.escape(delimiters[1])})")
         closer_len = len(delimiters[1])
         return cls(opener_re, opener_len), cls(closer_re, closer_len)
-    
+
     def find_first(self, text: str) -> re.Match | NoMatch:
         try:
             return next(self.pattern.finditer(text))
         except StopIteration:
             return NoMatch()
-            
+
     def find_last(self, text: str) -> re.Match | NoMatch:
         try:
             return list(self.pattern.finditer(text))[-1]
@@ -286,9 +288,8 @@ def infer_annotations(
             }
 
 
-def remove_hanging_redactions(redacted: str, 
-                              raw_delimiters: Sequence[str]) -> str:
-    """Remove hanging redactions from text with redactions. This can happen 
+def remove_hanging_redactions(redacted: str, raw_delimiters: Sequence[str]) -> str:
+    """Remove hanging redactions from text with redactions. This can happen
     if we hit an output token limit in the middle of a redaction.
 
     Args:
@@ -302,8 +303,8 @@ def remove_hanging_redactions(redacted: str,
 
     last_opening = d_open.find_last(redacted)
     last_closing = d_close.find_last(redacted)
-    
+
     if last_closing.start() < last_opening.start():
-        redacted = redacted[:last_opening.start()]
-    
+        redacted = redacted[: last_opening.start()]
+
     return redacted

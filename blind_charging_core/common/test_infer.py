@@ -102,6 +102,7 @@ def test_infer_annotations(original, redacted, delimiters, expected):
         list(infer_annotations(original, redacted, delimiters=delimiters)) == expected
     )
 
+
 @pytest.mark.parametrize(
     "redacted,raw_delimiters,expected",
     [
@@ -119,14 +120,13 @@ def test_infer_annotations(original, redacted, delimiters, expected):
             "<Hello 1>, <World",
             "<>",
             "<Hello 1>, ",
-        ),        (
+        ),
+        (
             "Hello, <World 1>!",
             "<>",
             "Hello, <World 1>!",
-        )
+        ),
     ],
 )
 def test_remove_hanging_redactions(redacted, raw_delimiters, expected):
-    assert (
-        remove_hanging_redactions(redacted, raw_delimiters) == expected
-    )
+    assert remove_hanging_redactions(redacted, raw_delimiters) == expected

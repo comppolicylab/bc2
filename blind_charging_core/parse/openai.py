@@ -34,9 +34,6 @@ class OpenAIParseDriver(BaseParseDriver):
 
         This method is supported for only chat generators.
         """
-        output = self.config.generator.invoke_extend_resolve(
-            self.client, 
-            input
-        )
+        output = self.config.generator.invoke_extend_resolve(self.client, input)
 
         return output.content

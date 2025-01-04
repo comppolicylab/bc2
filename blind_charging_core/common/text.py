@@ -3,6 +3,7 @@ from typing import Callable, Literal, Sequence, Tuple
 from .infer import TextSegment, segment
 from .types import NameMap
 
+
 class Text:
     """Wrapper for text content."""
 
@@ -61,8 +62,13 @@ class RedactedText:
     into a rich diff.
     """
 
-    def __init__(self, redacted: str, original: str, delimiters: Sequence[str],
-                 aliases: NameMap | None = None) -> None:
+    def __init__(
+        self,
+        redacted: str,
+        original: str,
+        delimiters: Sequence[str],
+        aliases: NameMap | None = None,
+    ) -> None:
         """Initialize a redacted text.
 
         Args:

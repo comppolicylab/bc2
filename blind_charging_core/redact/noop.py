@@ -20,6 +20,8 @@ class NoOpRedactDriver(BaseRedactDriver):
     def __init__(self, config: NoOpRedactConfig):
         self.config = config
 
-    def __call__(self, narrative: Text, preset_aliases: NameMap | None = None) -> RedactedText:
+    def __call__(
+        self, narrative: Text, preset_aliases: NameMap | None = None
+    ) -> RedactedText:
         """Don't actually redact anything, just pass through."""
         return RedactedText(narrative.text, narrative.text, self.config.delimiters)

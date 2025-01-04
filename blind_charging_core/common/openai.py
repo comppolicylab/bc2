@@ -1,14 +1,15 @@
 from __future__ import annotations
-import logging
+
 import json
+import logging
 import os
 from abc import abstractmethod
 from functools import cached_property
-from typing import Any, Literal, Sequence
-from typing_extensions import Self
+from typing import Literal, Sequence
 
 from openai import AzureOpenAI, OpenAI
-from pydantic import BaseModel, model_validator, PositiveInt, NonNegativeInt
+from pydantic import BaseModel, NonNegativeInt, PositiveInt, model_validator
+from typing_extensions import Self
 
 from .align import residual
 from .datafile import DataType, load_data_file, load_data_file_from_path
@@ -18,7 +19,6 @@ from .resolve import prepare_resolve_input
 from .template import TemplateEngine, get_formatter
 from .types import NameMap
 from .validate import validate_json
-
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +84,7 @@ class OpenAIChatTurn(BaseModel):
 
 AnyChatInput = str | ImageUrl
 
+
 class OpenAIChatOutput(BaseModel):
     """A chat output for an OpenAI model."""
 
@@ -144,7 +145,7 @@ class ChatPrompt:
             else:
                 raise ValueError(f"Unsupported input type: {type(node)}")
         return base_messages + [OpenAIChatTurn(role="user", content=content)]
-    
+
 
 class OpenAIChatPromptInline(BaseModel, ChatPrompt):
     """An inline prompt for an OpenAI model."""
@@ -238,7 +239,7 @@ class OpenAIExtenderConfig(BaseModel, ChatPrompt):
 
     max_extensions: NonNegativeInt
     api_completion_token_limit: PositiveInt
-    
+
 
 class OpenAIChatConfig(BaseModel):
     """OpenAI Chat config."""
@@ -256,43 +257,58 @@ class OpenAIChatConfig(BaseModel):
 
     extender: OpenAIExtenderConfig | None = None
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def cap_token_limits(self) -> Self:
         if self.extender and self.max_tokens:
-            token_cap = min(self.max_tokens,
-                            self.extender.api_completion_token_limit)
+            token_cap = min(self.max_tokens, self.extender.api_completion_token_limit)
             logger.debug(f"Unequal token limits, capping at {token_cap}")
             self.max_tokens = token_cap
             self.extender.api_completion_token_limit = token_cap
         return self
 
     def invoke(
-        self, client: OpenAI, input: AnyChatInput | Sequence[AnyChatInput], 
-        preset_aliases: NameMap | None = None
+        self,
+        client: OpenAI,
+        input: AnyChatInput | Sequence[AnyChatInput],
+        preset_aliases: NameMap | None = None,
     ) -> OpenAIChatOutput:
         """Invoke the chat."""
         props = self.model_dump()
-        openai_api_params = {"model", "frequency_penalty", "max_tokens", "n",
-                             "presence_penalty", "seed", "temperature", "top_p"}
+        openai_api_params = {
+            "model",
+            "frequency_penalty",
+            "max_tokens",
+            "n",
+            "presence_penalty",
+            "seed",
+            "temperature",
+            "top_p",
+        }
         # Only keep populated settings that are in the OpenAI API params list
-        openai_api_settings = {k: v for k, v in props.items() 
-                               if k in openai_api_params and v is not None}
+        openai_api_settings = {
+            k: v for k, v in props.items() if k in openai_api_params and v is not None
+        }
 
-        messages = [m.model_dump() for m in self.system.format(input, 
-                                                               preset_aliases=preset_aliases)]
-        completion = client.chat.completions.create(**openai_api_settings, 
-                                                    messages=messages)
+        messages = [
+            m.model_dump()
+            for m in self.system.format(input, preset_aliases=preset_aliases)
+        ]
+        completion = client.chat.completions.create(
+            **openai_api_settings, messages=messages
+        )
         content = completion.choices[0].message.content
         completion_tokens = completion.usage.completion_tokens
-        return OpenAIChatOutput(content=content, 
-                                completion_tokens=completion_tokens,
-                                aliases=preset_aliases)
-    
+        return OpenAIChatOutput(
+            content=content, completion_tokens=completion_tokens, aliases=preset_aliases
+        )
+
     def invoke_extend_resolve(
-        self, client: OpenAI, input: AnyChatInput | Sequence[AnyChatInput], 
+        self,
+        client: OpenAI,
+        input: AnyChatInput | Sequence[AnyChatInput],
         resolver: OpenAIResolverConfig | None = None,
         raw_delimiters: Sequence[str] | None = None,
-        preset_aliases: NameMap | None = None
+        preset_aliases: NameMap | None = None,
     ) -> OpenAIChatOutput:
         """Invoke the chat with extensions and/or resolution,
         if either functions are configured."""
@@ -302,17 +318,18 @@ class OpenAIChatConfig(BaseModel):
             max_extensions = self.extender.max_extensions
             token_limit = self.extender.api_completion_token_limit
 
-        output = OpenAIChatOutput(content="",
-                                  completion_tokens=0,
-                                  aliases=preset_aliases)
+        output = OpenAIChatOutput(
+            content="", completion_tokens=0, aliases=preset_aliases
+        )
         tail = input
         num_extensions = 0
         while num_extensions <= max_extensions:
             logger.debug(f"Starting pass #{num_extensions + 1}")
             result = self.invoke(client, tail, output.aliases)
             if resolver:
-                output.aliases, result.content = \
-                    resolver.resolve(client, input, result, raw_delimiters)
+                output.aliases, result.content = resolver.resolve(
+                    client, input, result, raw_delimiters
+                )
             output.content += result.content
             output.completion_tokens += result.completion_tokens
 
@@ -329,27 +346,28 @@ class OpenAIChatConfig(BaseModel):
                 break
 
         return output
-        
 
-class TooManyRetries(Exception): pass
+
+class TooManyRetries(Exception):
+    pass
+
 
 class OpenAIResolverConfig(OpenAIChatConfig):
     """Resolve aliases using an OpenAI model."""
+
     retries: PositiveInt = 3
 
     def resolve(
-        self, 
-        client: OpenAI, 
-        original: AnyChatInput | Sequence[AnyChatInput], 
+        self,
+        client: OpenAI,
+        original: AnyChatInput | Sequence[AnyChatInput],
         redacted: OpenAIChatOutput,
-        raw_delimiters: Sequence[str]
+        raw_delimiters: Sequence[str],
     ) -> str:
-        redacted.content = remove_hanging_redactions(redacted.content, 
-                                                     raw_delimiters)
-        input = prepare_resolve_input(original, 
-                                      redacted.content, 
-                                      redacted.aliases,
-                                      raw_delimiters)
+        redacted.content = remove_hanging_redactions(redacted.content, raw_delimiters)
+        input = prepare_resolve_input(
+            original, redacted.content, redacted.aliases, raw_delimiters
+        )
 
         last_e: Exception | None = None
         for i in range(self.retries):
@@ -365,7 +383,7 @@ class OpenAIResolverConfig(OpenAIChatConfig):
                                {self.retries}): {e}")
         else:
             raise TooManyRetries from last_e
-    
+
 
 class OpenAIConfig(BaseModel):
     client: OpenAIClientConfig

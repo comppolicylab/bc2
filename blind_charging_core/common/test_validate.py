@@ -2,19 +2,19 @@ import pytest
 
 from .validate import validate_json
 
+
 @pytest.mark.parametrize(
     "raw,expected",
     [
         (
-            "{\n  \"key\": \"value\"\n}",
+            '{\n  "key": "value"\n}',
             {"key": "value"},
         )
     ],
 )
 def test_validate_json(raw, expected):
-    assert (
-        validate_json(raw) == expected
-    )
+    assert validate_json(raw) == expected
+
 
 def test_validate_json_invalid():
     invalid_json = "I'm a finicky language model, \

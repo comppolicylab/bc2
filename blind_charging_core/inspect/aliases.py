@@ -7,7 +7,6 @@ from ..common.context import Context
 from ..common.openai import (
     OpenAIChatConfig,
     OpenAIChatPrompt,
-    OpenAIChatPromptInline,
     OpenAIConfig,
 )
 from ..common.text import RedactedText
@@ -17,12 +16,10 @@ from .base import BaseInspectDriver
 logger = logging.getLogger(__name__)
 
 
-
-
 class OpenAIAliasesInspectChatGeneratorConfig(OpenAIChatConfig):
     method: Literal["chat"] = "chat"
     model: str
-    system: OpenAIChatPrompt 
+    system: OpenAIChatPrompt
 
 
 class OpenAIAliasesInspectConfig(OpenAIConfig):
@@ -57,11 +54,17 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
 
         # Turn list of annotations into a map from name to alias
         inferred_aliases = {a["original"]: a["redacted"] for a in context.annotations}
-        context.aliases = self.generate_with_retry(redacted.original, aliases, inferred_aliases)
+        context.aliases = self.generate_with_retry(
+            redacted.original, aliases, inferred_aliases
+        )
         return redacted
 
     def generate_with_retry(
-        self, input: str, preset_aliases: NameMap, inferred_aliases: NameMap, retries: int = 3
+        self,
+        input: str,
+        preset_aliases: NameMap,
+        inferred_aliases: NameMap,
+        retries: int = 3,
     ) -> NameMap:
         """Generate text from the config and the user input, with retries.
 
@@ -86,7 +89,9 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
 
         raise ValueError("Error generating aliases.") from last_error
 
-    def generate(self, redacted: str, preset_aliases: NameMap, inferred_aliases: NameMap) -> NameMap:
+    def generate(
+        self, redacted: str, preset_aliases: NameMap, inferred_aliases: NameMap
+    ) -> NameMap:
         """Generate text from the config and the user input.
 
         Args:
@@ -98,14 +103,16 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
             The new aliases map.
         """
         input = ALIASES_PROMPT_TPL.format(
-            preset_aliases = json.dumps(preset_aliases, indent=2, sort_keys=True),
-            inferred_aliases = json.dumps(inferred_aliases, indent=2, sort_keys=True),
-            narrative = redacted,
+            preset_aliases=json.dumps(preset_aliases, indent=2, sort_keys=True),
+            inferred_aliases=json.dumps(inferred_aliases, indent=2, sort_keys=True),
+            narrative=redacted,
         )
         response = self.config.generator.invoke(self.client, input)
         return self.parse(response, preset_aliases, inferred_aliases)
 
-    def parse(self, response: str, preset_aliases: NameMap, inferred_aliases: NameMap) -> NameMap:
+    def parse(
+        self, response: str, preset_aliases: NameMap, inferred_aliases: NameMap
+    ) -> NameMap:
         """Parse the response from the generator.
 
         The response should be a JSON object mapping IDs to aliases.

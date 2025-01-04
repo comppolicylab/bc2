@@ -42,7 +42,7 @@ def run(
         },
         "redact": {
             "aliases": json.loads(aliases) if aliases else None,
-        },    
+        },
     }
 
     pipe = Pipeline(config)

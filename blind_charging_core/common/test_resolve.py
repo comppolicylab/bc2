@@ -2,6 +2,7 @@ import pytest
 
 from .resolve import prepare_resolve_input
 
+
 @pytest.mark.parametrize(
     "original,redacted,aliases,raw_delimiters,expected",
     [
@@ -24,7 +25,7 @@ from .resolve import prepare_resolve_input
 
 [NARRATIVE]
 One day, Leopold trotted into Safeway to buy a big bone.
-"""
+""",
         ),
         (
             "One day, the best dog trotted into a store to buy a big bone.",
@@ -42,7 +43,7 @@ One day, Leopold trotted into Safeway to buy a big bone.
 
 [NARRATIVE]
 One day, the best dog trotted into a store to buy a big bone.
-"""
+""",
         ),
         (
             "One day, Leopold trotted into Safeway to buy a big bone.",
@@ -61,7 +62,7 @@ One day, the best dog trotted into a store to buy a big bone.
 
 [NARRATIVE]
 One day, Leopold trotted into Safeway to buy a big bone.
-"""
+""",
         ),
     ],
 )

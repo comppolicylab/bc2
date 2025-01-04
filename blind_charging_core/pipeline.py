@@ -13,8 +13,8 @@ from .input.azureblob import AzureBlobInputConfig
 from .input.file import FileInputConfig
 from .input.memory import MemoryInputConfig
 from .input.stdin import StdinInputConfig
-from .inspect.annotations import InspectAnnotationsConfig
 from .inspect.aliases import OpenAIAliasesInspectConfig
+from .inspect.annotations import InspectAnnotationsConfig
 from .output.azureblob import AzureBlobOutputConfig
 from .output.file import FileOutputConfig
 from .output.memory import MemoryOutputConfig

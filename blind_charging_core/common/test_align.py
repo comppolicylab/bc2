@@ -2,6 +2,7 @@ import pytest
 
 from .align import residual
 
+
 @pytest.mark.parametrize(
     "original,extract,expected",
     [
@@ -23,6 +24,4 @@ from .align import residual
     ],
 )
 def test_residual(original, extract, expected):
-    assert (
-        residual(original, extract) == expected
-    )
+    assert residual(original, extract) == expected
