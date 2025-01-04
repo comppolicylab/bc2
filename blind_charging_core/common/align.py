@@ -1,6 +1,6 @@
 from rapidfuzz.fuzz import partial_ratio_alignment
 
-def residual(original: str, extract: str) -> str | None:
+def residual(original: str, extract: str, needle_size = 10000) -> str | None:
     """Try to align an extracted string output with its source string. 
 
     If a match is found, return everything after the match in the source string.
@@ -14,9 +14,7 @@ def residual(original: str, extract: str) -> str | None:
         The original string trimmed to after the best match, 
         or None if no match is found.
     """
-    last_x_chars = min(10000, len(extract))
-    alignment = partial_ratio_alignment(original, 
-                                        extract[-last_x_chars:])
+    alignment = partial_ratio_alignment(original, extract[-needle_size:])
     if not alignment:
         return None
 
