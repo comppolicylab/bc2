@@ -6,7 +6,9 @@ from typing import Literal
 from ..common.context import Context
 from ..common.openai import (
     OpenAIChatConfig,
+    OpenAIChatOutput,
     OpenAIChatPrompt,
+    OpenAIChatPromptInline,
     OpenAIConfig,
 )
 from ..common.text import RedactedText
@@ -14,6 +16,31 @@ from ..common.types import NameMap
 from .base import BaseInspectDriver
 
 logger = logging.getLogger(__name__)
+
+
+ALIASES_SYSTEM_TPL = """\
+Generate a mapping of ID to alias, given the following two maps.
+[MAP#1] associates an ID with a name, and [MAP#2] associates a name with an alias.
+
+Join the maps based on the names to create a map of ID to alias.
+
+Output the final mapping as a JSON object with the ID as the key and the \
+alias as the value.
+
+Remember that the IDs in [MAP#1] are unique and each refer to at most \
+one individual in [MAP#2].
+
+Remember that the names are human names and might have variations \
+(nicknames, abbreviations, etc.).
+This means multiple variants of a name might map to the same alias, \
+like "Officer Smith" and "Officer John Smith" mapping to the same alias "Officer 1".
+
+Use [NARRATIVE] for additional context to determine which names refer \
+to the same person.
+
+Only return the final output in JSON, do not include any other text in the response.\
+"""
+
 
 ALIASES_PROMPT_TPL = """\
 [MAP#1]
@@ -23,14 +50,17 @@ ALIASES_PROMPT_TPL = """\
 {inferred_aliases}
 
 [NARRATIVE]
-{narrative}
+{narrative}\
 """
 
 
 class OpenAIAliasesInspectChatGeneratorConfig(OpenAIChatConfig):
     method: Literal["chat"] = "chat"
     model: str
-    system: OpenAIChatPrompt
+    system: OpenAIChatPrompt = OpenAIChatPromptInline(
+        engine="string",
+        prompt=ALIASES_SYSTEM_TPL,
+    )
 
 
 class OpenAIAliasesInspectConfig(OpenAIConfig):
@@ -93,7 +123,7 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
             try:
                 output = self.generate(input, preset_aliases, inferred_aliases)
                 logger.debug(f"Generated aliases: {output}")
-                return self.generate(input, preset_aliases, inferred_aliases)
+                return output
             except Exception as e:
                 logger.error(f"Error generating aliases (attempt {i + 1}): {e}")
                 last_error = e
@@ -122,7 +152,10 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
         return self.parse(response, preset_aliases, inferred_aliases)
 
     def parse(
-        self, response: str, preset_aliases: NameMap, inferred_aliases: NameMap
+        self,
+        response: OpenAIChatOutput,
+        preset_aliases: NameMap,
+        inferred_aliases: NameMap,
     ) -> NameMap:
         """Parse the response from the generator.
 
@@ -138,7 +171,7 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
             The new aliases map.
         """
         try:
-            data = json.loads(response)
+            data = json.loads(response.content)
             # TODO: Validate the JSON response matches the alias maps
         except json.JSONDecodeError as e:
             logger.error(f"Error parsing JSON response: {e}")

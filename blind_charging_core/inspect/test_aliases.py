@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from ..common.context import Context
 from ..common.text import RedactedText
-from .aliases import ALIASES_PROMPT_TPL, OpenAIAliasesInspectConfig
+from .aliases import ALIASES_SYSTEM_TPL, OpenAIAliasesInspectConfig
 
 
 @patch("blind_charging_core.common.openai.OpenAI")
@@ -73,7 +73,7 @@ def test_inspect_aliases(openai_mock):
     result = cfg.driver(
         rt,
         ctx,
-        subjects={
+        aliases={
             "A": "Leopold",
             "B": "Pollock",
             "C": "Abbott",
@@ -91,7 +91,7 @@ def test_inspect_aliases(openai_mock):
         messages=[
             {
                 "role": "system",
-                "content": ALIASES_PROMPT_TPL,
+                "content": ALIASES_SYSTEM_TPL,
             },
             {
                 "role": "user",

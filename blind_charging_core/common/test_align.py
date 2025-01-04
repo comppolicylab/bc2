@@ -19,7 +19,7 @@ from .align import residual
         (
             "One day, Leopold trotted into Safeway to buy a big bone.",
             "Then he went to the park to look for squirrels.",
-            None,
+            "",
         ),
     ],
 )
