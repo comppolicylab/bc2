@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +16,9 @@ def validate_json(raw: str) -> dict:
     Returns:
         A dict of the parsed JSON.
     """
+    text = re.sub(r"(\`\`\`|json)", "", raw)
     try:
-        data = json.loads(raw)
+        data = json.loads(text)
     except json.JSONDecodeError as e:
         logger.error(f"Error parsing JSON response: {e}")
         raise ValueError("Error parsing JSON response.") from e

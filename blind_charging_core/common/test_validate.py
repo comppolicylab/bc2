@@ -9,7 +9,11 @@ from .validate import validate_json
         (
             '{\n  "key": "value"\n}',
             {"key": "value"},
-        )
+        ),
+        (
+            '```json\n  {\n    "key": "value"\n  }\n```',
+            {"key": "value"},
+        ),
     ],
 )
 def test_validate_json(raw, expected):
