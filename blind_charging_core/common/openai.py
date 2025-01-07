@@ -1,15 +1,26 @@
+from __future__ import annotations
+
 import json
+import logging
 import os
 from abc import abstractmethod
 from functools import cached_property
-from typing import Any, Literal, Sequence
+from typing import Literal, Sequence
 
 from openai import AzureOpenAI, OpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, NonNegativeInt, PositiveInt, model_validator
+from typing_extensions import Self
 
+from .align import residual
 from .datafile import DataType, load_data_file, load_data_file_from_path
 from .image import ImageUrl
+from .infer import remove_hanging_redactions
+from .resolve import prepare_resolve_input
 from .template import TemplateEngine, get_formatter
+from .types import NameMap
+from .validate import validate_json
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAIClientConfig(BaseModel):
@@ -72,6 +83,14 @@ class OpenAIChatTurn(BaseModel):
 
 
 AnyChatInput = str | ImageUrl
+
+
+class OpenAIChatOutput(BaseModel):
+    """A chat output for an OpenAI model."""
+
+    content: str
+    completion_tokens: int
+    aliases: NameMap | None = None
 
 
 class ChatPrompt:
@@ -215,72 +234,11 @@ OpenAIChatPrompt = (
 )
 
 
-class CompletionPrompt:
-    engine: TemplateEngine = "string"
+class OpenAIExtenderConfig(BaseModel, ChatPrompt):
+    """Allow outputs over the OpenAI output token limit."""
 
-    @property
-    @abstractmethod
-    def prompt(self) -> str: ...
-
-    def format(self, input: str, **kwargs) -> str:
-        """Format the prompt."""
-        ctx = {**kwargs, "input": input}
-        fmt = get_formatter(self.engine)
-        return fmt(self.prompt, ctx)
-
-
-class OpenAICompletionPromptInline(BaseModel, CompletionPrompt):
-    """A completion prompt for an OpenAI model."""
-
-    prompt_text: str
-
-    @property
-    def prompt(self) -> str:
-        """Echo the prompt text."""
-        return self.prompt_text
-
-
-class OpenAICompletionPromptFile(BaseModel, CompletionPrompt):
-    """A prompt file for an OpenAI model."""
-
-    prompt_file: str
-
-    @cached_property
-    def prompt(self) -> str:
-        """Load the prompt file"""
-        return load_data_file_from_path(DataType.prompt, self.prompt_file)
-
-
-class OpenAICompletionPromptBuiltIn(BaseModel, CompletionPrompt):
-    """A built-in prompt for an OpenAI model."""
-
-    prompt_id: str
-
-    @cached_property
-    def prompt(self) -> str:
-        return load_data_file(DataType.prompt, self.prompt_id)
-
-
-class OpenAICompletionPromptEnv(BaseModel, CompletionPrompt):
-    """A prompt file for an OpenAI model."""
-
-    prompt_env: str
-
-    @cached_property
-    def prompt(self) -> str:
-        """Load the prompt from the environment variable"""
-        s = os.getenv(self.prompt_env)
-        if s is None:
-            raise ValueError(f"Environment variable {self.prompt_env} not set")
-        return s
-
-
-OpenAICompletionPrompt = (
-    OpenAICompletionPromptInline
-    | OpenAICompletionPromptFile
-    | OpenAICompletionPromptEnv
-    | OpenAICompletionPromptBuiltIn
-)
+    max_extensions: NonNegativeInt
+    api_completion_token_limit: PositiveInt
 
 
 class OpenAIChatConfig(BaseModel):
@@ -290,63 +248,138 @@ class OpenAIChatConfig(BaseModel):
     model: str
     system: OpenAIChatPrompt
     frequency_penalty: float | None = None
-    max_tokens: int | None = None
+    max_tokens: PositiveInt | None = None
     n: int = 1
     presence_penalty: float | None = None
     seed: int | None = None
     temperature: float | None = None
     top_p: float | None = None
+
+    extender: OpenAIExtenderConfig | None = None
+
+    @model_validator(mode="after")
+    def cap_token_limits(self) -> Self:
+        if self.extender and self.max_tokens:
+            token_cap = min(self.max_tokens, self.extender.api_completion_token_limit)
+            logger.debug(f"Unequal token limits, capping at {token_cap}")
+            self.max_tokens = token_cap
+            self.extender.api_completion_token_limit = token_cap
+        return self
 
     def invoke(
-        self, client: OpenAI, input: AnyChatInput | Sequence[AnyChatInput], **kwargs
-    ) -> str:
+        self,
+        client: OpenAI,
+        input: AnyChatInput | Sequence[AnyChatInput],
+        preset_aliases: NameMap | None = None,
+    ) -> OpenAIChatOutput:
         """Invoke the chat."""
-        settings = self.model_dump()
-        settings.pop("method")
-        settings.pop("system")
-        messages = [m.model_dump() for m in self.system.format(input, **kwargs)]
-        # Remove any setting whose value is `None`
-        settings = {k: v for k, v in settings.items() if v is not None}
-        completion = client.chat.completions.create(**settings, messages=messages)
-        return completion.choices[0].message.content
+        props = self.model_dump()
+        openai_api_params = {
+            "model",
+            "frequency_penalty",
+            "max_tokens",
+            "n",
+            "presence_penalty",
+            "seed",
+            "temperature",
+            "top_p",
+        }
+        # Only keep populated settings that are in the OpenAI API params list
+        openai_api_settings = {
+            k: v for k, v in props.items() if k in openai_api_params and v is not None
+        }
+
+        messages = [
+            m.model_dump()
+            for m in self.system.format(input, preset_aliases=preset_aliases)
+        ]
+        completion = client.chat.completions.create(
+            **openai_api_settings, messages=messages
+        )
+        content = completion.choices[0].message.content
+        completion_tokens = completion.usage.completion_tokens
+        return OpenAIChatOutput(
+            content=content, completion_tokens=completion_tokens, aliases=preset_aliases
+        )
+
+    def invoke_extend_resolve(
+        self,
+        client: OpenAI,
+        input: str,
+        resolver: OpenAIResolverConfig | None = None,
+        preset_aliases: NameMap | None = None,
+    ) -> OpenAIChatOutput:
+        """Invoke the chat with extensions and/or resolution,
+        if either functions are configured."""
+        max_extensions = 0
+        token_limit = -1
+        if self.extender:
+            max_extensions = self.extender.max_extensions
+            token_limit = self.extender.api_completion_token_limit
+
+        output = OpenAIChatOutput(
+            content="", completion_tokens=0, aliases=preset_aliases
+        )
+        tail = input
+        num_extensions = 0
+        while num_extensions <= max_extensions:
+            logger.debug(f"Starting pass #{num_extensions + 1}")
+            result = self.invoke(client, tail, output.aliases)
+            if resolver:
+                output.aliases, result.content = resolver.resolve(client, input, result)
+            output.content += result.content
+            output.completion_tokens += result.completion_tokens
+
+            if result.completion_tokens == token_limit:
+                logger.debug(f"Hit token limit on pass #{num_extensions + 1}")
+                logger.debug(f"Haystack length: {len(tail)}")
+                logger.debug(f"Needle length: {len(result.content)}")
+                num_extensions += 1
+                tail = residual(tail, result.content)
+                if not tail:
+                    break
+                output.content += " "
+            else:
+                break
+
+        return output
 
 
-class OpenAICompletionConfig(BaseModel):
-    """OpenAI Completion config."""
-
-    method: Literal["completion"]
-    model: str
-    prompt: OpenAICompletionPrompt
-    best_of: int | None = None
-    frequency_penalty: float | None = None
-    logit_bias: dict[str, int] | None = None
-    max_tokens: int | None = None
-    n: int = 1
-    presence_penalty: float | None = None
-    seed: int | None = None
-    stop: list[str] | None = None
-    temperature: float | None = None
-    top_p: float | None = None
-
-    def __init__(self, **data: Any):
-        super().__init__(**data)
-        if self.best_of is not None and self.n is not None:
-            if self.best_of <= self.n:
-                raise ValueError("best_of must be greater than n")
-
-    def invoke(self, client: OpenAI, input: str, **kwargs) -> str:
-        """Invoke the completion."""
-        settings = self.model_dump()
-        settings.pop("method")
-        settings.pop("prompt")
-        prompt = self.prompt.format(input, **kwargs)
-        # Remove any setting whose value is `None`
-        settings = {k: v for k, v in settings.items() if v is not None}
-        completion = client.completions.create(**settings, prompt=prompt)
-        return completion.choices[0].text
+class TooManyRetries(Exception):
+    pass
 
 
-OpenAIGeneratorConfig = OpenAIChatConfig | OpenAICompletionConfig
+class OpenAIResolverConfig(OpenAIChatConfig):
+    """Resolve aliases using an OpenAI model."""
+
+    retries: PositiveInt = 3
+    delimiters: Sequence[str] = ""
+
+    def resolve(
+        self,
+        client: OpenAI,
+        original: str,
+        redacted: OpenAIChatOutput,
+    ) -> tuple[dict, str]:
+        redacted.content = remove_hanging_redactions(redacted.content, self.delimiters)
+        input = prepare_resolve_input(
+            original, redacted.content, redacted.aliases, self.delimiters
+        )
+
+        last_e: Exception | None = None
+        for i in range(self.retries):
+            try:
+                # Try calling the input and parsing the response
+                response = self.invoke(client, input)
+                aliases = validate_json(response.content)
+                logger.debug(f"Resolved aliases: {aliases}")
+                return (aliases, redacted.content)
+            except Exception as e:
+                last_e = e
+                logger.warning(f"Error generating aliases (attempt {i + 1} of \
+                               {self.retries}): {e}")
+        else:
+            raise TooManyRetries from last_e
 
 
 class OpenAIConfig(BaseModel):

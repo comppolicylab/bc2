@@ -6,6 +6,7 @@ from typing import Literal
 from ..common.context import Context
 from ..common.openai import (
     OpenAIChatConfig,
+    OpenAIChatOutput,
     OpenAIChatPrompt,
     OpenAIChatPromptInline,
     OpenAIConfig,
@@ -43,10 +44,10 @@ Only return the final output in JSON, do not include any other text in the respo
 
 ALIASES_PROMPT_TPL = """\
 [MAP#1]
-{map1}
+{preset_aliases}
 
 [MAP#2]
-{map2}
+{inferred_aliases}
 
 [NARRATIVE]
 {narrative}\
@@ -78,34 +79,40 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
         self.config = config
         self.client = config.client.init()
 
-    required = ["subjects"]
+    required = ["aliases"]
 
     def __call__(
         self,
         redacted: RedactedText,
         context: Context,
-        subjects: NameMap | None = None,
+        aliases: NameMap | None = None,
     ) -> RedactedText:
-        if not subjects:
-            raise ValueError("Subjects are required for alias reconciliation.")
+        if not aliases:
+            raise ValueError("Aliases are required for alias reconciliation.")
 
         if context.annotations is None:
             raise ValueError("Annotations are required for alias reconciliation.")
 
         # Turn list of annotations into a map from name to alias
-        aliases = {a["original"]: a["redacted"] for a in context.annotations}
-        context.aliases = self.generate_with_retry(redacted.original, aliases, subjects)
+        inferred_aliases = {a["original"]: a["redacted"] for a in context.annotations}
+        context.aliases = self.generate_with_retry(
+            redacted.original, aliases, inferred_aliases
+        )
         return redacted
 
     def generate_with_retry(
-        self, input: str, aliases: NameMap, subjects: NameMap, retries: int = 3
+        self,
+        input: str,
+        preset_aliases: NameMap,
+        inferred_aliases: NameMap,
+        retries: int = 3,
     ) -> NameMap:
         """Generate text from the config and the user input, with retries.
 
         Args:
             input: The input text.
-            aliases: The existing aliases map.
-            subjects: The subjects map.
+            preset_aliases: The preexisting aliases map.
+            inferred_aliases: The aliases map inferred by the redaction process.
             retries: The number of retries to attempt.
 
         Returns:
@@ -114,48 +121,58 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
         last_error: Exception | None = None
         for i in range(retries):
             try:
-                return self.generate(input, aliases, subjects)
+                output = self.generate(input, preset_aliases, inferred_aliases)
+                logger.debug(f"Generated aliases: {output}")
+                return output
             except Exception as e:
                 logger.error(f"Error generating aliases (attempt {i + 1}): {e}")
                 last_error = e
 
         raise ValueError("Error generating aliases.") from last_error
 
-    def generate(self, redacted: str, aliases: NameMap, subjects: NameMap) -> NameMap:
+    def generate(
+        self, redacted: str, preset_aliases: NameMap, inferred_aliases: NameMap
+    ) -> NameMap:
         """Generate text from the config and the user input.
 
         Args:
             redacted: The redacted text.
-            aliases: The existing aliases map.
-            subjects: The subjects map.
+            preset_aliases: The preexisting aliases map.
+            inferred_aliases: The aliases map inferred by the redaction process.
 
         Returns:
             The new aliases map.
         """
         input = ALIASES_PROMPT_TPL.format(
-            map1=json.dumps(subjects, indent=2, sort_keys=True),
-            map2=json.dumps(aliases, indent=2, sort_keys=True),
+            preset_aliases=json.dumps(preset_aliases, indent=2, sort_keys=True),
+            inferred_aliases=json.dumps(inferred_aliases, indent=2, sort_keys=True),
             narrative=redacted,
         )
         response = self.config.generator.invoke(self.client, input)
-        return self.parse(response, aliases, subjects)
+        return self.parse(response, preset_aliases, inferred_aliases)
 
-    def parse(self, response: str, aliases: NameMap, subjects: NameMap) -> NameMap:
+    def parse(
+        self,
+        response: OpenAIChatOutput,
+        preset_aliases: NameMap,
+        inferred_aliases: NameMap,
+    ) -> NameMap:
         """Parse the response from the generator.
 
         The response should be a JSON object mapping IDs to aliases.
 
         Args:
             response: The response from the generator.
-            aliases: The existing aliases map (for validation).
-            subjects: The subjects map (for validation).
+            preset_aliases: The preexisting aliases map (for validation).
+            inferred_aliases: The aliases map inferred by the redaction process
+                (for validation).
 
         Returns:
             The new aliases map.
         """
         try:
-            data = json.loads(response)
-            # TODO: Validate the JSON response matches the aliases/subjects maps
+            data = json.loads(response.content)
+            # TODO: Validate the JSON response matches the alias maps
         except json.JSONDecodeError as e:
             logger.error(f"Error parsing JSON response: {e}")
             raise ValueError("Error parsing JSON response.") from e

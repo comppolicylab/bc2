@@ -73,7 +73,7 @@ def test_inspect_aliases(openai_mock):
     result = cfg.driver(
         rt,
         ctx,
-        subjects={
+        aliases={
             "A": "Leopold",
             "B": "Pollock",
             "C": "Abbott",

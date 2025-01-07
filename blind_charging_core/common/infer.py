@@ -57,6 +57,18 @@ class Delimiter:
         closer_len = len(delimiters[1])
         return cls(opener_re, opener_len), cls(closer_re, closer_len)
 
+    def find_first(self, text: str) -> re.Match | None:
+        try:
+            return next(self.pattern.finditer(text))
+        except StopIteration:
+            return None
+
+    def find_last(self, text: str) -> re.Match | None:
+        try:
+            return list(self.pattern.finditer(text))[-1]
+        except IndexError:
+            return None
+
 
 Op = Literal["replace", "insert", "delete", "equal"]
 """Diff segment operation type."""
@@ -184,8 +196,8 @@ def segment(  # noqa: C901
             continue
 
         # Check if the mask contains the delimiters
-        opener = opener_delim.pattern.search(mask)
-        closer = closer_delim.pattern.search(mask)
+        opener = opener_delim.find_first(mask)
+        closer = closer_delim.find_first(mask)
 
         # Simplify the opcodes by splitting them if needed.
         new_ops = _split_opcode(mask, opcode, i1, i2, j1, j2, opener, closer)
@@ -263,3 +275,28 @@ def infer_annotations(
                     len(seg.open_delim or "") : -len(seg.close_delim or "")
                 ],
             }
+
+
+def remove_hanging_redactions(redacted: str, raw_delimiters: Sequence[str]) -> str:
+    """Remove hanging redactions from text with redactions. This can happen
+    if we hit an output token limit in the middle of a redaction.
+
+    Args:
+        redacted: The redacted text.
+        raw_delimiters: The delimiters to use.
+
+    Returns:
+        The redacted text, with a hanging redaction removed if present.
+    """
+    d_open, d_close = Delimiter.parse(raw_delimiters)
+
+    last_opener = d_open.find_last(redacted)
+    last_closer = d_close.find_last(redacted)
+
+    if last_opener:
+        last_opener_pos = last_opener.start()
+        last_closer_pos = last_closer.start() if last_closer else -1
+        if last_opener_pos > last_closer_pos:
+            redacted = redacted[: last_opener.start()]
+
+    return redacted

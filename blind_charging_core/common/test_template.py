@@ -23,6 +23,12 @@ from .template import TemplateEngine, get_formatter
             {"input": "foo", "aliases": {"bar": "baz"}},
             "Input,aliases\nfoo\n{'bar': 'baz'}",
         ),
+        (
+            "string",
+            "Input,aliases",
+            {"input": "foo", "aliases": "", "bar": None},
+            "Input,aliases\nfoo\n",
+        ),
     ],
 )
 def test_format_template(
