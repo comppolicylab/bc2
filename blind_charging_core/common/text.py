@@ -1,6 +1,7 @@
 from typing import Callable, Literal, Sequence, Tuple
 
 from .infer import TextSegment, segment
+from .types import NameMap
 
 
 class Text:
@@ -61,7 +62,13 @@ class RedactedText:
     into a rich diff.
     """
 
-    def __init__(self, redacted: str, original: str, delimiters: Sequence[str]) -> None:
+    def __init__(
+        self,
+        redacted: str,
+        original: str,
+        delimiters: Sequence[str],
+        aliases: NameMap | None = None,
+    ) -> None:
         """Initialize a redacted text.
 
         Args:
@@ -69,10 +76,12 @@ class RedactedText:
             original: The original text.
             delimiters: The open and close delimiters to use for marking
             redactions within the text.
+            aliases: The aliases used to redact text.
         """
         self.redacted = redacted
         self.original = original
         self.delimiters = delimiters
+        self.aliases = aliases
 
     @property
     def annotations(self) -> list[TextSegment]:

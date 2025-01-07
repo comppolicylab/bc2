@@ -1,7 +1,13 @@
 from functools import cached_property
 from typing import Literal
 
-from ..common.openai import OpenAIChatConfig, OpenAICompletionConfig, OpenAIConfig
+from ..common.context import Context
+from ..common.openai import (
+    OpenAIChatConfig,
+    OpenAIChatOutput,
+    OpenAIConfig,
+    OpenAIResolverConfig,
+)
 from ..common.text import RedactedText, Text
 from ..common.types import NameMap
 from .base import BaseRedactConfig, BaseRedactDriver
@@ -11,10 +17,13 @@ class OpenAIRedactConfig(BaseRedactConfig, OpenAIConfig):
     """OpenAI Redact config."""
 
     engine: Literal["redact:openai"]
-    generator: OpenAIChatConfig | OpenAICompletionConfig
+    generator: OpenAIChatConfig
+    resolver: OpenAIResolverConfig
 
     @cached_property
     def driver(self) -> "OpenAIRedactDriver":
+        # Inject the delimiters into the resolver instance
+        self.resolver.delimiters = self.delimiters
         return OpenAIRedactDriver(self)
 
 
@@ -23,17 +32,26 @@ class OpenAIRedactDriver(BaseRedactDriver):
         self.config = config
         self.client = config.client.init()
 
-    def __call__(self, narrative: Text, aliases: NameMap | None = None) -> RedactedText:
+    def __call__(
+        self, narrative: Text, context: Context, aliases: NameMap | None = None
+    ) -> RedactedText:
         if not narrative.text or narrative.text == "No narratives found.":
             raise ValueError("No narrative text in input.")
         redacted = self.generate(narrative.text, aliases=aliases)
-        return RedactedText(redacted, narrative.text, self.config.delimiters)
+        # To do: Change the context prop to whatever name we decide makes sense
+        context.aliases = redacted.aliases
+        return RedactedText(redacted.content, narrative.text, self.config.delimiters)
 
-    def generate(self, input: str, aliases: NameMap | None = None) -> str:
+    def generate(self, input: str, aliases: NameMap | None = None) -> OpenAIChatOutput:
         """Generate text from the config and the user input.
 
         This method only supports textual inputs.
 
-        This method is supported for either completion or chat generators.
+        This method is supported for only chat generators.
         """
-        return self.config.generator.invoke(self.client, input, aliases=aliases)
+
+        output = self.config.generator.invoke_extend_resolve(
+            self.client, input, self.config.resolver, aliases
+        )
+
+        return output

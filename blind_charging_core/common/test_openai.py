@@ -7,7 +7,6 @@ from .openai import (
     OpenAIChatPromptFile,
     OpenAIChatPromptInline,
     OpenAIChatTurn,
-    OpenAICompletionPromptBuiltIn,
 )
 
 
@@ -17,18 +16,6 @@ def test_chat_prompt_builtin():
     cur_dur = Path(__file__).parent
     assert (
         c.prompt_value
-        == (cur_dur / "../../blind_charging_data/prompts/redact.txt")
-        .resolve()
-        .read_text()
-    )
-
-
-def test_completion_prompt_builtin():
-    c = OpenAICompletionPromptBuiltIn(prompt_id="redact")
-    # Real file is in ../../../data/prompts/redact.txt
-    cur_dur = Path(__file__).parent
-    assert (
-        c.prompt
         == (cur_dur / "../../blind_charging_data/prompts/redact.txt")
         .resolve()
         .read_text()
