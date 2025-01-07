@@ -27,7 +27,7 @@ def format_string(tpl: str, ctx: Ctx) -> str:
     # If there are no placeholders, just tack on fields to the end.
     outputs: list[str] = [tpl]
     for value in ctx.values():
-        if value:
+        if value is not None:
             outputs.append(str(value))
 
     return "\n".join(outputs)

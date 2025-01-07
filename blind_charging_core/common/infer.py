@@ -26,20 +26,6 @@ TextSegment = NamedTuple(
 )
 
 
-class NoMatch:
-    def start(self):
-        return -1
-
-    def end(self):
-        return -1
-
-    def group(self, _):
-        return None
-
-    def __bool__(self):
-        return False
-
-
 @dataclass
 class Delimiter:
     pattern: re.Pattern[str]
@@ -71,17 +57,17 @@ class Delimiter:
         closer_len = len(delimiters[1])
         return cls(opener_re, opener_len), cls(closer_re, closer_len)
 
-    def find_first(self, text: str) -> re.Match | NoMatch:
+    def find_first(self, text: str) -> re.Match | None:
         try:
             return next(self.pattern.finditer(text))
         except StopIteration:
-            return NoMatch()
+            return None
 
-    def find_last(self, text: str) -> re.Match | NoMatch:
+    def find_last(self, text: str) -> re.Match | None:
         try:
             return list(self.pattern.finditer(text))[-1]
         except IndexError:
-            return NoMatch()
+            return None
 
 
 Op = Literal["replace", "insert", "delete", "equal"]
@@ -100,8 +86,8 @@ def _split_opcode(
     i2: int,
     j1: int,
     j2: int,
-    opener: re.Match[str] | NoMatch,
-    closer: re.Match[str] | NoMatch,
+    opener: re.Match[str] | None,
+    closer: re.Match[str] | None,
 ) -> list[Opcode]:
     """Split an opcode into multiple opcodes if needed.
 
@@ -304,10 +290,13 @@ def remove_hanging_redactions(redacted: str, raw_delimiters: Sequence[str]) -> s
     """
     d_open, d_close = Delimiter.parse(raw_delimiters)
 
-    last_opening = d_open.find_last(redacted)
-    last_closing = d_close.find_last(redacted)
+    last_opener = d_open.find_last(redacted)
+    last_closer = d_close.find_last(redacted)
 
-    if last_closing.start() < last_opening.start():
-        redacted = redacted[: last_opening.start()]
+    if last_opener:
+        last_opener_pos = last_opener.start()
+        last_closer_pos = last_closer.start() if last_closer else -1
+        if last_opener_pos > last_closer_pos:
+            redacted = redacted[: last_opener.start()]
 
     return redacted
