@@ -135,16 +135,16 @@ class PDFRenderer(RichTextRenderer):
             ParagraphStyle(
                 name="Header",
                 fontName="Times-Bold",
-                fontSize=10,
-                leading=14,
+                fontSize=12,
+                leading=16,
             )
         )
         styles.add(
             ParagraphStyle(
                 name="Normal",
                 fontName="Times-Roman",
-                fontSize=12,
-                leading=14,
+                fontSize=14,
+                leading=16,
                 spaceAfter=10,
             )
         )
@@ -153,7 +153,7 @@ class PDFRenderer(RichTextRenderer):
                 name="Disclaimer",
                 parent=styles["Normal"],
                 fontName="Times-Italic",
-                fontSize=10,
+                fontSize=12,
                 # ACW note: I think since this applies to an entire paragraph,
                 # `textColor` is the way to set the color for the disclaimer.
                 # For the `Redaction` and `RedactError` styles below, they
@@ -166,15 +166,15 @@ class PDFRenderer(RichTextRenderer):
             ParagraphStyle(
                 name="Footer",
                 parent=styles["Normal"],
-                fontSize=10,
+                fontSize=12,
             )
         )
         styles.add(
             ParagraphStyle(
                 name="Redaction",
                 parent=styles["Normal"],
-                fontName="Courier",
-                fontSize=12,
+                fontName="Courier-Bold",
+                fontSize=14,
                 color="tomato",
             )
         )

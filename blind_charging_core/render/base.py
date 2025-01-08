@@ -16,8 +16,7 @@ The above passages were automatically extracted from referral documents and \
 automatically redacted to hide race-related information. Occasionally, words \
 or punctuation may be automatically added to fix typos. \
 {REDACT_ERROR_APPEARANCE}\
-Please report any issues to <a href="mailto:blind_charging@hks.harvard.edu">\
-blind_charging@hks.harvard.edu</a>."""
+Please report any issues at <a href="https://bit.ly/report-rbc-bug">https://bit.ly/report-rbc-bug</a>."""
 
 
 class BaseRenderer(ABC):
