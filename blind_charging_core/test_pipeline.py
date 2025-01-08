@@ -40,7 +40,7 @@ def test_pipeline_simple_debug():
         b"The above passages were automatically extracted from referral "
         b"documents and automatically redacted to hide race-related "
         b"information. Occasionally, words or punctuation may be "
-        b"automatically added to fix typos. Please report any issues to "
-        b"blind_charging@hks.harvard.edu."
+        b"automatically added to fix typos. Please report any issues at "
+        b"https://bit.ly/report-rbc-bug."
     )
     assert ctx.debug is True
