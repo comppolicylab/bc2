@@ -46,7 +46,7 @@ process_file() {
     stripped_filename=${filename:4}  # Strip the last four characters
     temp_toml="$TEMP_DIR/${stripped_filename}.toml"
     sed "s/{{filename}}/${stripped_filename}/g" "$CONFIG_FILE" > "$temp_toml"
-    poetry run python -m blind_charging_core "$temp_toml" --input-path "$file" --output-path "$OUTPUT_DIR/${filename}.pdf" --debug
+    poetry run python -m bc2.core "$temp_toml" --input-path "$file" --output-path "$OUTPUT_DIR/${filename}.pdf" --debug
 }
 
 export -f process_file

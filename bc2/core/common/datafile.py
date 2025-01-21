@@ -65,8 +65,8 @@ _TYPE_REGISTRY: dict[DataType, DataTypeInfo] = {
 
 def data_file_path(data_type: DataType, id_: str) -> str:
     """Get the path to a data file given its type and ID."""
-    # Data files are stored as ./blind_charging_data/{directory}/{file_id}.{extension}
-    # We are in: ./blind_charging_core/common
+    # Data files are stored as ./data/{directory}/{file_id}.{extension}
+    # We are in: ./core/common
     metadata = _TYPE_REGISTRY[data_type]
     current_dir = os.path.dirname(__file__)
     sanitized_id = re.sub(r"[^a-zA-Z0-9]", "_", id_)
@@ -74,7 +74,7 @@ def data_file_path(data_type: DataType, id_: str) -> str:
         current_dir,
         "..",
         "..",
-        "blind_charging_data",
+        "data",
         metadata.directory,
         f"{sanitized_id}.{metadata.extension}",
     )
