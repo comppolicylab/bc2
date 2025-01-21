@@ -13,7 +13,7 @@ Prompt with jinja formatting aliases.
 """
 
 
-@patch("blind_charging_core.common.openai.OpenAI")
+@patch("bc2.core.common.openai.OpenAI")
 def test_redact_jinja_with_aliases(openai_mock):
     def mock_create(*args, **kwargs):
         model_name = kwargs.get("model")

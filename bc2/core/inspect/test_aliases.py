@@ -6,7 +6,7 @@ from ..common.text import RedactedText
 from .aliases import ALIASES_SYSTEM_TPL, OpenAIAliasesInspectConfig
 
 
-@patch("blind_charging_core.common.openai.OpenAI")
+@patch("bc2.core.common.openai.OpenAI")
 def test_inspect_aliases(openai_mock):
     cfg = OpenAIAliasesInspectConfig.model_validate(
         {
