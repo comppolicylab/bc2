@@ -244,7 +244,7 @@ class OpenAIExtenderConfig(BaseModel, ChatPrompt):
 class OpenAIChatConfig(BaseModel):
     """OpenAI Chat config."""
 
-    method: Literal["chat"]
+    method: Literal["chat"] = "chat"
     model: str
     system: OpenAIChatPrompt
     frequency_penalty: float | None = None
