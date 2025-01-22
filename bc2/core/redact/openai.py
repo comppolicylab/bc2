@@ -1,6 +1,8 @@
 from functools import cached_property
 from typing import Literal
 
+from pydantic import Field
+
 from ..common.context import Context
 from ..common.openai import (
     OpenAIChatConfig,
@@ -13,12 +15,23 @@ from ..common.types import NameMap
 from .base import BaseRedactConfig, BaseRedactDriver
 
 
+def _default_resolver(data: dict) -> OpenAIResolverConfig:
+    """Create the default resolver.
+
+    By default the resolver can essentially be the same as the generator.
+    """
+    generator_config = data.pop("generator", {})
+    generator_config["extender"] = None
+    generator_config["system"] = {"prompt_id": "resolver"}
+    return OpenAIResolverConfig(**generator_config)
+
+
 class OpenAIRedactConfig(BaseRedactConfig, OpenAIConfig):
     """OpenAI Redact config."""
 
     engine: Literal["redact:openai"]
     generator: OpenAIChatConfig
-    resolver: OpenAIResolverConfig
+    resolver: OpenAIResolverConfig = Field(default_factory=_default_resolver)
 
     @cached_property
     def driver(self) -> "OpenAIRedactDriver":

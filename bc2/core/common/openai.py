@@ -8,7 +8,7 @@ from functools import cached_property
 from typing import Literal, Sequence
 
 from openai import AzureOpenAI, OpenAI
-from pydantic import BaseModel, NonNegativeInt, PositiveInt, model_validator
+from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt, model_validator
 from typing_extensions import Self
 
 from .align import residual
@@ -241,6 +241,14 @@ class OpenAIExtenderConfig(BaseModel, ChatPrompt):
     api_completion_token_limit: PositiveInt
 
 
+def _default_extender(data: dict) -> OpenAIExtenderConfig | None:
+    """Create the default extender."""
+    # XXX(jnu): Output extension is experimental and only enabled upon request.
+    if os.getenv("BC2_EXTENDED_OUTPUT", "0") == "1":
+        return OpenAIExtenderConfig(max_extensions=3, api_completion_token_limit=4096)
+    return None
+
+
 class OpenAIChatConfig(BaseModel):
     """OpenAI Chat config."""
 
@@ -255,7 +263,7 @@ class OpenAIChatConfig(BaseModel):
     temperature: float | None = None
     top_p: float | None = None
 
-    extender: OpenAIExtenderConfig | None = None
+    extender: OpenAIExtenderConfig | None = Field(default_factory=_default_extender)
 
     @model_validator(mode="after")
     def cap_token_limits(self) -> Self:
