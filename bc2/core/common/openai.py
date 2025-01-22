@@ -245,7 +245,7 @@ def _default_extender(data: dict) -> OpenAIExtenderConfig | None:
     """Create the default extender."""
     # XXX(jnu): Output extension is experimental and only enabled upon request.
     if os.getenv("BC2_EXTENDED_OUTPUT", "0") == "1":
-        return OpenAIExtenderConfig(max_extensions=3, api_completion_token_limit=4096)
+        return OpenAIExtenderConfig(max_extensions=5, api_completion_token_limit=4096)
     return None
 
 
