@@ -22,7 +22,7 @@ include = [
 [tool.poetry.dependencies]
 python = "^3.10"
 azure-ai-formrecognizer = "3.3.3"
-pydantic = "2.9.2"
+pydantic = "2.10.5"
 pydantic-settings = "2.5.2"
 click = "^8.1.6"
 tqdm = "4.66.5"

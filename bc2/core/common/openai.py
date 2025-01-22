@@ -241,7 +241,7 @@ class OpenAIExtenderConfig(BaseModel, ChatPrompt):
     api_completion_token_limit: PositiveInt
 
 
-def _default_extender(data: dict) -> OpenAIExtenderConfig | None:
+def _default_extender() -> OpenAIExtenderConfig | None:
     """Create the default extender."""
     # XXX(jnu): Output extension is experimental and only enabled upon request.
     if os.getenv("BC2_EXTENDED_OUTPUT", "0") == "1":
