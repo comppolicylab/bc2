@@ -13,6 +13,31 @@ Prompt with jinja formatting aliases.
 """
 
 
+def test_default_resolver():
+    cfg = OpenAIRedactConfig.model_validate(
+        {
+            "engine": "redact:openai",
+            "delimiters": ("[", "]"),
+            "client": {
+                "api_key": "abc123",
+                "base_url": "http://openai.local",
+            },
+            "generator": {
+                "method": "chat",
+                "model": "gpt-4o",
+                "system": {
+                    "engine": "jinja",
+                    "prompt": JINJA_PROMPT_WITH_ALIASES,
+                },
+            },
+        },
+    )
+
+    assert cfg.resolver is not None
+    assert cfg.resolver.system.prompt_id == "resolver"
+    assert cfg.resolver.extender is None
+
+
 @patch("bc2.core.common.openai.OpenAI")
 def test_redact_jinja_with_aliases(openai_mock):
     def mock_create(*args, **kwargs):
