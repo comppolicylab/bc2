@@ -1,5 +1,7 @@
 from functools import cached_property
-from typing import Literal
+from typing import Literal, Self
+
+from pydantic import model_validator
 
 from ..common.context import Context
 from ..common.openai import (
@@ -18,12 +20,22 @@ class OpenAIRedactConfig(BaseRedactConfig, OpenAIConfig):
 
     engine: Literal["redact:openai"]
     generator: OpenAIChatConfig
-    resolver: OpenAIResolverConfig
+    resolver: OpenAIResolverConfig | None = None
+
+    @model_validator(mode="after")
+    def _validate_resolver(self) -> Self:
+        # Derive a resolver from the generator if it's not set
+        if not self.resolver:
+            generator_cfg = self.generator.model_dump()
+            generator_cfg["extender"] = None
+            generator_cfg["system"] = {"prompt_id": "resolver"}
+            self.resolver = OpenAIResolverConfig(**generator_cfg)
+        # Inject the delimiters into the resolver instance
+        self.resolver.delimiters = self.delimiters
+        return self
 
     @cached_property
     def driver(self) -> "OpenAIRedactDriver":
-        # Inject the delimiters into the resolver instance
-        self.resolver.delimiters = self.delimiters
         return OpenAIRedactDriver(self)
 
 
