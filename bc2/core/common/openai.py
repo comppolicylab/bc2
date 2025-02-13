@@ -243,8 +243,10 @@ class OpenAIExtenderConfig(BaseModel, ChatPrompt):
 
 def _default_extender() -> OpenAIExtenderConfig | None:
     """Create the default extender."""
-    # XXX(jnu): Output extension is experimental and only enabled upon request.
-    if os.getenv("BC2_EXTENDED_OUTPUT", "0") == "1":
+    # NOTE(jnu) - extended output is still experimental, but on by default given
+    # promising pilot results. Eventually we will remove this flag entirely,
+    # but it's kept in order to disable if something goes wrong.
+    if os.getenv("BC2_EXTENDED_OUTPUT", "1") == "1":
         return OpenAIExtenderConfig(max_extensions=5, api_completion_token_limit=4096)
     return None
 
