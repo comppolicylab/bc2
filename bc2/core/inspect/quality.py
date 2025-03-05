@@ -32,13 +32,29 @@ class QualityMetric:
 
 @dataclass
 class QualityReport:
+    """Quality metrics for the redacted text.
+
+    The difference between `segments` and `edits` is that `segments` includes
+    unaltered text between the original and redacted versions, while `edits`
+    only considers text that was changed between the two.
+
+    Both `segments.invalid` and `edits.invalid` will be the same, since invalid
+    segments are by definition also edits. But the ratios of invalid to valid
+    for these two metrics will almost always be different.
+
+    Attributes:
+        segments: The number of segments in the redacted text.
+        chars: The number of characters in the redacted text.
+        edits: The number of edits in the redacted text.
+    """
+
     segments: QualityMetric = field(default_factory=QualityMetric)
     chars: QualityMetric = field(default_factory=QualityMetric)
     edits: QualityMetric = field(default_factory=QualityMetric)
 
 
 class InspectQualityDriver(BaseInspectDriver):
-    """ """
+    """Compute stats about the quality of the redacted text."""
 
     def __init__(self, config: InspectQualityConfig):
         self.config = config
