@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Literal
 
@@ -20,21 +20,21 @@ class InspectQualityConfig(BaseModel):
 
 
 @dataclass
-class Quality:
-    n_segments: int = 0
-    valid_segments: int = 0
-    invalid_segments: int = 0
-    valid_chars: int = 0
-    invalid_chars: int = 0
-    n_chars: int = 0
+class QualityMetric:
+    valid: int = 0
+    invalid: int = 0
+    n: int = 0
 
     @property
-    def p_valid_segments(self) -> float:
-        return self.valid_segments / self.n_segments
+    def p_valid(self) -> float:
+        return self.valid / self.n
 
-    @property
-    def p_valid_chars(self) -> float:
-        return self.valid_chars / self.n_chars
+
+@dataclass
+class QualityReport:
+    segments: QualityMetric = field(default_factory=QualityMetric)
+    chars: QualityMetric = field(default_factory=QualityMetric)
+    edits: QualityMetric = field(default_factory=QualityMetric)
 
 
 class InspectQualityDriver(BaseInspectDriver):
@@ -50,15 +50,18 @@ class InspectQualityDriver(BaseInspectDriver):
 
         Stores result in `context.quality`.
         """
-        quality = Quality()
+        quality = QualityReport()
         for ts in segment(input.original, input.redacted, delimiters=input.delimiters):
-            quality.n_segments += 1
-            quality.n_chars += len(ts.redacted.text)
+            quality.segments.n += 1
+            quality.chars.n += len(ts.redacted.text)
+            quality.edits.n += 1 if ts.is_edit else 0
             if ts.is_valid:
-                quality.valid_segments += 1
-                quality.valid_chars += len(ts.redacted.text)
+                quality.segments.valid += 1
+                quality.chars.valid += len(ts.redacted.text)
+                quality.edits.valid += 1 if ts.is_edit else 0
             else:
-                quality.invalid_segments += 1
-                quality.invalid_chars += len(ts.redacted.text)
+                quality.segments.invalid += 1
+                quality.chars.invalid += len(ts.redacted.text)
+                quality.edits.invalid += 1 if ts.is_edit else 0
         context.quality = quality
         return input
