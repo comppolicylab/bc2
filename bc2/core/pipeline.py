@@ -15,6 +15,7 @@ from .input.memory import MemoryInputConfig
 from .input.stdin import StdinInputConfig
 from .inspect.aliases import OpenAIAliasesInspectConfig
 from .inspect.annotations import InspectAnnotationsConfig
+from .inspect.quality import InspectQualityConfig
 from .output.azureblob import AzureBlobOutputConfig
 from .output.file import FileOutputConfig
 from .output.memory import MemoryOutputConfig
@@ -49,7 +50,9 @@ ParseConfig = Union[OpenAIParseConfig]
 RedactConfig = Union[OpenAIRedactConfig, NoOpRedactConfig]
 
 
-InspectConfig = Union[InspectAnnotationsConfig, OpenAIAliasesInspectConfig]
+InspectConfig = Union[
+    InspectAnnotationsConfig, OpenAIAliasesInspectConfig, InspectQualityConfig
+]
 
 
 RenderConfig = Union[
