@@ -11,7 +11,7 @@ from ..common.openai import (
     OpenAIResolverConfig,
 )
 from ..common.text import RedactedText, Text
-from ..common.types import NameMap
+from ..common.types import NameToReplacementMap
 from .base import BaseRedactConfig, BaseRedactDriver
 
 
@@ -45,16 +45,20 @@ class OpenAIRedactDriver(BaseRedactDriver):
         self.client = config.client.init()
 
     def __call__(
-        self, narrative: Text, context: Context, aliases: NameMap | None = None
+        self,
+        narrative: Text,
+        context: Context,
+        placeholders: NameToReplacementMap | None = None,
     ) -> RedactedText:
         if not narrative.text or narrative.text == "No narratives found.":
             raise ValueError("No narrative text in input.")
-        redacted = self.generate(narrative.text, aliases=aliases)
-        # To do: Change the context prop to whatever name we decide makes sense
-        context.aliases = redacted.aliases
+        redacted = self.generate(narrative.text, placeholders=placeholders)
+        context.placeholders = redacted.placeholders
         return RedactedText(redacted.content, narrative.text, self.config.delimiters)
 
-    def generate(self, input: str, aliases: NameMap | None = None) -> OpenAIChatOutput:
+    def generate(
+        self, input: str, placeholders: NameToReplacementMap | None = None
+    ) -> OpenAIChatOutput:
         """Generate text from the config and the user input.
 
         This method only supports textual inputs.
@@ -63,7 +67,7 @@ class OpenAIRedactDriver(BaseRedactDriver):
         """
 
         output = self.config.generator.invoke_extend_resolve(
-            self.client, input, self.config.resolver, aliases
+            self.client, input, self.config.resolver, placeholders
         )
 
         return output

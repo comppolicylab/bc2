@@ -17,7 +17,7 @@ from .image import ImageUrl
 from .infer import remove_hanging_redactions
 from .resolve import prepare_resolve_input
 from .template import TemplateEngine, get_formatter
-from .types import NameMap
+from .types import NameToReplacementMap
 from .validate import validate_json
 
 logger = logging.getLogger(__name__)
@@ -90,7 +90,7 @@ class OpenAIChatOutput(BaseModel):
 
     content: str
     completion_tokens: int
-    aliases: NameMap | None = None
+    placeholders: NameToReplacementMap | None = None
 
 
 class ChatPrompt:
@@ -280,7 +280,7 @@ class OpenAIChatConfig(BaseModel):
         self,
         client: OpenAI,
         input: AnyChatInput | Sequence[AnyChatInput],
-        preset_aliases: NameMap | None = None,
+        placeholders: NameToReplacementMap | None = None,
     ) -> OpenAIChatOutput:
         """Invoke the chat."""
         props = self.model_dump()
@@ -299,17 +299,22 @@ class OpenAIChatConfig(BaseModel):
             k: v for k, v in props.items() if k in openai_api_params and v is not None
         }
 
+        placeholder_txt = placeholders.to_xml() if placeholders else ""
         messages = [
             m.model_dump()
-            for m in self.system.format(input, preset_aliases=preset_aliases)
+            for m in self.system.format(input, placeholders=placeholder_txt)
         ]
+        print("\n\n\nMESSAGES\n\n", messages)
         completion = client.chat.completions.create(
             **openai_api_settings, messages=messages
         )
+        print("\n\n\nCOMPLETION\n\n", completion)
         content = completion.choices[0].message.content
         completion_tokens = completion.usage.completion_tokens
         return OpenAIChatOutput(
-            content=content, completion_tokens=completion_tokens, aliases=preset_aliases
+            content=content,
+            completion_tokens=completion_tokens,
+            placeholders=placeholders,
         )
 
     def invoke_extend_resolve(
@@ -317,10 +322,9 @@ class OpenAIChatConfig(BaseModel):
         client: OpenAI,
         input: str,
         resolver: OpenAIResolverConfig | None = None,
-        preset_aliases: NameMap | None = None,
+        placeholders: NameToReplacementMap | None = None,
     ) -> OpenAIChatOutput:
-        """Invoke the chat with extensions and/or resolution,
-        if either functions are configured."""
+        """Invoke the chat with extensions and/or resolution."""
         max_extensions = 0
         token_limit = -1
         if self.extender:
@@ -328,15 +332,17 @@ class OpenAIChatConfig(BaseModel):
             token_limit = self.extender.api_completion_token_limit
 
         output = OpenAIChatOutput(
-            content="", completion_tokens=0, aliases=preset_aliases
+            content="", completion_tokens=0, placeholders=placeholders
         )
         tail = input
         num_extensions = 0
         while num_extensions <= max_extensions:
             logger.debug(f"Starting pass #{num_extensions + 1}")
-            result = self.invoke(client, tail, output.aliases)
+            result = self.invoke(client, tail, output.placeholders)
             if resolver:
-                output.aliases, result.content = resolver.resolve(client, input, result)
+                output.placeholders, result.content = resolver.resolve(
+                    client, input, result
+                )
             output.content += result.content
             output.completion_tokens += result.completion_tokens
 
@@ -360,7 +366,7 @@ class TooManyRetries(Exception):
 
 
 class OpenAIResolverConfig(OpenAIChatConfig):
-    """Resolve aliases using an OpenAI model."""
+    """Resolve placeholders using an OpenAI model."""
 
     retries: PositiveInt = 3
     delimiters: Sequence[str] = ""
@@ -373,7 +379,7 @@ class OpenAIResolverConfig(OpenAIChatConfig):
     ) -> tuple[dict, str]:
         redacted.content = remove_hanging_redactions(redacted.content, self.delimiters)
         input = prepare_resolve_input(
-            original, redacted.content, redacted.aliases, self.delimiters
+            original, redacted.content, redacted.placeholders, self.delimiters
         )
 
         last_e: Exception | None = None
@@ -381,12 +387,12 @@ class OpenAIResolverConfig(OpenAIChatConfig):
             try:
                 # Try calling the input and parsing the response
                 response = self.invoke(client, input)
-                aliases = validate_json(response.content)
-                logger.debug(f"Resolved aliases: {aliases}")
-                return (aliases, redacted.content)
+                placeholders = validate_json(response.content)
+                logger.debug(f"Resolved placeholders: {placeholders}")
+                return (placeholders, redacted.content)
             except Exception as e:
                 last_e = e
-                logger.warning(f"Error generating aliases (attempt {i + 1} of \
+                logger.warning(f"Error generating placeholders (attempt {i + 1} of \
                                {self.retries}): {e}")
         else:
             raise TooManyRetries from last_e

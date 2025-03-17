@@ -5,64 +5,16 @@ from typing import Any, Union
 from pydantic import BaseModel
 
 from .common.context import Context
-from .extract.azuredi import AzureDIExtractConfig
-from .extract.openai import OpenAIExtractConfig
-from .extract.raw import RawExtractConfig
-from .extract.tesseract import TesseractExtractConfig
-from .input.azureblob import AzureBlobInputConfig
-from .input.file import FileInputConfig
-from .input.memory import MemoryInputConfig
-from .input.stdin import StdinInputConfig
-from .inspect.aliases import OpenAIAliasesInspectConfig
-from .inspect.annotations import InspectAnnotationsConfig
-from .inspect.quality import InspectQualityConfig
-from .output.azureblob import AzureBlobOutputConfig
-from .output.file import FileOutputConfig
-from .output.memory import MemoryOutputConfig
-from .output.stdout import StdoutOutputConfig
-from .parse.openai import OpenAIParseConfig
-from .redact.noop import NoOpRedactConfig
-from .redact.openai import OpenAIRedactConfig
-from .render.html import HtmlRenderConfig
-from .render.json import JsonRenderConfig
-from .render.pdf import PdfRenderConfig
-from .render.text import TextRenderConfig
+from .control import ControlConfig
+from .extract import ExtractConfig
+from .input import InputConfig
+from .inspect import InspectConfig
+from .output import OutputConfig
+from .parse import ParseConfig
+from .redact import RedactConfig
+from .render import RenderConfig
 
 logger = logging.getLogger(__name__)
-
-
-InputConfig = Union[
-    AzureBlobInputConfig, FileInputConfig, StdinInputConfig, MemoryInputConfig
-]
-
-
-ExtractConfig = Union[
-    AzureDIExtractConfig,
-    OpenAIExtractConfig,
-    TesseractExtractConfig,
-    RawExtractConfig,
-]
-
-
-ParseConfig = Union[OpenAIParseConfig]
-
-
-RedactConfig = Union[OpenAIRedactConfig, NoOpRedactConfig]
-
-
-InspectConfig = Union[
-    InspectAnnotationsConfig, OpenAIAliasesInspectConfig, InspectQualityConfig
-]
-
-
-RenderConfig = Union[
-    PdfRenderConfig, HtmlRenderConfig, TextRenderConfig, JsonRenderConfig
-]
-
-
-OutputConfig = Union[
-    AzureBlobOutputConfig, FileOutputConfig, StdoutOutputConfig, MemoryOutputConfig
-]
 
 
 AnyConfig = Union[
@@ -73,6 +25,7 @@ AnyConfig = Union[
     ParseConfig,
     RenderConfig,
     OutputConfig,
+    ControlConfig,
 ]
 
 

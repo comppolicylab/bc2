@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 from ..common.context import Context
 from ..common.text import RedactedText
-from ..common.types import NameMap
+from ..common.types import IdToNameMap
 
 
 class BaseInspectDriver(ABC):
@@ -19,5 +19,5 @@ class BaseInspectDriver(ABC):
 
     @abstractmethod
     def __call__(
-        self, input: RedactedText, context: Context, subjects: NameMap | None = None
+        self, input: RedactedText, context: Context, subjects: IdToNameMap | None = None
     ) -> RedactedText: ...

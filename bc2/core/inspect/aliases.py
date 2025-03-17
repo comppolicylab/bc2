@@ -12,28 +12,29 @@ from ..common.openai import (
     OpenAIConfig,
 )
 from ..common.text import RedactedText
-from ..common.types import NameMap
+from ..common.types import IdToNameMap, NameToReplacementMap
 from .base import BaseInspectDriver
 
 logger = logging.getLogger(__name__)
 
 
 ALIASES_SYSTEM_TPL = """\
-Generate a mapping of ID to alias, given the following two maps.
-[MAP#1] associates an ID with a name, and [MAP#2] associates a name with an alias.
+Generate a mapping of ID to placeholder, given the following two XML collections.
+[COLLECTION#1] associates an ID with a real name, \
+and [COLLECTION#2] associates a real name with a placeholder.
 
-Join the maps based on the names to create a map of ID to alias.
+Join the collections to produce a mapping from ID to placeholder.
 
 Output the final mapping as a JSON object with the ID as the key and the \
-alias as the value.
+placeholder as the value.
 
-Remember that the IDs in [MAP#1] are unique and each refer to at most \
-one individual in [MAP#2].
+Remember that the IDs in [COLLECTION#1] are unique and each refer to at most \
+one individual in [COLLECTION#2].
 
 Remember that the names are human names and might have variations \
 (nicknames, abbreviations, etc.).
-This means multiple variants of a name might map to the same alias, \
-like "Officer Smith" and "Officer John Smith" mapping to the same alias "Officer 1".
+This means multiple variants of a name might map to the same placeholder, \
+like "Officer Smith" and "Officer John Smith" mapping to the same placeholder "Officer 1".
 
 Use [NARRATIVE] for additional context to determine which names refer \
 to the same person.
@@ -43,11 +44,11 @@ Only return the final output in JSON, do not include any other text in the respo
 
 
 ALIASES_PROMPT_TPL = """\
-[MAP#1]
-{preset_aliases}
+[COLLECTION#1]
+{known_subjects}
 
-[MAP#2]
-{inferred_aliases}
+[COLLECTION#2]
+{inferred_replacements}
 
 [NARRATIVE]
 {narrative}\
@@ -79,40 +80,42 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
         self.config = config
         self.client = config.client.init()
 
-    required = ["aliases"]
+    required = ["subjects"]
 
     def __call__(
         self,
         redacted: RedactedText,
         context: Context,
-        aliases: NameMap | None = None,
+        subjects: IdToNameMap | None = None,
     ) -> RedactedText:
-        if not aliases:
+        if not subjects:
             raise ValueError("Aliases are required for alias reconciliation.")
 
         if context.annotations is None:
             raise ValueError("Annotations are required for alias reconciliation.")
 
         # Turn list of annotations into a map from name to alias
-        inferred_aliases = {a["original"]: a["redacted"] for a in context.annotations}
+        placeholders = NameToReplacementMap()
+        for a in context.annotations:
+            placeholders.set_replacement_text(a["original"], a["redacted"])
         context.aliases = self.generate_with_retry(
-            redacted.original, aliases, inferred_aliases
+            redacted.original, subjects, placeholders
         )
         return redacted
 
     def generate_with_retry(
         self,
         input: str,
-        preset_aliases: NameMap,
-        inferred_aliases: NameMap,
+        subjects: IdToNameMap,
+        placeholders: NameToReplacementMap,
         retries: int = 3,
-    ) -> NameMap:
+    ) -> NameToReplacementMap:
         """Generate text from the config and the user input, with retries.
 
         Args:
             input: The input text.
-            preset_aliases: The preexisting aliases map.
-            inferred_aliases: The aliases map inferred by the redaction process.
+            subjects: The subjects identified by an ID.
+            placeholders: The aliases map inferred by the redaction process.
             retries: The number of retries to attempt.
 
         Returns:
@@ -121,7 +124,7 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
         last_error: Exception | None = None
         for i in range(retries):
             try:
-                output = self.generate(input, preset_aliases, inferred_aliases)
+                output = self.generate(input, subjects, placeholders)
                 logger.debug(f"Generated aliases: {output}")
                 return output
             except Exception as e:
@@ -131,40 +134,40 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
         raise ValueError("Error generating aliases.") from last_error
 
     def generate(
-        self, redacted: str, preset_aliases: NameMap, inferred_aliases: NameMap
-    ) -> NameMap:
+        self, redacted: str, subjects: IdToNameMap, placeholders: NameToReplacementMap
+    ) -> NameToReplacementMap:
         """Generate text from the config and the user input.
 
         Args:
             redacted: The redacted text.
-            preset_aliases: The preexisting aliases map.
-            inferred_aliases: The aliases map inferred by the redaction process.
+            subjects: The subjects identified by an ID.
+            placeholders: The placeholers map inferred by the redaction process.
 
         Returns:
             The new aliases map.
         """
         input = ALIASES_PROMPT_TPL.format(
-            preset_aliases=json.dumps(preset_aliases, indent=2, sort_keys=True),
-            inferred_aliases=json.dumps(inferred_aliases, indent=2, sort_keys=True),
+            known_subjects=subjects.to_xml(),
+            inferred_replacements=placeholders.to_xml(),
             narrative=redacted,
         )
         response = self.config.generator.invoke(self.client, input)
-        return self.parse(response, preset_aliases, inferred_aliases)
+        return self.parse(response, subjects, placeholders)
 
     def parse(
         self,
         response: OpenAIChatOutput,
-        preset_aliases: NameMap,
-        inferred_aliases: NameMap,
-    ) -> NameMap:
+        subjects: IdToNameMap,
+        placeholders: NameToReplacementMap,
+    ) -> NameToReplacementMap:
         """Parse the response from the generator.
 
         The response should be a JSON object mapping IDs to aliases.
 
         Args:
             response: The response from the generator.
-            preset_aliases: The preexisting aliases map (for validation).
-            inferred_aliases: The aliases map inferred by the redaction process
+            subjects: The map of ID to subject name.
+            placeholders: The placeholders map inferred by the redaction process
                 (for validation).
 
         Returns:
