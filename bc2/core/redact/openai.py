@@ -53,6 +53,7 @@ class OpenAIRedactDriver(BaseRedactDriver):
         if not narrative.text or narrative.text == "No narratives found.":
             raise ValueError("No narrative text in input.")
         redacted = self.generate(narrative.text, placeholders=placeholders)
+        context.last_output_truncated = redacted.is_truncated
         context.placeholders = redacted.placeholders
         return RedactedText(redacted.content, narrative.text, self.config.delimiters)
 

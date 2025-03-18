@@ -68,6 +68,7 @@ class RedactedText:
         original: str,
         delimiters: Sequence[str],
         aliases: NameMap | None = None,
+        truncated: bool = False,
     ) -> None:
         """Initialize a redacted text.
 
@@ -77,11 +78,13 @@ class RedactedText:
             delimiters: The open and close delimiters to use for marking
             redactions within the text.
             aliases: The aliases used to redact text.
+            truncated (optional): Whether the redacted text was truncated in processing.
         """
         self.redacted = redacted
         self.original = original
         self.delimiters = delimiters
         self.aliases = aliases
+        self.truncated = truncated
 
     @property
     def annotations(self) -> list[TextSegment]:

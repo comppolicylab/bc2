@@ -1,13 +1,17 @@
 import time
-from typing import Callable, Literal, Protocol, Tuple
+from typing import Callable, Literal, Protocol
 
-from pydantic import BaseModel
+from pydantic import BaseModel, PositiveInt
 
+from ..common.align import residual
 from ..common.context import Context
 from ..common.text import RedactedText, Text
 from ..common.types import NameToReplacementMap
 
 AnyRedactDriver = Callable[[Text, Context, NameToReplacementMap | None], RedactedText]
+AnyTextDriver = Callable[[Text, Context], Text]
+
+AnyChunkableDriver = AnyRedactDriver | AnyTextDriver
 
 
 class AnyRedactConfig(Protocol):
@@ -17,9 +21,8 @@ class AnyRedactConfig(Protocol):
 class ChunkConfig(BaseModel):
     control: Literal["control:chunk"]
     processor: AnyRedactConfig
-    chunk_size: int | None = None
-    max_iterations: int | None = None
-    timeout: int | None = None
+    max_iterations: PositiveInt | None = None
+    timeout: PositiveInt | None = None
 
     @property
     def driver(self) -> "ChunkDriver":
@@ -39,7 +42,6 @@ class ChunkDriver:
         # Get the config for chunking
         timeout = self.config.timeout
         max_iterations = self.config.max_iterations
-        chunk_size = self.config.chunk_size
         f = self.config.processor.driver
 
         # Set the initial state of the chunker
@@ -51,10 +53,13 @@ class ChunkDriver:
         while remainder.text:
             iteration += 1
 
-            next_chunk, remainder = self._chunk(remainder, chunk_size)
-
-            new_output = f(next_chunk, context, placeholders)
+            # Run the processor on the current chunk
+            new_output = f(remainder, context, placeholders)
             output = self._merge_output(output, new_output)
+
+            # If the output is not truncated, we're done!
+            if not output.truncated:
+                break
 
             # Enforce max iterations policy
             if max_iterations and iteration >= max_iterations:
@@ -64,13 +69,17 @@ class ChunkDriver:
             if timeout and time.monotonic() - t0 >= timeout:
                 break
 
-        return output
+            # No other policies apply, so we will prepare a new
+            # chunk and continue.
+            remainder.text = residual(remainder.text, new_output.redacted)
 
-    def _chunk(self, input: Text, size: int | None) -> Tuple[Text, Text]:
-        if not size:
-            return input, Text("")
-        # TODO - smarter chunking so we don't split in a weird place
-        return Text(input.text[:size]), Text(input.text[size:])
+            # It may be that even though we didn't catch the truncation earlier,
+            # the remainder is empty. In that case, we're done.
+            if not remainder.text:
+                break
+            output.redacted += " "
+
+        return output
 
     def _merge_output(
         self, existing: RedactedText, addition: RedactedText
