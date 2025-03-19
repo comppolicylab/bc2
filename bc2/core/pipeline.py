@@ -5,6 +5,7 @@ from typing import Any, Union
 from pydantic import BaseModel
 
 from .common.context import Context
+from .common.type_util import inspect_return_type
 from .control import ControlConfig
 from .extract import ExtractConfig
 from .input import InputConfig
@@ -78,8 +79,8 @@ class Pipeline:
                         f"runtime parameter `{param}`. "
                     )
 
-            # Update the last_output
-            last_output = sig.return_annotation
+            # Update the pointer in the pipe to this function's return type.
+            last_output = inspect_return_type(config.driver)
 
         # Validate that last step returns `None`
         if last_output is not None and last_output is not type(None):

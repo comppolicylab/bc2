@@ -1,4 +1,3 @@
-import inspect
 import time
 from typing import Generic, Literal, Type, TypeVar, Union, cast
 
@@ -7,6 +6,7 @@ from pydantic import BaseModel, PositiveInt
 from ..common.align import residual
 from ..common.context import Context
 from ..common.text import RedactedText, Text
+from ..common.type_util import inspect_return_type
 from ..common.types import NameToReplacementMap
 from ..parse import ParseConfig
 from ..redact import RedactConfig
@@ -19,7 +19,7 @@ T = TypeVar("T", bound=RedactedText | Text)
 
 
 class ChunkConfig(BaseModel):
-    control: Literal["control:chunk"]
+    engine: Literal["$chunk"] = "$chunk"
     processor: AnyChunkableConfig
     max_iterations: PositiveInt | None = None
     timeout: PositiveInt | None = None
@@ -49,8 +49,8 @@ class ChunkDriver(Generic[T]):
         # NOTE(jnu): in order to support higher-order processor compositions, we don't
         # condition on the type of the config directly.
         # Instead, duck-type the output value from the return type of the processor.
-        sig = inspect.signature(self.config.processor.driver)
-        return_type = sig.return_annotation
+        return_type = inspect_return_type(self.config.processor.driver)
+
         if return_type != RedactedText and return_type != Text:
             raise TypeError(f"Unsupported processor return type: {return_type}")
         return return_type
