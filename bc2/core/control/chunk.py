@@ -26,9 +26,6 @@ class ChunkConfig(BaseModel):
 
     @property
     def driver(self) -> "ChunkDriver":
-        # Find the return type of the processor.
-        # This will determine the type of the chunk-driver.
-
         return ChunkDriver(self)
 
 
