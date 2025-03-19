@@ -1,3 +1,8 @@
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 from abc import ABC, abstractmethod
 from xml.sax.saxutils import escape as xml_escape
 
@@ -24,6 +29,22 @@ class _NameMapContainer(ABC):
 
     Do not use this directly; see subclasses.
     """
+
+    @classmethod
+    def merge(cls, *maps: "_NameMapContainer" | None) -> Self | None:
+        """Merge multiple maps together."""
+        real_maps = [m for m in maps if m]
+
+        # If there are no input maps, return None
+        if not real_maps:
+            return None
+
+        # Merge all the actual maps.
+        merged = cls()
+        for m in real_maps:
+            merged._map.update(m._map)
+
+        return merged
 
     @property
     @abstractmethod

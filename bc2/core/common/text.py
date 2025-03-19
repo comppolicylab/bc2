@@ -1,14 +1,15 @@
 from typing import Callable, Literal, Sequence, Tuple
 
 from .infer import TextSegment, segment
-from .types import NameMap
+from .types import NameToReplacementMap
 
 
 class Text:
     """Wrapper for text content."""
 
-    def __init__(self, text: str) -> None:
+    def __init__(self, text: str, truncated: bool = False) -> None:
         self.text = text
+        self.truncated = truncated
 
     def __str__(self) -> str:
         return self.text
@@ -67,7 +68,7 @@ class RedactedText:
         redacted: str,
         original: str,
         delimiters: Sequence[str],
-        aliases: NameMap | None = None,
+        aliases: NameToReplacementMap | None = None,
         truncated: bool = False,
     ) -> None:
         """Initialize a redacted text.
