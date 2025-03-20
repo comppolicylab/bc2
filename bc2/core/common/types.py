@@ -31,7 +31,7 @@ class _NameMapContainer(ABC):
     """
 
     @classmethod
-    def merge(cls, *maps: "_NameMapContainer" | None) -> Self | None:
+    def merge(cls, *maps: "_NameMapContainer | None") -> Self | None:
         """Merge multiple maps together."""
         real_maps = [m for m in maps if m]
 

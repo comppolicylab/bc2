@@ -16,7 +16,7 @@ U = TypeVar("U")
 
 class ComposeConfig(BaseModel):
     engine: Literal["$compose"] = "$compose"
-    pipe: list[AnyConfig] = Field(..., min_length=1)
+    pipe: list["AnyConfig"] = Field(..., min_length=1)
 
     @property
     def driver(self) -> "ComposeDriver":
@@ -39,7 +39,7 @@ class ComposeConfig(BaseModel):
 class ComposeDriver(Generic[T, U]):
     """Compose a sequence of modules into a single module."""
 
-    def __init__(self, pipe: list[AnyConfig], input_t: Type[T], return_t: Type[U]):
+    def __init__(self, pipe: list["AnyConfig"], input_t: Type[T], return_t: Type[U]):
         self.pipe = pipe
         self.input_t = input_t
         self.return_t = return_t

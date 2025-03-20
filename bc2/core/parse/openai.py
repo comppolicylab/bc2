@@ -2,7 +2,7 @@ from functools import cached_property
 from typing import Literal
 
 from ..common.context import Context
-from ..common.openai import OpenAIChatConfig, OpenAIConfig
+from ..common.openai import OpenAIChatConfig, OpenAIChatOutput, OpenAIConfig
 from ..common.text import Text
 from .base import BaseParseDriver
 
@@ -25,15 +25,13 @@ class OpenAIParseDriver(BaseParseDriver):
 
     def __call__(self, text: Text, context: Context) -> Text:
         parsed = self.generate(text.text, debug=context.debug)
-        return Text(parsed)
+        return Text(parsed.content, truncated=parsed.is_truncated)
 
-    def generate(self, input: str, debug: bool = False) -> str:
+    def generate(self, input: str, debug: bool = False) -> OpenAIChatOutput:
         """Generate text from the config and the user input.
 
         This method only supports textual inputs.
 
         This method is supported for only chat generators.
         """
-        output = self.config.generator.invoke_extend_resolve(self.client, input)
-
-        return output.content
+        return self.config.generator.invoke(self.client, input)

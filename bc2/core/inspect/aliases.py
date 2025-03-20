@@ -4,6 +4,7 @@ from functools import cached_property
 from typing import Literal
 
 from ..common.context import Context
+from ..common.infer import remove_hanging_redactions
 from ..common.openai import (
     OpenAIChatConfig,
     OpenAIChatOutput,
@@ -60,7 +61,6 @@ class OpenAIAliasesInspectChatGeneratorConfig(OpenAIChatConfig):
     method: Literal["chat"] = "chat"
     model: str
     system: OpenAIChatPrompt = OpenAIChatPromptInline(
-        engine="string",
         prompt=ALIASES_SYSTEM_TPL,
     )
 
@@ -99,9 +99,16 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
         placeholders = NameToReplacementMap()
         for a in context.annotations:
             placeholders.set_replacement_text(a["original"], a["redacted"])
-        context.aliases = self.generate_with_retry(
-            redacted.original, subjects, placeholders
-        )
+
+        # Remove any hanging redactions in truncated results.
+        redaction = redacted.redacted
+        if redacted.truncated:
+            redaction = remove_hanging_redactions(
+                redacted.redacted, raw_delimiters=redacted.delimiters
+            )
+
+        context.aliases = self.generate_with_retry(redaction, subjects, placeholders)
+
         return redacted
 
     def generate_with_retry(

@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def validate_pipe(
-    pipe: list[AnyConfig], runtime_config: dict[str, Any]
+    pipe: list["AnyConfig"], runtime_config: dict[str, Any]
 ) -> Tuple[Type, Type]:
     """Validate the pipeline configuration.
 
@@ -83,7 +83,9 @@ def validate_pipe(
     return first_input_t, last_output_t
 
 
-def run_pipe(pipe: list[AnyConfig], input: Any, runtime_config: dict[str, Any]) -> Any:
+def run_pipe(
+    pipe: list["AnyConfig"], input: Any, runtime_config: dict[str, Any]
+) -> Any:
     # The calling function can optionally pass in their own Context, which is
     # useful if some values need to be primed before running the pipeline.
     # If the context exists already, use it. Otherwise create a new one.

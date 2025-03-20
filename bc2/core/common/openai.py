@@ -4,6 +4,7 @@ import json
 import logging
 import os
 from abc import abstractmethod
+from dataclasses import dataclass
 from functools import cached_property
 from typing import Literal, Sequence, TypeAlias, cast
 
@@ -31,12 +32,9 @@ from pydantic import BaseModel, Field, PositiveInt
 
 from .datafile import DataType, load_data_file, load_data_file_from_path
 from .image import ImageUrl
-from .infer import remove_hanging_redactions
 from .openai_metadata import ModelNotFound, get_model_meta
-from .resolve import prepare_resolve_input
 from .template import TemplateEngine, get_formatter
 from .types import NameToReplacementMap
-from .validate import validate_json
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +157,8 @@ class OpenAIChatTurn(BaseModel):
 AnyChatInput = str | ImageUrl
 
 
-class OpenAIChatOutput(BaseModel):
+@dataclass
+class OpenAIChatOutput:
     """A chat output for an OpenAI model."""
 
     content: str
@@ -456,43 +455,6 @@ class OpenAIChatConfig(BaseModel):
             completion_tokens=completion_tokens,
             placeholders=placeholders,
         )
-
-
-class TooManyRetries(Exception):
-    pass
-
-
-class OpenAIResolverConfig(OpenAIChatConfig):
-    """Resolve placeholders using an OpenAI model."""
-
-    retries: PositiveInt = 3
-    delimiters: Sequence[str] = ""
-
-    def resolve(
-        self,
-        client: OpenAI,
-        original: str,
-        redacted: OpenAIChatOutput,
-    ) -> tuple[dict, str]:
-        redacted.content = remove_hanging_redactions(redacted.content, self.delimiters)
-        input = prepare_resolve_input(
-            original, redacted.content, redacted.placeholders, self.delimiters
-        )
-
-        last_e: Exception | None = None
-        for i in range(self.retries):
-            try:
-                # Try calling the input and parsing the response
-                response = self.invoke(client, input)
-                placeholders = validate_json(response.content)
-                logger.debug(f"Resolved placeholders: {placeholders}")
-                return (placeholders, redacted.content)
-            except Exception as e:
-                last_e = e
-                logger.warning(f"Error generating placeholders (attempt {i + 1} of \
-                               {self.retries}): {e}")
-        else:
-            raise TooManyRetries from last_e
 
 
 class OpenAIConfig(BaseModel):
