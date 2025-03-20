@@ -5,10 +5,28 @@ import logging
 import os
 from abc import abstractmethod
 from functools import cached_property
-from typing import Literal, Sequence, cast
+from typing import Literal, Sequence, TypeAlias, cast
 
-import openai.types.chat as oai_chat_types
 from openai import AzureOpenAI, OpenAI
+from openai.types.chat import (
+    ChatCompletionAssistantMessageParam as _OpenAIChatCompletionAssistantMessageParam,
+)
+from openai.types.chat import (
+    ChatCompletionContentPartImageParam as _OpenAIChatImageMessagePart,
+)
+from openai.types.chat import (
+    ChatCompletionContentPartTextParam as _OpenAIChatTextMessagePart,
+)
+from openai.types.chat import (
+    ChatCompletionMessageParam as _OpenAIChatCompletionMessageParam,
+)
+from openai.types.chat import (
+    ChatCompletionSystemMessageParam as _OpenAIChatCompletionSystemMessageParam,
+)
+from openai.types.chat import (
+    ChatCompletionUserMessageParam as _OpenAIChatCompletionUserMessageParam,
+)
+from openai.types.chat.chat_completion_content_part_image_param import ImageURL
 from pydantic import BaseModel, Field, PositiveInt
 
 from .datafile import DataType, load_data_file, load_data_file_from_path
@@ -21,6 +39,11 @@ from .types import NameToReplacementMap
 from .validate import validate_json
 
 logger = logging.getLogger(__name__)
+
+
+_OpenAIChatMessagePart: TypeAlias = (
+    _OpenAIChatTextMessagePart | _OpenAIChatImageMessagePart
+)
 
 
 class OpenAIClientConfig(BaseModel):
@@ -54,11 +77,6 @@ class OpenAIClientConfig(BaseModel):
         )
 
 
-_OpenAIChatTextMessagePart = oai_chat_types.ChatCompletionContentPartTextParam
-_OpenAIChatImageMessagePart = oai_chat_types.ChatCompletionContentPartImageParam
-_OpenAIChatMessagePart = _OpenAIChatTextMessagePart | _OpenAIChatImageMessagePart
-
-
 class OpenAIChatInputText(BaseModel):
     """Text input for an OpenAI model."""
 
@@ -86,7 +104,7 @@ class OpenAIChatInputImageUrl(BaseModel):
         """Convert the input to a chat message."""
         return _OpenAIChatImageMessagePart(
             type=self.type,
-            image_url=oai_chat_types.chat_completion_content_part_image_param.ImageURL(
+            image_url=ImageURL(
                 url=self.image_url.url,
                 detail="high",
             ),
@@ -102,21 +120,21 @@ class OpenAIChatTurn(BaseModel):
     role: Literal["assistant", "user", "system"]
     content: str | list[OpenAIChatInput]
 
-    def as_chat_message(self) -> oai_chat_types.ChatCompletionMessageParam:
+    def as_chat_message(self) -> _OpenAIChatCompletionMessageParam:
         """Convert the turn to a chat message."""
         match self.role:
             case "assistant":
-                return oai_chat_types.ChatCompletionAssistantMessageParam(
+                return _OpenAIChatCompletionAssistantMessageParam(
                     role=self.role,
                     content=self._format_content_no_images(),
                 )
             case "user":
-                return oai_chat_types.ChatCompletionUserMessageParam(
+                return _OpenAIChatCompletionUserMessageParam(
                     role=self.role,
                     content=self._format_content(),
                 )
             case "system":
-                return oai_chat_types.ChatCompletionSystemMessageParam(
+                return _OpenAIChatCompletionSystemMessageParam(
                     role=self.role,
                     content=self._format_content_no_images(),
                 )
@@ -313,7 +331,11 @@ class OpenAIChatConfig(BaseModel):
     model: str
     openai_model: str | None = Field(
         None,
-        description="When using Azure, the `model` refers to a model *deployment*. Set the `openai_model` parameter to indicate which underlying OpenAI model is used.",
+        description=(
+            "When using Azure, the `model` refers to a model *deployment*. "
+            "Set the `openai_model` parameter to indicate which "
+            "underlying OpenAI model is used."
+        ),
     )
     system: OpenAIChatPrompt
     frequency_penalty: float | None = None
@@ -348,7 +370,9 @@ class OpenAIChatConfig(BaseModel):
 
         if custom_max_tokens is None and model_max_tokens is None:
             logger.warning(
-                "Unable to determine token limit for model output. There almost certainly *is* a limit, but since we do not know what it is, document chunking will not work."
+                "Unable to determine token limit for model output. "
+                "There almost certainly *is* a limit, but since we do not know "
+                "what it is, document chunking will not work."
             )
             return None
 
@@ -362,18 +386,23 @@ class OpenAIChatConfig(BaseModel):
 
         if custom_max_tokens == model_max_tokens:
             logger.debug(
-                f"Custom token limit is set to model output size, using it is token cap ({custom_max_tokens})"
+                "Custom token limit is set to model output size, "
+                "using it is token cap ({custom_max_tokens})"
             )
             return custom_max_tokens
 
         if custom_max_tokens > model_max_tokens:
             logger.warning(
-                f"Custom token limit ({custom_max_tokens}) is greater than model output size ({model_max_tokens}). This looks like a config error! Using model output size as token cap."
+                f"Custom token limit ({custom_max_tokens}) is greater than "
+                "model output size ({model_max_tokens}). "
+                "This looks like a config error! Using model output size as token cap."
             )
             return model_max_tokens
 
         logger.debug(
-            f"Custom token limit ({custom_max_tokens}) is smaller than model output size ({model_max_tokens}). Using custom token limit as token cap."
+            f"Custom token limit ({custom_max_tokens}) is smaller than "
+            "model output size ({model_max_tokens}). "
+            "Using custom token limit as token cap."
         )
         return custom_max_tokens
 

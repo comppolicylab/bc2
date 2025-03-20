@@ -34,7 +34,8 @@ one individual in [COLLECTION#2].
 Remember that the names are human names and might have variations \
 (nicknames, abbreviations, etc.).
 This means multiple variants of a name might map to the same placeholder, \
-like "Officer Smith" and "Officer John Smith" mapping to the same placeholder "Officer 1".
+like "Officer Smith" and "Officer John Smith" mapping to the \
+same placeholder "Officer 1".
 
 Use [NARRATIVE] for additional context to determine which names refer \
 to the same person.

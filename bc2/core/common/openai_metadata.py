@@ -56,5 +56,5 @@ def get_model_meta(model: str) -> ModelMeta:
     # It's better to just throw an error and remind us to update the metadata.
     try:
         return _MODELS[model.lower()]
-    except KeyError:
-        raise ModelNotFound(f"Model '{model}' not found in metadata.")
+    except KeyError as e:
+        raise ModelNotFound(f"Model '{model}' not found in metadata.") from e

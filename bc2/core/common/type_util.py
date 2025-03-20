@@ -21,12 +21,12 @@ def inspect_required_params(
 
     Args:
         f (Callable[P, T]): The function to inspect.
-        explicit (list[str] | None): A list of required arguments to be explicitly included
+        explicit (list[str] | None): A list of known required arguments.
 
     Returns:
         OrderedDict[str, Type]: The input types of the function
     """
-    explicit_set = {p for p in explicit or []}
+    explicit_set = set(explicit or [])
     sig = inspect.signature(f)
     params = sig.parameters
 
@@ -80,8 +80,8 @@ def _resolve_generic_types(f: Any) -> tuple[Type]:
     try:
         orig_cls = f.__orig_class__
         return cast(tuple[Type], get_args(orig_cls))
-    except AttributeError:
-        raise TypeError(f"Unable to find concrete type of {f}")
+    except AttributeError as e:
+        raise TypeError(f"Unable to find concrete type of {f}") from e
 
 
 def inspect_return_type(f: Callable[..., T]) -> Type[T]:
@@ -107,7 +107,8 @@ def inspect_return_type(f: Callable[..., T]) -> Type[T]:
 
     if return_type is sig.empty:
         logger.warning(
-            f"No return type annotation found, assuming None -- you should use an explicit annotation for {f}!"
+            "No return type annotation found, assuming None -- "
+            f"you should use an explicit annotation for {f}!"
         )
         return cast(Type[T], type(None))
 

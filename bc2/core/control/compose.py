@@ -32,7 +32,7 @@ class ComposeConfig(BaseModel):
         # Get the type of the return value of the tail function
         tail_return = cast(type, tail_sig.return_annotation)
 
-        # Set the input and output types for the driver based on the head and tail of the pipe.
+        # Set the input and output types based on the head and tail of the pipe.
         return ComposeDriver[head_arg, tail_return](self.pipe, head_arg, tail_return)  # type: ignore[valid-type]
 
 
@@ -50,7 +50,8 @@ class ComposeDriver(Generic[T, U]):
 
         if input_t is not self.input_t:
             raise ValueError(
-                f"Expected first step to have `{self.input_t}` input type but got {input_t}"
+                f"Expected first step to have `{self.input_t}` input type "
+                f"but got {input_t}"
             )
 
         if output_t is not self.return_t:

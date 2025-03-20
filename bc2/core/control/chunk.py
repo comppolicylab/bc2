@@ -83,7 +83,7 @@ class ChunkDriver(Generic[T]):
 
         The loop will terminate under any of the following conditions:
             1. The processor produces untruncated output;
-            2. There's no more input (probably almost always happens at the same time as 1);
+            2. There's no more input (probably happens at the same time as 1);
             3. The maximum number of iterations is reached;
             4. The timeout is reached.
 
@@ -144,7 +144,7 @@ class ChunkDriver(Generic[T]):
         Args:
             existing (T): The existing text object
             addition (T): The additional text object
-            separator (str, optional): The separator to use when merging text. Defaults to " ".
+            separator (str, optional): The separator to use when merging text.
 
         Returns:
             T: A new text object that is the result of merging the two inputs
@@ -173,9 +173,9 @@ class ChunkDriver(Generic[T]):
                         addition_t.redacted,
                         separator=separator,
                     ),
-                    # 2. The original existing text should be *complete*, while the addition is not!
+                    # 2. The initial text should be *complete*, the addition isn't!
                     existing_t.original,
-                    # 3. The initial delimiters are empty, so fill them in from the first addition.
+                    # 3. The delimiters are initially empty; fill in from first chunk.
                     delimiters=existing_t.delimiters or addition_t.delimiters,
                     # 4. Merge the placeholder maps.
                     aliases=NameToReplacementMap.merge(
@@ -194,7 +194,7 @@ class ChunkDriver(Generic[T]):
         Args:
             existing (str): The existing string
             addition (str): The additional string
-            separator (str, optional): The separator to use when merging text. Defaults to " ".
+            separator (str, optional): The separator to use when merging text.
 
         Returns:
             str: A new string that is the result of merging the two inputs
@@ -209,7 +209,7 @@ class ChunkDriver(Generic[T]):
         Args:
             old (Text): The original text
             new (T): The new text object
-            window_size (int, optional): The size of the window to use for aligning segments.
+            window_size (int, optional): The window to use for aligning segments.
 
         Returns:
             str: The remaining text to segment.
