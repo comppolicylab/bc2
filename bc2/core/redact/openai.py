@@ -43,7 +43,6 @@ class OpenAIRedactDriver(BaseRedactDriver):
         if not narrative.text or narrative.text == "No narratives found.":
             raise ValueError("No narrative text in input.")
         redacted = self.generate(narrative.text, placeholders=placeholders)
-        context.placeholders = redacted.placeholders
         return RedactedText(
             redacted.content,
             narrative.text,
@@ -61,6 +60,8 @@ class OpenAIRedactDriver(BaseRedactDriver):
         This method is supported for only chat generators.
         """
 
-        output = self.config.generator.invoke(self.client, input, placeholders)
+        output = self.config.generator.invoke(
+            self.client, input, placeholders=placeholders
+        )
 
         return output

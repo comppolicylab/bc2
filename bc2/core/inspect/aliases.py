@@ -4,7 +4,6 @@ from functools import cached_property
 from typing import Literal
 
 from ..common.context import Context
-from ..common.infer import remove_hanging_redactions
 from ..common.openai import (
     OpenAIChatConfig,
     OpenAIChatOutput,
@@ -101,13 +100,19 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
             placeholders.set_replacement_text(a["original"], a["redacted"])
 
         # Remove any hanging redactions in truncated results.
-        redaction = redacted.redacted
-        if redacted.truncated:
-            redaction = remove_hanging_redactions(
-                redacted.redacted, raw_delimiters=redacted.delimiters
-            )
+        # TODO - this should be moved to a separate function
+        # since it's responsible for interpretting annotations,
+        # unlike this function which is meant to resolve ambiguity in references!
+        # TODO - RENAME THINGS
+        # redaction = redacted.redacted
+        # if redacted.truncated:
+        #     redaction = remove_hanging_redactions(
+        #         redacted.redacted, raw_delimiters=redacted.delimiters
+        #     )
 
-        context.aliases = self.generate_with_retry(redaction, subjects, placeholders)
+        context.aliases = self.generate_with_retry(
+            redacted.original, subjects, placeholders
+        )
 
         return redacted
 

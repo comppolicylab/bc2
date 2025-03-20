@@ -34,7 +34,6 @@ from .datafile import DataType, load_data_file, load_data_file_from_path
 from .image import ImageUrl
 from .openai_metadata import ModelNotFound, get_model_meta
 from .template import TemplateEngine, get_formatter
-from .types import NameToReplacementMap
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +162,6 @@ class OpenAIChatOutput:
 
     content: str
     completion_tokens: int
-    placeholders: NameToReplacementMap | None = None
     max_tokens: int | None = None
 
     @property
@@ -409,7 +407,7 @@ class OpenAIChatConfig(BaseModel):
         self,
         client: OpenAI,
         input: AnyChatInput | Sequence[AnyChatInput],
-        placeholders: NameToReplacementMap | None = None,
+        **kwargs,
     ) -> OpenAIChatOutput:
         """Invoke the chat."""
         props = self.model_dump()
@@ -430,11 +428,7 @@ class OpenAIChatConfig(BaseModel):
         }
 
         # Format chat message
-        placeholder_txt = placeholders.to_xml() if placeholders else ""
-        messages = [
-            m.as_chat_message()
-            for m in self.system.format(input, placeholders=placeholder_txt)
-        ]
+        messages = [m.as_chat_message() for m in self.system.format(input, **kwargs)]
 
         # Configure max tokens and submit the query.
         max_tokens = self.token_cap
@@ -453,7 +447,6 @@ class OpenAIChatConfig(BaseModel):
             max_tokens=max_tokens,
             content=content or "",
             completion_tokens=completion_tokens,
-            placeholders=placeholders,
         )
 
 

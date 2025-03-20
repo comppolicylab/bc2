@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from ..common.context import Context
 from ..common.text import RedactedText
+from ..common.types import IdToNameMap
 from .aliases import ALIASES_SYSTEM_TPL, OpenAIAliasesInspectConfig
 
 
@@ -73,11 +74,13 @@ def test_inspect_aliases(openai_mock):
     result = cfg.driver(
         rt,
         ctx,
-        aliases={
-            "A": "Leopold",
-            "B": "Pollock",
-            "C": "Abbott",
-        },
+        subjects=IdToNameMap(
+            {
+                "A": "Leopold",
+                "B": "Pollock",
+                "C": "Abbott",
+            }
+        ),
     )
     assert result == rt
     assert ctx.aliases == {
@@ -88,6 +91,7 @@ def test_inspect_aliases(openai_mock):
     openai_mock.return_value.chat.completions.create.assert_called_once_with(
         model="gpt-4o",
         n=1,
+        max_tokens=None,
         messages=[
             {
                 "role": "system",
@@ -99,12 +103,33 @@ def test_inspect_aliases(openai_mock):
                     {
                         "type": "text",
                         "text": (
-                            "[MAP#1]\n"
-                            '{\n  "A": "Leopold",\n  "B": "Pollock",\n  '
-                            '"C": "Abbott"\n}\n\n'
-                            "[MAP#2]\n"
-                            '{\n  "Abbott": "Subject 3",\n  "Leopold": "Subject 1",'
-                            '\n  "Pollock": "Subject 2"\n}\n\n'
+                            "[COLLECTION#1]\n"
+                            "<Names>"
+                            "<Name>"
+                            "<ID>A</ID><RealName>Leopold</RealName>"
+                            "</Name>"
+                            "<Name>"
+                            "<ID>B</ID><RealName>Pollock</RealName>"
+                            "</Name>"
+                            "<Name>"
+                            "<ID>C</ID><RealName>Abbott</RealName>"
+                            "</Name>"
+                            "</Names>\n\n"
+                            "[COLLECTION#2]\n"
+                            "<Names>"
+                            "<Name>"
+                            "<RealName>Leopold</RealName>"
+                            "<ReplacementText>Subject 1</ReplacementText>"
+                            "</Name>"
+                            "<Name>"
+                            "<RealName>Pollock</RealName>"
+                            "<ReplacementText>Subject 2</ReplacementText>"
+                            "</Name>"
+                            "<Name>"
+                            "<RealName>Abbott</RealName>"
+                            "<ReplacementText>Subject 3</ReplacementText>"
+                            "</Name>"
+                            "</Names>\n\n"
                             "[NARRATIVE]\n"
                             "Leopold is first, then Pollock, then Abbott, "
                             "then Poldy again."

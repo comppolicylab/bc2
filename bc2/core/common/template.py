@@ -30,6 +30,7 @@ def format_string(tpl: str, ctx: Ctx) -> str:
         if value is not None:
             outputs.append(str(value))
 
+    print("STORING FORMATTER", outputs, ctx)
     return "\n".join(outputs)
 
 

@@ -62,8 +62,8 @@ class _NameMapContainer(ABC):
     @abstractmethod
     def value_label(self) -> str: ...
 
-    def __init__(self) -> None:
-        self._map: _NameMap = {}
+    def __init__(self, initial_map: _NameMap | None = None) -> None:
+        self._map: _NameMap = initial_map.copy() if initial_map else {}
 
     def _set_value(self, key: str, value: str):
         self._map[key] = value
