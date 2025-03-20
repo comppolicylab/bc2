@@ -104,7 +104,7 @@ class ChunkDriver(Generic[T]):
         iteration = 0
         t0 = time.monotonic()
         remainder = input
-        output = cast(T, self._get_initial_state(input.text))
+        output = self._get_initial_state(input.text)
 
         while remainder.text:
             iteration += 1
@@ -175,7 +175,7 @@ class ChunkDriver(Generic[T]):
                     ),
                     # 2. The original existing text should be *complete*, while the addition is not!
                     existing_t.original,
-                    # 3. The initial delimiters are empty, so fill them in from the addition.
+                    # 3. The initial delimiters are empty, so fill them in from the first addition.
                     delimiters=existing_t.delimiters or addition_t.delimiters,
                     # 4. Merge the placeholder maps.
                     aliases=NameToReplacementMap.merge(
