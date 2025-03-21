@@ -99,17 +99,8 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
         for a in context.annotations:
             placeholders.set_replacement_text(a["original"], a["redacted"])
 
-        # Remove any hanging redactions in truncated results.
-        # TODO - this should be moved to a separate function
-        # since it's responsible for interpretting annotations,
-        # unlike this function which is meant to resolve ambiguity in references!
-        # TODO - RENAME THINGS
-        # redaction = redacted.redacted
-        # if redacted.truncated:
-        #     redaction = remove_hanging_redactions(
-        #         redacted.redacted, raw_delimiters=redacted.delimiters
-        #     )
-
+        # TODO --- accumulate over the course of the run
+        # TODO --- rename things!
         context.aliases = self.generate_with_retry(
             redacted.original, subjects, placeholders
         )

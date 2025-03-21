@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from ..common.context import Context
-from ..common.infer import infer_annotations
+from ..common.infer import infer_annotations, remove_hanging_redactions
 from ..common.text import RedactedText
 from ..common.types import IdToNameMap
 from .base import BaseInspectDriver
@@ -33,8 +33,16 @@ class InspectAnnotationsDriver(BaseInspectDriver):
         self, input: RedactedText, context: Context, subjects: IdToNameMap | None = None
     ) -> RedactedText:
         """Infer annotations from redacted text."""
+
+        # Remove any hanging redactions in truncated results.
+        redaction = input.redacted
+        if input.truncated:
+            redaction = remove_hanging_redactions(
+                input.redacted, raw_delimiters=input.delimiters
+            )
+
         annotations = infer_annotations(
-            input.original, input.redacted, delimiters=input.delimiters
+            input.original, redaction, delimiters=input.delimiters
         )
         context.annotations = list(annotations)
         return input

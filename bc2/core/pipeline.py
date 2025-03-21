@@ -19,6 +19,11 @@ class Pipeline:
     null input and output types. See `control/compose.py` for more details.
     """
 
+    @classmethod
+    def create(cls, config: dict[str, list["AnyConfig"]]) -> "Pipeline":
+        """Create a pipeline from a configuration dictionary."""
+        return cls(PipelineConfig(**config))
+
     def __init__(self, config: PipelineConfig):
         """Initialize the pipeline."""
         none_t = type(None)
