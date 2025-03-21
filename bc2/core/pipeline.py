@@ -2,16 +2,14 @@ import logging
 
 from pydantic import BaseModel
 
-from .common.all import AnyConfig
 from .common.context import Context
 from .common.runtime import RuntimeConfig
-from .control.compose import ComposeDriver
 
 logger = logging.getLogger(__name__)
 
 
 class PipelineConfig(BaseModel):
-    pipe: list[AnyConfig]
+    pipe: list["AnyConfig"]
 
 
 class Pipeline:
@@ -55,3 +53,20 @@ class Pipeline:
             logger.warning("Pipeline did not end with a `None` return value.")
 
         return ctx
+
+
+# Since the configs are recursive in order to support recursive/self-referential
+# definitions, they require some amount of forward references / circular imports.
+# In order to avoid issues with both Python's module system and Pydantic's
+# type-checking system, we need to import the modules at the end of this file.
+from .common.all import AnyConfig
+from .control.chunk import ChunkConfig
+from .control.compose import ComposeConfig, ComposeDriver
+
+# Print a debugging message that we successfully solved the circular imports.
+# This ensures that the side-effect imports above are kept and not removed
+# by a meddling linter.
+logger.debug(
+    "Successfully resolved forward refs for control structures: "
+    f"{ChunkConfig}, {ComposeConfig}."
+)

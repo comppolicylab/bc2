@@ -123,3 +123,23 @@ def inspect_return_type(f: Callable[..., T]) -> Type[T]:
         return_type = _resolve_generic_types(f)[-1]
 
     return cast(Type[T], return_type)
+
+
+def get_bindable_parameters(
+    f: Callable[P, T], kwargs: dict[str, Any]
+) -> dict[str, Any]:
+    """Get a subset of parameters needed for binding to a function.
+
+    This will exclude the first parameter and the Context parameter.
+
+    Args:
+        f (Callable[P, T]): The function to inspect.
+        kwargs (dict[str, Any]): The keyword arguments to filter.
+
+    Returns:
+        dict[str, Any]: The filtered keyword arguments.
+    """
+    params = inspect_all_params(f)
+    params.popitem(last=False)
+    params.pop("context", None)
+    return {k: v for k, v in kwargs.items() if k in params}

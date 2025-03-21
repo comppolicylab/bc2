@@ -59,7 +59,6 @@ class OpenAIRedactDriver(BaseRedactDriver):
 
         This method is supported for only chat generators.
         """
-
         output = self.config.generator.invoke(
             self.client, input, placeholders=placeholders
         )

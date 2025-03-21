@@ -1,18 +1,15 @@
 import logging
-from typing import TYPE_CHECKING, Any, Tuple, Type
+from typing import Any, Tuple, Type
 
+from .all import AnyConfig
 from .context import Context
 from .type_util import inspect_all_params, inspect_required_params, inspect_return_type
-
-if TYPE_CHECKING:
-    from .all import AnyConfig
-
 
 logger = logging.getLogger(__name__)
 
 
 def validate_pipe(
-    pipe: list["AnyConfig"], runtime_config: dict[str, Any]
+    pipe: list[AnyConfig], runtime_config: dict[str, Any]
 ) -> Tuple[Type, Type]:
     """Validate the pipeline configuration.
 
@@ -83,9 +80,17 @@ def validate_pipe(
     return first_input_t, last_output_t
 
 
-def run_pipe(
-    pipe: list["AnyConfig"], input: Any, runtime_config: dict[str, Any]
-) -> Any:
+def run_pipe(pipe: list[AnyConfig], input: Any, runtime_config: dict[str, Any]) -> Any:
+    """Run the pipeline.
+
+    Args:
+        pipe (list[AnyConfig]): The pipeline configuration.
+        input (Any): The input to the pipeline.
+        runtime_config (dict[str, Any]): The runtime configuration.
+
+    Returns:
+        Any: The result of running the pipeline.
+    """
     # The calling function can optionally pass in their own Context, which is
     # useful if some values need to be primed before running the pipeline.
     # If the context exists already, use it. Otherwise create a new one.

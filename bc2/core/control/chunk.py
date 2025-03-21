@@ -5,14 +5,19 @@ from pydantic import BaseModel, PositiveInt
 
 from ..common.align import residual
 from ..common.context import Context
+from ..common.runtime import RuntimeConfig
 from ..common.text import RedactedText, Text
-from ..common.type_util import inspect_return_type
+from ..common.type_util import get_bindable_parameters, inspect_return_type
 from ..common.types import NameToReplacementMap
 from ..parse import ParseConfig
 from ..redact import RedactConfig
 from .compose import ComposeConfig
 
-AnyChunkableConfig = Union[ParseConfig, RedactConfig, ComposeConfig]
+AnyChunkableConfig = Union[
+    ParseConfig,
+    RedactConfig,
+    ComposeConfig,
+]
 
 
 T = TypeVar("T", bound=RedactedText | Text)
@@ -26,7 +31,8 @@ class ChunkConfig(BaseModel):
 
     @property
     def driver(self) -> "ChunkDriver":
-        return ChunkDriver(self)
+        return_t = inspect_return_type(self.processor.driver)
+        return ChunkDriver[return_t](self)  # type: ignore[valid-type]
 
 
 class ChunkDriver(Generic[T]):
@@ -77,7 +83,7 @@ class ChunkDriver(Generic[T]):
         self,
         input: Text,
         context: Context,
-        **kwargs,
+        runtime_config: RuntimeConfig | None = None,
     ) -> T:
         """Run the processor on the given input in a loop.
 
@@ -110,7 +116,8 @@ class ChunkDriver(Generic[T]):
             iteration += 1
 
             # Run the processor on the current chunk
-            new_output = cast(T, f(remainder, context, **kwargs))
+            filtered_kwargs = get_bindable_parameters(f, runtime_config or {})
+            new_output = cast(T, f(remainder, context, **filtered_kwargs))
             output = self._merge_output(output, new_output)
 
             # If the output is not truncated, we're done!

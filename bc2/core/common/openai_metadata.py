@@ -57,4 +57,4 @@ def get_model_meta(model: str) -> ModelMeta:
     try:
         return _MODELS[model.lower()]
     except KeyError as e:
-        raise ModelNotFound(f"Model '{model}' not found in metadata.") from e
+        raise ModelNotFound(f"Model {model} not found in metadata") from e

@@ -1,6 +1,5 @@
 from typing import Union
 
-from ..control import ControlConfig
 from ..extract import ExtractConfig
 from ..input import InputConfig
 from ..inspect import InspectConfig
@@ -17,5 +16,13 @@ AnyConfig = Union[
     ParseConfig,
     RenderConfig,
     OutputConfig,
-    ControlConfig,
+    "ChunkConfig",
+    "ComposeConfig",
 ]
+
+# NOTE(jnu): the following two imports support some degree of recursive
+# module definition, so there are circular imports. To avoid partial import
+# errors, we use a forward-ref above and import the modules at the end of
+# this module.
+from ..control.chunk import ChunkConfig
+from ..control.compose import ComposeConfig

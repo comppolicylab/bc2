@@ -50,6 +50,7 @@ exclude = ["app/server/generated"]
 
 [tool.ruff.lint]
 select = ["F", "E", "W", "I001", "C", "W", "B"]
+ignore = ["E402"]
 
 [build-system]
 requires = ["poetry-core"]
