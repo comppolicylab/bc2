@@ -50,13 +50,22 @@ class ChunkDriver(Generic[T]):
         self.return_type = return_t
 
     def validate(self, runtime_config: RuntimeConfig):
-        """Validate the chunk configuration."""
+        """Validate the chunk configuration.
+
+        Args:
+            runtime_config (RuntimeConfig): The runtime configuration.
+
+        Raises:
+            TypeError: If the processor return type is not supported
+            TypeError: If the processor input type is not supported
+            ValueError: If required parameters are missing
+        """
         return_t = inspect_return_type(self.config.processor.driver)
         if return_t != Text and return_t != RedactedText:
             raise TypeError(f"Unsupported processor return type: {return_t}")
 
-        all_params = inspect_all_params(self.config.processor.driver)
         # Ensure first argument is a Text object
+        all_params = inspect_all_params(self.config.processor.driver)
         first_input_t = list(all_params.values())[0]
         if first_input_t != Text:
             raise TypeError(f"Unsupported processor input type: {first_input_t}")
