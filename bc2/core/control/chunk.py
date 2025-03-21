@@ -7,7 +7,12 @@ from ..common.align import residual
 from ..common.context import Context
 from ..common.runtime import RuntimeConfig
 from ..common.text import RedactedText, Text
-from ..common.type_util import get_bindable_parameters, inspect_return_type
+from ..common.type_util import (
+    get_bindable_parameters,
+    inspect_all_params,
+    inspect_required_params,
+    inspect_return_type,
+)
 from ..common.types import NameToReplacementMap
 from ..parse import ParseConfig
 from ..redact import RedactConfig
@@ -32,34 +37,36 @@ class ChunkConfig(BaseModel):
     @property
     def driver(self) -> "ChunkDriver":
         return_t = inspect_return_type(self.processor.driver)
-        return ChunkDriver[return_t](self)  # type: ignore[valid-type]
+        return ChunkDriver[return_t](self, return_t)  # type: ignore[valid-type]
 
 
 class ChunkDriver(Generic[T]):
     def __init__(
         self,
         config: ChunkConfig,
+        return_t: Type[T],
     ):
         self.config = config
-        self.return_type = self._inspect()
+        self.return_type = return_t
 
-    def _inspect(self) -> Type[T]:
-        """Inspect the processor to determine the proper type.
+    def validate(self, runtime_config: RuntimeConfig):
+        """Validate the chunk configuration."""
+        return_t = inspect_return_type(self.config.processor.driver)
+        if return_t != Text and return_t != RedactedText:
+            raise TypeError(f"Unsupported processor return type: {return_t}")
 
-        Returns:
-            Type[T]: The type of the processor's return value
+        all_params = inspect_all_params(self.config.processor.driver)
+        # Ensure first argument is a Text object
+        first_input_t = list(all_params.values())[0]
+        if first_input_t != Text:
+            raise TypeError(f"Unsupported processor input type: {first_input_t}")
 
-        Raises:
-            TypeError: If the processor returns an unsupported type
-        """
-        # NOTE(jnu): in order to support higher-order processor compositions, we don't
-        # condition on the type of the config directly.
-        # Instead, duck-type the output value from the return type of the processor.
-        return_type = inspect_return_type(self.config.processor.driver)
-
-        if return_type != RedactedText and return_type != Text:
-            raise TypeError(f"Unsupported processor return type: {return_type}")
-        return return_type
+        # Ensure we have all required parameters for the input
+        required_p = inspect_required_params(self.config.processor.driver)
+        bindable = get_bindable_parameters(self.config.processor.driver, runtime_config)
+        missing = set(required_p.keys()) - set(bindable.keys())
+        if missing:
+            raise ValueError(f"Missing required parameters: {missing}")
 
     def _get_initial_state(self, initial: str) -> T:
         """Get the empty value for the return type of the pipe.

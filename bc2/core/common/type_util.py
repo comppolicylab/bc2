@@ -142,4 +142,5 @@ def get_bindable_parameters(
     params = inspect_all_params(f)
     params.popitem(last=False)
     params.pop("context", None)
+    kwargs["runtime_config"] = kwargs
     return {k: v for k, v in kwargs.items() if k in params}
