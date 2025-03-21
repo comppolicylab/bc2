@@ -20,9 +20,9 @@ class Pipeline:
     """
 
     @classmethod
-    def create(cls, config: dict[str, list["AnyConfig"]]) -> "Pipeline":
-        """Create a pipeline from a configuration dictionary."""
-        return cls(PipelineConfig(**config))
+    def create(cls, pipe: list["AnyConfig"]) -> "Pipeline":
+        """Create a pipeline from a list of processor configs."""
+        return cls(PipelineConfig(pipe=pipe))
 
     def __init__(self, config: PipelineConfig):
         """Initialize the pipeline."""
@@ -47,6 +47,12 @@ class Pipeline:
         runtime_config = runtime_config or {}
         ctx = Context()
         ctx.debug = runtime_config.get("debug", False)
+        if ctx.debug:
+            # Set all bc2 modules to debug mode.
+            for name in logging.root.manager.loggerDict:
+                if name.startswith("bc2"):
+                    logging.getLogger(name).setLevel(logging.DEBUG)
+            logger.debug("Debug mode enabled.")
         runtime_config["context"] = ctx
 
         output = self.pipeline(None, ctx, runtime_config)

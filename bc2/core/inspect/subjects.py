@@ -18,7 +18,7 @@ from .base import BaseInspectDriver
 logger = logging.getLogger(__name__)
 
 
-ALIASES_SYSTEM_TPL = """\
+ID_TO_NAME_PROMPT_TPL = """\
 Generate a mapping of ID to placeholder, given the following two XML collections.
 [COLLECTION#1] associates an ID with a real name, \
 and [COLLECTION#2] associates a real name with a placeholder.
@@ -44,7 +44,7 @@ Only return the final output in JSON, do not include any other text in the respo
 """
 
 
-ALIASES_PROMPT_TPL = """\
+DATA_PROMPT_TPL = """\
 [COLLECTION#1]
 {known_subjects}
 
@@ -56,27 +56,27 @@ ALIASES_PROMPT_TPL = """\
 """
 
 
-class OpenAIAliasesInspectChatGeneratorConfig(OpenAIChatConfig):
+class OpenAISubjectsInspectChatGeneratorConfig(OpenAIChatConfig):
     method: Literal["chat"] = "chat"
     model: str
     system: OpenAIChatPrompt = OpenAIChatPromptInline(
-        prompt=ALIASES_SYSTEM_TPL,
+        prompt=ID_TO_NAME_PROMPT_TPL,
     )
 
 
-class OpenAIAliasesInspectConfig(OpenAIConfig):
+class OpenAISubjectsInspectConfig(OpenAIConfig):
     """Reconcile aliases with OpenAI config."""
 
-    engine: Literal["inspect:aliases"]
-    generator: OpenAIAliasesInspectChatGeneratorConfig
+    engine: Literal["inspect:subjects"]
+    generator: OpenAISubjectsInspectChatGeneratorConfig
 
     @cached_property
-    def driver(self) -> "OpenAIAliasesInspectDriver":
-        return OpenAIAliasesInspectDriver(self)
+    def driver(self) -> "OpenAISubjectsInspectDriver":
+        return OpenAISubjectsInspectDriver(self)
 
 
-class OpenAIAliasesInspectDriver(BaseInspectDriver):
-    def __init__(self, config: OpenAIAliasesInspectConfig):
+class OpenAISubjectsInspectDriver(BaseInspectDriver):
+    def __init__(self, config: OpenAISubjectsInspectConfig):
         self.config = config
         self.client = config.client.init()
 
@@ -87,23 +87,35 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
         redacted: RedactedText,
         context: Context,
         subjects: IdToNameMap | None = None,
+        placeholders: NameToReplacementMap | None = None,
     ) -> RedactedText:
         if not subjects:
-            raise ValueError("Aliases are required for alias reconciliation.")
+            logger.warning(
+                "No subjects provided for id-name reconciliation! "
+                "Skipping this step."
+            )
+            return redacted
 
         if context.annotations is None:
-            raise ValueError("Annotations are required for alias reconciliation.")
+            raise ValueError(
+                "Annotations are required for id-name reconciliation. "
+                "This is a config error -- please run `inspect:annotations` "
+                "before running this step."
+            )
 
-        # Turn list of annotations into a map from name to alias
+        # Turn list of annotations into a map from name to replacement
         placeholders = NameToReplacementMap()
         for a in context.annotations:
             placeholders.set_replacement_text(a["original"], a["redacted"])
 
         # TODO --- accumulate over the course of the run
         # TODO --- rename things!
-        context.aliases = self.generate_with_retry(
+        context.subjects = self.generate_with_retry(
             redacted.original, subjects, placeholders
         )
+
+        if context.debug:
+            logger.info(f"Inferred subjects: {context.subjects}")
 
         return redacted
 
@@ -113,47 +125,47 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
         subjects: IdToNameMap,
         placeholders: NameToReplacementMap,
         retries: int = 3,
-    ) -> NameToReplacementMap:
+    ) -> IdToNameMap:
         """Generate text from the config and the user input, with retries.
 
         Args:
             input: The input text.
             subjects: The subjects identified by an ID.
-            placeholders: The aliases map inferred by the redaction process.
+            placeholders: The subjects map inferred by the redaction process.
             retries: The number of retries to attempt.
 
         Returns:
-            The new aliases map.
+            The new subjects map.
         """
         last_error: Exception | None = None
         for i in range(retries):
             try:
                 output = self.generate(input, subjects, placeholders)
-                logger.debug(f"Generated aliases: {output}")
+                logger.debug(f"Generated subjects: {output}")
                 return output
             except Exception as e:
-                logger.error(f"Error generating aliases (attempt {i + 1}): {e}")
+                logger.error(f"Error generating subjects (attempt {i + 1}): {e}")
                 last_error = e
 
-        raise ValueError("Error generating aliases.") from last_error
+        raise ValueError("Error generating subjects.") from last_error
 
     def generate(
-        self, redacted: str, subjects: IdToNameMap, placeholders: NameToReplacementMap
-    ) -> NameToReplacementMap:
+        self, input: str, subjects: IdToNameMap, placeholders: NameToReplacementMap
+    ) -> IdToNameMap:
         """Generate text from the config and the user input.
 
         Args:
-            redacted: The redacted text.
+            input: The redacted text.
             subjects: The subjects identified by an ID.
             placeholders: The placeholers map inferred by the redaction process.
 
         Returns:
-            The new aliases map.
+            The new subjects map.
         """
-        input = ALIASES_PROMPT_TPL.format(
+        input = DATA_PROMPT_TPL.format(
             known_subjects=subjects.to_xml(),
             inferred_replacements=placeholders.to_xml(),
-            narrative=redacted,
+            narrative=input,
         )
         response = self.config.generator.invoke(self.client, input)
         return self.parse(response, subjects, placeholders)
@@ -163,10 +175,10 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
         response: OpenAIChatOutput,
         subjects: IdToNameMap,
         placeholders: NameToReplacementMap,
-    ) -> NameToReplacementMap:
+    ) -> IdToNameMap:
         """Parse the response from the generator.
 
-        The response should be a JSON object mapping IDs to aliases.
+        The response should be a JSON object mapping IDs to names.
 
         Args:
             response: The response from the generator.
@@ -175,13 +187,13 @@ class OpenAIAliasesInspectDriver(BaseInspectDriver):
                 (for validation).
 
         Returns:
-            The new aliases map.
+            The new subjects map.
         """
         try:
             data = json.loads(response.content)
-            # TODO: Validate the JSON response matches the alias maps
+            # TODO: Validate the JSON response matches the subjects maps
         except json.JSONDecodeError as e:
             logger.error(f"Error parsing JSON response: {e}")
             raise ValueError("Error parsing JSON response.") from e
 
-        return data
+        return IdToNameMap(data)

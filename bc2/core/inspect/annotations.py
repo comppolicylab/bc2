@@ -1,3 +1,4 @@
+import logging
 from functools import cached_property
 from typing import Literal
 
@@ -6,8 +7,10 @@ from pydantic import BaseModel
 from ..common.context import Context
 from ..common.infer import infer_annotations, remove_hanging_redactions
 from ..common.text import RedactedText
-from ..common.types import IdToNameMap
+from ..common.types import IdToNameMap, NameToReplacementMap
 from .base import BaseInspectDriver
+
+logger = logging.getLogger(__name__)
 
 
 class InspectAnnotationsConfig(BaseModel):
@@ -30,7 +33,11 @@ class InspectAnnotationsDriver(BaseInspectDriver):
         self.config = config
 
     def __call__(
-        self, input: RedactedText, context: Context, subjects: IdToNameMap | None = None
+        self,
+        input: RedactedText,
+        context: Context,
+        subjects: IdToNameMap | None = None,
+        placeholders: NameToReplacementMap | None = None,
     ) -> RedactedText:
         """Infer annotations from redacted text."""
 
@@ -45,4 +52,8 @@ class InspectAnnotationsDriver(BaseInspectDriver):
             input.original, redaction, delimiters=input.delimiters
         )
         context.annotations = list(annotations)
+
+        if context.debug:
+            logger.info(f"Inferred annotations: {annotations}")
+
         return input

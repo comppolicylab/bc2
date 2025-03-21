@@ -429,6 +429,7 @@ class OpenAIChatConfig(BaseModel):
 
         # Format chat message
         messages = [m.as_chat_message() for m in self.system.format(input, **kwargs)]
+        print("MESSAGES", messages)
 
         # Configure max tokens and submit the query.
         max_tokens = self.token_cap

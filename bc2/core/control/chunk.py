@@ -1,3 +1,4 @@
+import logging
 import time
 from typing import Generic, Literal, Type, TypeVar, Union, cast
 
@@ -17,6 +18,8 @@ from ..common.types import NameToReplacementMap
 from ..parse import ParseConfig
 from ..redact import RedactConfig
 from .compose import ComposeConfig
+
+logger = logging.getLogger(__name__)
 
 AnyChunkableConfig = Union[
     ParseConfig,
@@ -129,23 +132,28 @@ class ChunkDriver(Generic[T]):
         output = self._get_initial_state(input.text)
 
         while remainder.text:
+            logger.debug(f"Chunk iteration {iteration} ...")
             iteration += 1
 
             # Run the processor on the current chunk
             filtered_kwargs = get_bindable_parameters(f, runtime_config or {})
             new_output = cast(T, f(remainder, context, **filtered_kwargs))
-            output = self._merge_output(output, new_output)
+            sep = " " if not context.debug else "\n\n\n---CHUNK BOUNDARY---\n\n\n"
+            output = self._merge_output(output, new_output, separator=sep)
 
             # If the output is not truncated, we're done!
             if not output.truncated:
+                logger.debug("Output is not truncated; stopping.")
                 break
 
             # Enforce max iterations policy
             if max_iterations and iteration >= max_iterations:
+                logger.warning(f"Chunker reached maximum iterations ({max_iterations})")
                 break
 
             # Enforce timeout policy
             if timeout and time.monotonic() - t0 >= timeout:
+                logger.warning(f"Chunker reached timeout ({timeout} seconds)")
                 break
 
             # No other policies apply, so we will prepare a new
@@ -155,6 +163,7 @@ class ChunkDriver(Generic[T]):
             # It may be that even though we didn't catch the truncation earlier,
             # the remainder is empty. In that case, we're done.
             if not remainder.text:
+                logger.debug("No remainder text; stopping.")
                 break
 
         return output
@@ -168,6 +177,7 @@ class ChunkDriver(Generic[T]):
             existing (T): The existing text object
             addition (T): The additional text object
             separator (str, optional): The separator to use when merging text.
+            debug (bool, optional): Whether to include debug information.
 
         Returns:
             T: A new text object that is the result of merging the two inputs

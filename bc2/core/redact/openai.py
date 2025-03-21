@@ -42,6 +42,8 @@ class OpenAIRedactDriver(BaseRedactDriver):
     ) -> RedactedText:
         if not narrative.text or narrative.text == "No narratives found.":
             raise ValueError("No narrative text in input.")
+
+        placeholders = NameToReplacementMap.merge(placeholders, context.placeholders)
         redacted = self.generate(narrative.text, placeholders=placeholders)
         return RedactedText(
             redacted.content,
@@ -59,8 +61,11 @@ class OpenAIRedactDriver(BaseRedactDriver):
 
         This method is supported for only chat generators.
         """
+        xml = placeholders.to_xml() if placeholders else "<Names><!-- empty --></Names>"
         output = self.config.generator.invoke(
-            self.client, input, placeholders=placeholders
+            self.client,
+            input,
+            placeholders=xml,
         )
 
         return output

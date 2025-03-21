@@ -1,9 +1,13 @@
 from typing import Union
 
-from .aliases import OpenAIAliasesInspectConfig
 from .annotations import InspectAnnotationsConfig
 from .quality import InspectQualityConfig
+from .replacements import OpenAIReplacementsInspectConfig
+from .subjects import OpenAISubjectsInspectConfig
 
 InspectConfig = Union[
-    InspectAnnotationsConfig, OpenAIAliasesInspectConfig, InspectQualityConfig
+    InspectAnnotationsConfig,
+    OpenAIReplacementsInspectConfig,
+    OpenAISubjectsInspectConfig,
+    InspectQualityConfig,
 ]

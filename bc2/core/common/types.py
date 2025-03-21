@@ -31,13 +31,13 @@ class _NameMapContainer(ABC):
     """
 
     @classmethod
-    def merge(cls, *maps: "_NameMapContainer | None") -> Self | None:
+    def merge(cls, *maps: "_NameMapContainer | None") -> Self:
         """Merge multiple maps together."""
         real_maps = [m for m in maps if m]
 
-        # If there are no input maps, return None
+        # If there are no input maps, return an empty map
         if not real_maps:
-            return None
+            return cls()
 
         # Merge all the actual maps.
         merged = cls()
@@ -67,6 +67,9 @@ class _NameMapContainer(ABC):
 
     def _set_value(self, key: str, value: str):
         self._map[key] = value
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._map
 
     def to_xml(self) -> str:
         """Convert the map to XML."""

@@ -80,13 +80,19 @@ def validate_pipe(
     return first_input_t, last_output_t
 
 
-def run_pipe(pipe: list[AnyConfig], input: Any, runtime_config: dict[str, Any]) -> Any:
+def run_pipe(
+    pipe: list[AnyConfig],
+    input: Any,
+    runtime_config: dict[str, Any],
+    debug: bool = False,
+) -> Any:
     """Run the pipeline.
 
     Args:
         pipe (list[AnyConfig]): The pipeline configuration.
         input (Any): The input to the pipeline.
         runtime_config (dict[str, Any]): The runtime configuration.
+        debug (bool, optional): Enable debug logging. Defaults to False.
 
     Returns:
         Any: The result of running the pipeline.
@@ -103,16 +109,19 @@ def run_pipe(pipe: list[AnyConfig], input: Any, runtime_config: dict[str, Any]) 
     output: Any = input
 
     for i, config in enumerate(pipe):
-        logger.debug(f"Running {config.engine} ...")
+        logger.debug(f"Running step ({i}) {config.engine} ...")
 
         args = []
         kwargs = {}
 
         params = inspect_all_params(config.driver)
 
-        # For everything but the first pipe value, pass the output
-        # of the previous operation as the first argument.
-        if i > 0:
+        # If the pipe was passed a null input on the first argument,
+        # then avoid trying to jam it into the function call.
+        # If the pipe _was_ passed a real input, then use it.
+        # For all subsequent operations in the pipe, pass the output of
+        # the previous operation as the first input.
+        if i > 0 or output is not None:
             args.append(output)
             params.popitem(last=False)
 

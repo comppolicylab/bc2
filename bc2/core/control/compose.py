@@ -61,8 +61,10 @@ class ComposeDriver(Generic[T, U]):
         self, input: T, context: Context, runtime_config: RuntimeConfig | None = None
     ) -> U:
         """Run the composition."""
+        print("COMOSE RUNTIME CONFIG IS", runtime_config)
         rt = runtime_config or {}
         rt["context"] = context
+        print("RT CONTEXT", context.items())
 
         output = run_pipe(self.pipe, input, rt)
 
