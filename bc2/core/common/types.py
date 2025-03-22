@@ -90,12 +90,12 @@ class _NameMapContainer(ABC):
         ]
 
 
-class NameToReplacementMap(_NameMapContainer):
-    """A mapping of names to replacement values.
+class NameToMaskMap(_NameMapContainer):
+    """A mapping of names to placeholder values.
 
     example:
-        rm = NameToReplacementMap()
-        rm.set_replacement_text("Leopold Nudell", "Accused 1")
+        rm = NameToMaskMap()
+        rm.set_mask("Leopold Nudell", "Accused 1")
     """
 
     @property
@@ -114,10 +114,8 @@ class NameToReplacementMap(_NameMapContainer):
     def value_label(self) -> str:
         return "ReplacementText"
 
-    def set_replacement_text(
-        self, name: str, replacement: str
-    ) -> "NameToReplacementMap":
-        self._set_value(name, replacement)
+    def set_mask(self, name: str, mask: str) -> "NameToMaskMap":
+        self._set_value(name, mask)
         return self
 
 
@@ -147,4 +145,33 @@ class IdToNameMap(_NameMapContainer):
 
     def set_name(self, id: str, name: str) -> "IdToNameMap":
         self._set_value(id, name)
+        return self
+
+
+class IdToMaskMap(_NameMapContainer):
+    """A mapping of IDs to mask values.
+
+    example:
+        mm = IdToMaskMap()
+        mm.set_mask("1234", "Accused 1")
+    """
+
+    @property
+    def collection_label(self) -> str:
+        return "Names"
+
+    @property
+    def item_label(self) -> str:
+        return "Name"
+
+    @property
+    def key_label(self) -> str:
+        return "ID"
+
+    @property
+    def value_label(self) -> str:
+        return "MaskedName"
+
+    def set_mask(self, id: str, mask: str) -> "IdToMaskMap":
+        self._set_value(id, mask)
         return self

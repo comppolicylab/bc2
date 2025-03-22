@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 from ..common.context import Context
 from ..common.text import RedactedText
-from ..common.types import IdToNameMap, NameToReplacementMap
+from ..common.types import IdToNameMap, NameToMaskMap
 
 
 class BaseInspectDriver(ABC):
@@ -23,5 +23,5 @@ class BaseInspectDriver(ABC):
         input: RedactedText,
         context: Context,
         subjects: IdToNameMap | None = None,
-        placeholders: NameToReplacementMap | None = None,
+        placeholders: NameToMaskMap | None = None,
     ) -> RedactedText: ...

@@ -14,7 +14,7 @@ from ..common.type_util import (
     inspect_required_params,
     inspect_return_type,
 )
-from ..common.types import NameToReplacementMap
+from ..common.types import NameToMaskMap
 from ..parse import ParseConfig
 from ..redact import RedactConfig
 from .compose import ComposeConfig
@@ -138,7 +138,7 @@ class ChunkDriver(Generic[T]):
             # Run the processor on the current chunk
             filtered_kwargs = get_bindable_parameters(f, runtime_config or {})
             new_output = cast(T, f(remainder, context, **filtered_kwargs))
-            sep = " " if not context.debug else "\n\n\n---CHUNK BOUNDARY---\n\n\n"
+            sep = " " if not context.debug else "\n\n\n|CHUNK BOUNDARY|\n\n\n"
             output = self._merge_output(output, new_output, separator=sep)
 
             # If the output is not truncated, we're done!
@@ -211,9 +211,7 @@ class ChunkDriver(Generic[T]):
                     # 3. The delimiters are initially empty; fill in from first chunk.
                     delimiters=existing_t.delimiters or addition_t.delimiters,
                     # 4. Merge the placeholder maps.
-                    aliases=NameToReplacementMap.merge(
-                        existing_t.aliases, addition_t.aliases
-                    ),
+                    aliases=NameToMaskMap.merge(existing_t.aliases, addition_t.aliases),
                     # 4. Set truncation according to latest data.
                     truncated=addition_t.truncated,
                 ),

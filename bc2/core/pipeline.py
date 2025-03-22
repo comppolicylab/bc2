@@ -48,6 +48,8 @@ class Pipeline:
         ctx = Context()
         ctx.debug = runtime_config.get("debug", False)
         if ctx.debug:
+            # Set the global logger to info mode.
+            logging.getLogger().setLevel(logging.INFO)
             # Set all bc2 modules to debug mode.
             for name in logging.root.manager.loggerDict:
                 if name.startswith("bc2"):

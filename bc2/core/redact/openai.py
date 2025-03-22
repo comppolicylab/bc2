@@ -10,7 +10,7 @@ from ..common.openai import (
     OpenAIConfig,
 )
 from ..common.text import RedactedText, Text
-from ..common.types import NameToReplacementMap
+from ..common.types import NameToMaskMap
 from .base import BaseRedactConfig, BaseRedactDriver
 
 
@@ -38,12 +38,12 @@ class OpenAIRedactDriver(BaseRedactDriver):
         self,
         narrative: Text,
         context: Context,
-        placeholders: NameToReplacementMap | None = None,
+        placeholders: NameToMaskMap | None = None,
     ) -> RedactedText:
         if not narrative.text or narrative.text == "No narratives found.":
             raise ValueError("No narrative text in input.")
 
-        placeholders = NameToReplacementMap.merge(placeholders, context.placeholders)
+        placeholders = NameToMaskMap.merge(placeholders, context.placeholders)
         redacted = self.generate(narrative.text, placeholders=placeholders)
         return RedactedText(
             redacted.content,
@@ -53,7 +53,7 @@ class OpenAIRedactDriver(BaseRedactDriver):
         )
 
     def generate(
-        self, input: str, placeholders: NameToReplacementMap | None = None
+        self, input: str, placeholders: NameToMaskMap | None = None
     ) -> OpenAIChatOutput:
         """Generate text from the config and the user input.
 

@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from ..common.context import Context
 from ..common.text import RedactedText, Text
-from ..common.types import NameToReplacementMap
+from ..common.types import NameToMaskMap
 
 
 class BaseRedactConfig(BaseModel):
@@ -19,5 +19,5 @@ class BaseRedactDriver(ABC):
         self,
         narrative: Text,
         context: Context,
-        placeholders: NameToReplacementMap | None = None,
+        placeholders: NameToMaskMap | None = None,
     ) -> RedactedText: ...

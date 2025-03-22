@@ -3,7 +3,7 @@ from typing import Literal
 
 from ..common.context import Context
 from ..common.text import RedactedText, Text
-from ..common.types import NameToReplacementMap
+from ..common.types import NameToMaskMap
 from .base import BaseRedactConfig, BaseRedactDriver
 
 
@@ -25,7 +25,7 @@ class NoOpRedactDriver(BaseRedactDriver):
         self,
         narrative: Text,
         context: Context,
-        placeholders: NameToReplacementMap | None = None,
+        placeholders: NameToMaskMap | None = None,
     ) -> RedactedText:
         """Don't actually redact anything, just pass through."""
         return RedactedText(narrative.text, narrative.text, self.config.delimiters)

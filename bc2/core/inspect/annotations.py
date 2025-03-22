@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from ..common.context import Context
 from ..common.infer import infer_annotations, remove_hanging_redactions
 from ..common.text import RedactedText
-from ..common.types import IdToNameMap, NameToReplacementMap
+from ..common.types import IdToNameMap, NameToMaskMap
 from .base import BaseInspectDriver
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ class InspectAnnotationsDriver(BaseInspectDriver):
         input: RedactedText,
         context: Context,
         subjects: IdToNameMap | None = None,
-        placeholders: NameToReplacementMap | None = None,
+        placeholders: NameToMaskMap | None = None,
     ) -> RedactedText:
         """Infer annotations from redacted text."""
 
@@ -51,7 +51,10 @@ class InspectAnnotationsDriver(BaseInspectDriver):
         annotations = infer_annotations(
             input.original, redaction, delimiters=input.delimiters
         )
+
+        print("OLD ANNOTATIONS", context.annotations)
         context.annotations = list(annotations)
+        print("NEW ANNOTATIONS", context.annotations)
 
         if context.debug:
             logger.info(f"Inferred annotations: {annotations}")

@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from ..common.context import Context
 from ..common.infer import segment
 from ..common.text import RedactedText
-from ..common.types import IdToNameMap, NameToReplacementMap
+from ..common.types import IdToNameMap, NameToMaskMap
 from .base import BaseInspectDriver
 
 
@@ -64,7 +64,7 @@ class InspectQualityDriver(BaseInspectDriver):
         input: RedactedText,
         context: Context,
         subjects: IdToNameMap | None = None,
-        placeholders: NameToReplacementMap | None = None,
+        placeholders: NameToMaskMap | None = None,
     ) -> RedactedText:
         """Compute some quality metrics about the redacted text.
 

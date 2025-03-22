@@ -1,7 +1,7 @@
 from typing import Callable, Literal, Sequence, Tuple
 
 from .infer import TextSegment, segment
-from .types import NameToReplacementMap
+from .types import NameToMaskMap
 
 
 class Text:
@@ -68,7 +68,7 @@ class RedactedText:
         redacted: str,
         original: str,
         delimiters: Sequence[str],
-        aliases: NameToReplacementMap | None = None,
+        aliases: NameToMaskMap | None = None,
         truncated: bool = False,
     ) -> None:
         """Initialize a redacted text.
