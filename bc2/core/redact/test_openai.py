@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock, patch
 
 from ..common.context import Context
+from ..common.name_map import NameToMaskMap
 from ..common.text import RedactedText, Text
-from ..common.types import NameToMaskMap
 from .openai import OpenAIRedactConfig
 
 JINJA_PROMPT_WITH_PLACEHOLDERS = """\

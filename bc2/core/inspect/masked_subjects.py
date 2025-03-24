@@ -4,6 +4,7 @@ from typing import Literal
 
 from ..common.context import Context
 from ..common.json import parse_llm_json
+from ..common.name_map import IdToMaskMap, IdToNameMap, NameToMaskMap
 from ..common.openai import (
     OpenAIChatConfig,
     OpenAIChatOutput,
@@ -12,7 +13,6 @@ from ..common.openai import (
     OpenAIConfig,
 )
 from ..common.text import RedactedText
-from ..common.types import IdToMaskMap, IdToNameMap, NameToMaskMap
 from .base import BaseInspectDriver
 
 logger = logging.getLogger(__name__)

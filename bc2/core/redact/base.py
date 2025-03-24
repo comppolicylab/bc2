@@ -4,8 +4,8 @@ from typing import Sequence
 from pydantic import BaseModel
 
 from ..common.context import Context
+from ..common.name_map import NameToMaskMap
 from ..common.text import RedactedText, Text
-from ..common.types import NameToMaskMap
 
 
 class BaseRedactConfig(BaseModel):

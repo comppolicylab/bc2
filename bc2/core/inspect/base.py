@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 
 from ..common.context import Context
+from ..common.name_map import IdToNameMap, NameToMaskMap
 from ..common.text import RedactedText
-from ..common.types import IdToNameMap, NameToMaskMap
 
 
 class BaseInspectDriver(ABC):

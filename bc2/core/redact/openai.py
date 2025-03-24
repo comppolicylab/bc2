@@ -4,13 +4,13 @@ from typing import Literal
 from pydantic import Field
 
 from ..common.context import Context
+from ..common.name_map import NameToMaskMap
 from ..common.openai import (
     OpenAIChatConfig,
     OpenAIChatOutput,
     OpenAIConfig,
 )
 from ..common.text import RedactedText, Text
-from ..common.types import NameToMaskMap
 from .base import BaseRedactConfig, BaseRedactDriver
 
 

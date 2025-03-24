@@ -2,8 +2,8 @@ from functools import cached_property
 from typing import Literal
 
 from ..common.context import Context
+from ..common.name_map import NameToMaskMap
 from ..common.text import RedactedText, Text
-from ..common.types import NameToMaskMap
 from .base import BaseRedactConfig, BaseRedactDriver
 
 

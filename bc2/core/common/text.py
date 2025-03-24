@@ -1,7 +1,7 @@
 from typing import Callable, Literal, Sequence, Tuple
 
 from .infer import TextSegment, segment
-from .types import NameToMaskMap
+from .name_map import NameToMaskMap
 
 
 class Text:

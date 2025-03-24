@@ -6,8 +6,8 @@ from pydantic import BaseModel
 
 from ..common.context import Context
 from ..common.infer import infer_annotations, remove_hanging_redactions
+from ..common.name_map import IdToNameMap, NameToMaskMap
 from ..common.text import RedactedText
-from ..common.types import IdToNameMap, NameToMaskMap
 from .base import BaseInspectDriver
 
 logger = logging.getLogger(__name__)

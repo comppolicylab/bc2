@@ -6,6 +6,7 @@ from pydantic import BaseModel, PositiveInt
 
 from ..common.align import residual
 from ..common.context import Context
+from ..common.name_map import NameToMaskMap
 from ..common.runtime import RuntimeConfig
 from ..common.text import RedactedText, Text
 from ..common.type_util import (
@@ -14,7 +15,6 @@ from ..common.type_util import (
     inspect_required_params,
     inspect_return_type,
 )
-from ..common.types import NameToMaskMap
 from ..parse import ParseConfig
 from ..redact import RedactConfig
 from .compose import ComposeConfig

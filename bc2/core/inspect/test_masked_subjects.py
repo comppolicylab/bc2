@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 from ..common.context import Context
 from ..common.datafile import DataType, load_data_file
+from ..common.name_map import IdToMaskMap, IdToNameMap
 from ..common.text import RedactedText
-from ..common.types import IdToMaskMap, IdToNameMap
 from .masked_subjects import OpenAIMaskedSubjectsInspectConfig
 
 masked_subjects_prompt = load_data_file(DataType.prompt, "subject_masks")
