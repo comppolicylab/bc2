@@ -65,7 +65,8 @@ class OpenAIRedactDriver(BaseRedactDriver):
         output = self.config.generator.invoke(
             self.client,
             input,
-            placeholders=xml,
+            placeholders=placeholders,
+            placeholders_xml=xml,
         )
 
         return output

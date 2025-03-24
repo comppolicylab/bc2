@@ -2,16 +2,19 @@ import json
 from unittest.mock import patch
 
 from ..common.context import Context
+from ..common.datafile import DataType, load_data_file
 from ..common.text import RedactedText
-from ..common.types import IdToNameMap
+from ..common.types import IdToMaskMap, IdToNameMap
 from .masked_subjects import OpenAIMaskedSubjectsInspectConfig
+
+masked_subjects_prompt = load_data_file(DataType.prompt, "subject_masks")
 
 
 @patch("bc2.core.common.openai.OpenAI")
-def test_inspect_aliases(openai_mock):
+def test_inspect_subject_masks(openai_mock):
     cfg = OpenAIMaskedSubjectsInspectConfig.model_validate(
         {
-            "engine": "inspect:aliases",
+            "engine": "inspect:subject_masks",
             "client": {
                 "api_key": "abc123",
                 "base_url": "http://openai.local",
@@ -83,11 +86,13 @@ def test_inspect_aliases(openai_mock):
         ),
     )
     assert result == rt
-    assert ctx.aliases == {
-        "A": "Subject 1",
-        "B": "Subject 2",
-        "C": "Subject 3",
-    }
+    assert ctx.masked_subjects == IdToMaskMap(
+        {
+            "A": "Subject 1",
+            "B": "Subject 2",
+            "C": "Subject 3",
+        }
+    )
     openai_mock.return_value.chat.completions.create.assert_called_once_with(
         model="gpt-4o",
         n=1,
@@ -95,7 +100,7 @@ def test_inspect_aliases(openai_mock):
         messages=[
             {
                 "role": "system",
-                "content": "TODO",
+                "content": masked_subjects_prompt,
             },
             {
                 "role": "user",

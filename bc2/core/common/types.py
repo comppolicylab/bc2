@@ -31,7 +31,7 @@ class _NameMapContainer(ABC):
     """
 
     @classmethod
-    def merge(cls, *maps: "_NameMapContainer | None") -> Self:
+    def merge(cls, *maps: "_NameMapContainer | dict[str, str] | None") -> Self:
         """Merge multiple maps together."""
         real_maps = [m for m in maps if m]
 
@@ -42,7 +42,10 @@ class _NameMapContainer(ABC):
         # Merge all the actual maps.
         merged = cls()
         for m in real_maps:
-            merged._map.update(m._map)
+            if isinstance(m, dict):
+                merged._map.update(m)
+            else:
+                merged._map.update(m._map)
 
         return merged
 
@@ -88,6 +91,17 @@ class _NameMapContainer(ABC):
             {self.key_label: key, self.value_label: value}
             for key, value in self._map.items()
         ]
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self._map})"
+
+    def __str__(self) -> str:
+        return str(self._map)
+
+    def __eq__(self, value: object) -> bool:
+        if isinstance(value, _NameMapContainer):
+            return self._map == value._map and self.__class__ == value.__class__
+        return super().__eq__(value)
 
 
 class NameToMaskMap(_NameMapContainer):
