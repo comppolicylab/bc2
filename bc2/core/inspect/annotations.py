@@ -52,11 +52,6 @@ class InspectAnnotationsDriver(BaseInspectDriver):
             input.original, redaction, delimiters=input.delimiters
         )
 
-        print("OLD ANNOTATIONS", context.annotations)
         context.annotations = list(annotations)
-        print("NEW ANNOTATIONS", context.annotations)
-
-        if context.debug:
-            logger.info(f"Inferred annotations: {annotations}")
 
         return input

@@ -135,6 +135,10 @@ def run_pipe(
                 kwargs[param] = runtime_config
             elif param in rt_param_set:
                 kwargs[param] = rt_param_set[param]
+            if debug:
+                eng_name = config.engine
+                filled_value = kwargs.get(param, "<nothing>")
+                logger.debug(f"Filled {eng_name} param {param} with {filled_value}")
 
         # NOTE(jnu): mypy can't validate the kwarg types, but we've effectively
         # done this at runtime anyway so just hush the error.

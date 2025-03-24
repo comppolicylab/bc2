@@ -64,6 +64,6 @@ class ComposeDriver(Generic[T, U]):
         rt = runtime_config or {}
         rt["context"] = context
 
-        output = run_pipe(self.pipe, input, rt)
+        output = run_pipe(self.pipe, input, rt, debug=context.debug)
 
         return cast(U, output)
