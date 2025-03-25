@@ -4,23 +4,43 @@ import json
 import logging
 import os
 from abc import abstractmethod
+from dataclasses import dataclass
 from functools import cached_property
-from typing import Literal, Sequence
+from typing import Literal, Sequence, TypeAlias, cast
 
 from openai import AzureOpenAI, OpenAI
-from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt, model_validator
-from typing_extensions import Self
+from openai.types.chat import (
+    ChatCompletionAssistantMessageParam as _OpenAIChatCompletionAssistantMessageParam,
+)
+from openai.types.chat import (
+    ChatCompletionContentPartImageParam as _OpenAIChatImageMessagePart,
+)
+from openai.types.chat import (
+    ChatCompletionContentPartTextParam as _OpenAIChatTextMessagePart,
+)
+from openai.types.chat import (
+    ChatCompletionMessageParam as _OpenAIChatCompletionMessageParam,
+)
+from openai.types.chat import (
+    ChatCompletionSystemMessageParam as _OpenAIChatCompletionSystemMessageParam,
+)
+from openai.types.chat import (
+    ChatCompletionUserMessageParam as _OpenAIChatCompletionUserMessageParam,
+)
+from openai.types.chat.chat_completion_content_part_image_param import ImageURL
+from pydantic import BaseModel, Field, PositiveInt
 
-from .align import residual
 from .datafile import DataType, load_data_file, load_data_file_from_path
 from .image import ImageUrl
-from .infer import remove_hanging_redactions
-from .resolve import prepare_resolve_input
+from .openai_metadata import ModelNotFound, get_model_meta
 from .template import TemplateEngine, get_formatter
-from .types import NameMap
-from .validate import validate_json
 
 logger = logging.getLogger(__name__)
+
+
+_OpenAIChatMessagePart: TypeAlias = (
+    _OpenAIChatTextMessagePart | _OpenAIChatImageMessagePart
+)
 
 
 class OpenAIClientConfig(BaseModel):
@@ -36,11 +56,13 @@ class OpenAIClientConfig(BaseModel):
     def init(self) -> OpenAI:
         """Create an OpenAI client."""
         if self.azure_endpoint:
+            if not self.api_version:
+                raise ValueError("Azure endpoint requires an API version.")
+            if not self.api_key:
+                raise ValueError("Azure endpoint requires an API key.")
             return AzureOpenAI(
                 api_key=self.api_key,
                 organization=self.organization,
-                project=self.project,
-                base_url=self.base_url,
                 azure_endpoint=self.azure_endpoint,
                 api_version=self.api_version,
             )
@@ -58,6 +80,10 @@ class OpenAIChatInputText(BaseModel):
     type: Literal["text"] = "text"
     text: str
 
+    def as_chat_message_part(self) -> _OpenAIChatTextMessagePart:
+        """Convert the input to a chat message."""
+        return _OpenAIChatTextMessagePart(type=self.type, text=self.text)
+
 
 class OpenAIUrl(BaseModel):
     """A URL for an OpenAI model."""
@@ -71,6 +97,16 @@ class OpenAIChatInputImageUrl(BaseModel):
     type: Literal["image_url"] = "image_url"
     image_url: OpenAIUrl
 
+    def as_chat_message_part(self) -> _OpenAIChatImageMessagePart:
+        """Convert the input to a chat message."""
+        return _OpenAIChatImageMessagePart(
+            type=self.type,
+            image_url=ImageURL(
+                url=self.image_url.url,
+                detail="high",
+            ),
+        )
+
 
 OpenAIChatInput = OpenAIChatInputText | OpenAIChatInputImageUrl
 
@@ -81,16 +117,64 @@ class OpenAIChatTurn(BaseModel):
     role: Literal["assistant", "user", "system"]
     content: str | list[OpenAIChatInput]
 
+    def as_chat_message(self) -> _OpenAIChatCompletionMessageParam:
+        """Convert the turn to a chat message."""
+        match self.role:
+            case "assistant":
+                return _OpenAIChatCompletionAssistantMessageParam(
+                    role=self.role,
+                    content=self._format_content_no_images(),
+                )
+            case "user":
+                return _OpenAIChatCompletionUserMessageParam(
+                    role=self.role,
+                    content=self._format_content(),
+                )
+            case "system":
+                return _OpenAIChatCompletionSystemMessageParam(
+                    role=self.role,
+                    content=self._format_content_no_images(),
+                )
+
+    def _format_content(self) -> str | list[_OpenAIChatMessagePart]:
+        if isinstance(self.content, str):
+            return self.content
+        return [
+            c if isinstance(c, str) else c.as_chat_message_part() for c in self.content
+        ]
+
+    def _format_content_no_images(self) -> str | list[_OpenAIChatTextMessagePart]:
+        if isinstance(self.content, str):
+            return self.content
+        return [
+            c if isinstance(c, str) else c.as_chat_message_part()
+            for c in self.content
+            if not isinstance(c, OpenAIChatInputImageUrl)
+        ]
+
 
 AnyChatInput = str | ImageUrl
 
 
-class OpenAIChatOutput(BaseModel):
+@dataclass
+class OpenAIChatOutput:
     """A chat output for an OpenAI model."""
 
     content: str
     completion_tokens: int
-    aliases: NameMap | None = None
+    max_tokens: int | None = None
+
+    @property
+    def is_truncated(self) -> bool:
+        """Check if the output is truncated.
+
+        This checks if the completion tokens are equal to the max tokens.
+        Thus there is an edge case where the expected token output is exactly
+        equal to the max tokens. In this case no truncation happened. Since
+        this is a very uncommon case and impossible to see from the information
+        we have in this class, we ignore it.
+        """
+        return self.completion_tokens == self.max_tokens
 
 
 class ChatPrompt:
@@ -120,7 +204,10 @@ class ChatPrompt:
         ]
         for example in self.examples_value or []:
             turn = OpenAIChatTurn.model_validate(example)
-            turn.content = fmt(turn.content, ctx)
+            # For examples, turns can only be strings. Throw an error if not.
+            if not isinstance(turn.content, str):
+                raise ValueError(f"Unsupported example type: {type(turn.content)}")
+            turn.content = fmt(cast(str, turn.content), ctx)
             base_messages.append(turn)
 
         # TODO - we might get different results if the input image is
@@ -234,28 +321,19 @@ OpenAIChatPrompt = (
 )
 
 
-class OpenAIExtenderConfig(BaseModel, ChatPrompt):
-    """Allow outputs over the OpenAI output token limit."""
-
-    max_extensions: NonNegativeInt
-    api_completion_token_limit: PositiveInt
-
-
-def _default_extender() -> OpenAIExtenderConfig | None:
-    """Create the default extender."""
-    # NOTE(jnu) - extended output is still experimental, but on by default given
-    # promising pilot results. Eventually we will remove this flag entirely,
-    # but it's kept in order to disable if something goes wrong.
-    if os.getenv("BC2_EXTENDED_OUTPUT", "1") == "1":
-        return OpenAIExtenderConfig(max_extensions=5, api_completion_token_limit=4096)
-    return None
-
-
 class OpenAIChatConfig(BaseModel):
     """OpenAI Chat config."""
 
     method: Literal["chat"] = "chat"
     model: str
+    openai_model: str | None = Field(
+        None,
+        description=(
+            "When using Azure, the `model` refers to a model *deployment*. "
+            "Set the `openai_model` parameter to indicate which "
+            "underlying OpenAI model is used."
+        ),
+    )
     system: OpenAIChatPrompt
     frequency_penalty: float | None = None
     max_tokens: PositiveInt | None = None
@@ -265,131 +343,111 @@ class OpenAIChatConfig(BaseModel):
     temperature: float | None = None
     top_p: float | None = None
 
-    extender: OpenAIExtenderConfig | None = Field(default_factory=_default_extender)
+    extender: None = Field(
+        None,
+        deprecated=True,
+        description="Use `control:chunk` instead.",
+    )
 
-    @model_validator(mode="after")
-    def cap_token_limits(self) -> Self:
-        if self.extender and self.max_tokens:
-            token_cap = min(self.max_tokens, self.extender.api_completion_token_limit)
-            logger.debug(f"Unequal token limits, capping at {token_cap}")
-            self.max_tokens = token_cap
-            self.extender.api_completion_token_limit = token_cap
-        return self
+    @property
+    def model_completion_tokens(self) -> int | None:
+        """Get the completion tokens for the model."""
+        model_name = self.openai_model or self.model
+        try:
+            return get_model_meta(model_name).output
+        except ModelNotFound:
+            logger.warning(f"Model '{model_name}' not found in metadata.")
+            return None
+
+    @property
+    def token_cap(self) -> int | None:
+        """Get the token cap for the model."""
+        custom_max_tokens = self.max_tokens
+        model_max_tokens = self.model_completion_tokens
+
+        if custom_max_tokens is None and model_max_tokens is None:
+            logger.warning(
+                "Unable to determine token limit for model output. "
+                "There almost certainly *is* a limit, but since we do not know "
+                "what it is, document chunking will not work."
+            )
+            return None
+
+        if custom_max_tokens is None:
+            logger.debug(f"Using model output token limit as cap ({model_max_tokens})")
+            return model_max_tokens
+
+        if model_max_tokens is None:
+            logger.debug(f"Using custom token limit as cap ({custom_max_tokens})")
+            return custom_max_tokens
+
+        if custom_max_tokens == model_max_tokens:
+            logger.debug(
+                "Custom token limit is set to model output size, "
+                "using it is token cap ({custom_max_tokens})"
+            )
+            return custom_max_tokens
+
+        if custom_max_tokens > model_max_tokens:
+            logger.warning(
+                f"Custom token limit ({custom_max_tokens}) is greater than "
+                "model output size ({model_max_tokens}). "
+                "This looks like a config error! Using model output size as token cap."
+            )
+            return model_max_tokens
+
+        logger.debug(
+            f"Custom token limit ({custom_max_tokens}) is smaller than "
+            "model output size ({model_max_tokens}). "
+            "Using custom token limit as token cap."
+        )
+        return custom_max_tokens
 
     def invoke(
         self,
         client: OpenAI,
         input: AnyChatInput | Sequence[AnyChatInput],
-        preset_aliases: NameMap | None = None,
+        **kwargs,
     ) -> OpenAIChatOutput:
         """Invoke the chat."""
         props = self.model_dump()
         openai_api_params = {
             "model",
             "frequency_penalty",
-            "max_tokens",
             "n",
             "presence_penalty",
             "seed",
             "temperature",
             "top_p",
         }
-        # Only keep populated settings that are in the OpenAI API params list
+
+        # Only keep populated settings that are in the OpenAI API params list.
+        # Note that `max_tokens` is determined and applied separate from these params.
         openai_api_settings = {
             k: v for k, v in props.items() if k in openai_api_params and v is not None
         }
 
-        messages = [
-            m.model_dump()
-            for m in self.system.format(input, preset_aliases=preset_aliases)
-        ]
+        # Format chat message
+        messages = [m.as_chat_message() for m in self.system.format(input, **kwargs)]
+
+        # Configure max tokens and submit the query.
+        max_tokens = self.token_cap
         completion = client.chat.completions.create(
-            **openai_api_settings, messages=messages
+            **openai_api_settings, max_tokens=max_tokens, messages=messages
         )
+
+        # Interpret completion response.
         content = completion.choices[0].message.content
+
+        if not completion.usage:
+            raise ValueError("Completion usage not found in response.")
+
         completion_tokens = completion.usage.completion_tokens
         return OpenAIChatOutput(
-            content=content, completion_tokens=completion_tokens, aliases=preset_aliases
+            max_tokens=max_tokens,
+            content=content or "",
+            completion_tokens=completion_tokens,
         )
-
-    def invoke_extend_resolve(
-        self,
-        client: OpenAI,
-        input: str,
-        resolver: OpenAIResolverConfig | None = None,
-        preset_aliases: NameMap | None = None,
-    ) -> OpenAIChatOutput:
-        """Invoke the chat with extensions and/or resolution,
-        if either functions are configured."""
-        max_extensions = 0
-        token_limit = -1
-        if self.extender:
-            max_extensions = self.extender.max_extensions
-            token_limit = self.extender.api_completion_token_limit
-
-        output = OpenAIChatOutput(
-            content="", completion_tokens=0, aliases=preset_aliases
-        )
-        tail = input
-        num_extensions = 0
-        while num_extensions <= max_extensions:
-            logger.debug(f"Starting pass #{num_extensions + 1}")
-            result = self.invoke(client, tail, output.aliases)
-            if resolver:
-                output.aliases, result.content = resolver.resolve(client, input, result)
-            output.content += result.content
-            output.completion_tokens += result.completion_tokens
-
-            if result.completion_tokens == token_limit:
-                logger.debug(f"Hit token limit on pass #{num_extensions + 1}")
-                logger.debug(f"Haystack length: {len(tail)}")
-                logger.debug(f"Needle length: {len(result.content)}")
-                num_extensions += 1
-                tail = residual(tail, result.content)
-                if not tail:
-                    break
-                output.content += " "
-            else:
-                break
-
-        return output
-
-
-class TooManyRetries(Exception):
-    pass
-
-
-class OpenAIResolverConfig(OpenAIChatConfig):
-    """Resolve aliases using an OpenAI model."""
-
-    retries: PositiveInt = 3
-    delimiters: Sequence[str] = ""
-
-    def resolve(
-        self,
-        client: OpenAI,
-        original: str,
-        redacted: OpenAIChatOutput,
-    ) -> tuple[dict, str]:
-        redacted.content = remove_hanging_redactions(redacted.content, self.delimiters)
-        input = prepare_resolve_input(
-            original, redacted.content, redacted.aliases, self.delimiters
-        )
-
-        last_e: Exception | None = None
-        for i in range(self.retries):
-            try:
-                # Try calling the input and parsing the response
-                response = self.invoke(client, input)
-                aliases = validate_json(response.content)
-                logger.debug(f"Resolved aliases: {aliases}")
-                return (aliases, redacted.content)
-            except Exception as e:
-                last_e = e
-                logger.warning(f"Error generating aliases (attempt {i + 1} of \
-                               {self.retries}): {e}")
-        else:
-            raise TooManyRetries from last_e
 
 
 class OpenAIConfig(BaseModel):

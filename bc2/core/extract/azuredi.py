@@ -1,7 +1,7 @@
 import logging
 from functools import cached_property
 from io import BytesIO
-from typing import Literal
+from typing import Literal, Tuple
 
 from azure.ai.formrecognizer import AnalyzeResult, DocumentAnalysisClient
 from azure.core.credentials import AzureKeyCredential
@@ -45,8 +45,9 @@ class AzureDIExtract(BaseExtractDriver):
         file.buffer.seek(0)
         return file.buffer
 
-    def extract(self, doc: BytesIO) -> str:
-        return self._extract_text_from_doc(doc) or ""
+    def extract(self, doc: BytesIO) -> Tuple[str, bool]:
+        result = self._extract_text_from_doc(doc) or ""
+        return result, False
 
     def _extract_document_content(
         self,

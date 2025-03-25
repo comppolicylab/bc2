@@ -5,36 +5,49 @@ from pydantic import BaseModel
 
 from ..common.context import Context
 from ..common.infer import infer_annotations
+from ..common.name_map import IdToNameMap, NameToMaskMap
 from ..common.text import RedactedText
-from ..common.types import NameMap
 from .base import BaseInspectDriver
 
 
-class InspectAnnotationsConfig(BaseModel):
-    engine: Literal["inspect:annotations"]
+class AnnotationsInspectConfig(BaseModel):
+    """Configuration for the annotations inspect driver."""
+
+    engine: Literal["inspect:annotations"] = "inspect:annotations"
 
     @cached_property
-    def driver(self) -> "InspectAnnotationsDriver":
-        return InspectAnnotationsDriver(self)
+    def driver(self) -> "AnnotationsInspectDriver":
+        """Return the annotations inspect driver."""
+        return AnnotationsInspectDriver()
 
 
-class InspectAnnotationsDriver(BaseInspectDriver):
-    """An inspect driver that infers annotations from redacted text.
-
-    This driver is used to infer annotations from redacted text. The annotations
-    are stored in the context object, and can be referenced from other parts of
-    the pipeline.
-    """
-
-    def __init__(self, config: InspectAnnotationsConfig):
-        self.config = config
+class AnnotationsInspectDriver(BaseInspectDriver):
+    """Infer annotations in redacted text and store them in the context."""
 
     def __call__(
-        self, input: RedactedText, context: Context, subjects: NameMap | None = None
+        self,
+        input: RedactedText,
+        context: Context,
+        subjects: IdToNameMap | None = None,
+        placeholders: NameToMaskMap | None = None,
     ) -> RedactedText:
-        """Infer annotations from redacted text."""
-        annotations = infer_annotations(
-            input.original, input.redacted, delimiters=input.delimiters
+        """Infer annotations in redacted text and store them in the context.
+
+        Args:
+            input: The redacted text.
+            context: The context object.
+            subjects: The subjects identified by an ID.
+            placeholders: The subjects map inferred by the redaction process.
+
+        Returns:
+            The redacted text.
+        """
+        context.annotations = list(
+            infer_annotations(
+                input.original,
+                input.redacted,
+                delimiters=input.delimiters,
+                truncated=input.truncated,
+            )
         )
-        context.annotations = list(annotations)
         return input

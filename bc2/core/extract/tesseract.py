@@ -1,7 +1,7 @@
 import io
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Literal
+from typing import Literal, Tuple
 
 import pytesseract
 from PIL import Image
@@ -52,8 +52,8 @@ class TesseractExtractDriver(BaseExtractDriver[WrappedData]):
     def convert_text(self, file: MemoryFile) -> WrappedData:
         return WrappedData(raw_text=file.buffer.read().decode(), images=[])
 
-    def extract(self, data: WrappedData) -> str:
-        return self._format(data)
+    def extract(self, data: WrappedData) -> Tuple[str, bool]:
+        return self._format(data), False
 
     def _format(self, data: WrappedData, separator: str = "\n\n") -> str:
         result = ""

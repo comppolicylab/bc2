@@ -1,7 +1,7 @@
 import logging
 import re
 from abc import ABC, abstractmethod
-from typing import Callable, Generic, TypeVar, cast
+from typing import Callable, Generic, Tuple, TypeVar, cast
 
 from ..common.file import MemoryFile
 from ..common.text import Text
@@ -59,10 +59,10 @@ class BaseExtractDriver(ABC, Generic[T]):
             MissingPreprocessorError: When no preprocessor is found for the file
         """
         data = self.preprocess(file)
-        text = self.extract(data)
+        text, is_truncated = self.extract(data)
         if not text:
             raise EmptyExtractionError("No text found in file.")
-        return Text(text)
+        return Text(text, truncated=is_truncated)
 
     def preprocess(self, file: MemoryFile) -> T:
         """Preprocess the file before extraction.
@@ -92,13 +92,13 @@ class BaseExtractDriver(ABC, Generic[T]):
         )
 
     @abstractmethod
-    def extract(self, data: T) -> str:
+    def extract(self, data: T) -> Tuple[str, bool]:
         """Extract the narrative from the given files.
 
         Args:
             data (T): The preprocessed input data
 
         Returns:
-            str: The extracted text.
+            Tuple[str, bool]: The extracted text and whether the output is truncated
         """
         ...

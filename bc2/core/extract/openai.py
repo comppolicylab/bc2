@@ -1,5 +1,5 @@
 from functools import cached_property
-from typing import Literal
+from typing import Literal, Tuple
 
 from ..common.file import MemoryFile
 from ..common.image import ImageUrl
@@ -42,6 +42,7 @@ class OpenAIExtractDriver(BaseExtractDriver[list[ImageUrl]]):
     # could send more complicated types like text/html to OpenAI
     # for extraction of the actual text content.
 
-    def extract(self, input: list[ImageUrl]) -> str:
+    def extract(self, input: list[ImageUrl]) -> Tuple[str, bool]:
         """Generate a completion optionally including image input."""
-        return self.config.generator.invoke(self.client, input)
+        result = self.config.generator.invoke(self.client, input)
+        return result.content, result.is_truncated

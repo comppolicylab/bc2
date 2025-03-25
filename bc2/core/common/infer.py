@@ -141,6 +141,7 @@ def segment(  # noqa: C901
     original: str,
     redacted: str,
     delimiters: Sequence[str] = ("<", ">"),
+    truncated: bool = False,
 ) -> Generator[TextSegment, None, None]:
     """Visit text segments in the redacted narrative.
 
@@ -163,7 +164,16 @@ def segment(  # noqa: C901
         original: The original narrative text.
         redacted: The redacted narrative text.
         delimiters: The tokens that mark beginning and end of a redaction.
+        truncated: If the redacted input might be truncated, call this
+            function with `truncated=True` to clean up any potential
+            "ragged ends" at the end of the document.
     """
+    if truncated:
+        # TODO(jnu): might be worth just calling this every time. If the
+        # risk of false positives in removing hanging redactions is basically
+        # zero, we should get rid of the option and just always do it.
+        redacted = remove_hanging_redactions(redacted, raw_delimiters=delimiters)
+
     edit_stack = 0
     matcher = difflib.SequenceMatcher(None, original, redacted, autojunk=False)
 

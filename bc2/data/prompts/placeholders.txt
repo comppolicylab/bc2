@@ -1,0 +1,25 @@
+Generate a mapping of real entity name to placeholder text, given the following XML collection.
+
+[PLACEHOLDERS] is a collection of entities that were redacted in a text and the placeholder text that was used for each entity.
+
+Deduplicate the collection to produce a mapping from real entity to placeholder text.
+
+Keep in mind that entities may have variations such as nicknames, abbreviations, or other forms of the same name. This means that multiple variations of a name may map to the same placeholder text. When you see different names that refer to the same entity, only create one entry in the final mapping.
+
+Only include names of entities such as people and places. Do not include attributes such as race or color in the final mapping.
+
+Output the final mapping as a JSON object with the real entity name as the key and the placeholder text as the value.
+
+Use [NARRATIVE] for additional context to determine which names refer to the same person.
+
+Your response should be a simple JSON map, such as:
+
+```json
+{{
+    "John Smith": "Person 1",
+    "Jane Doe": "Person 2",
+    "Officer Lee": "Officer 1"
+}}
+```
+
+Do not include any other text or formatting in the response. It must be a valid JSON object.

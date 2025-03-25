@@ -4,8 +4,8 @@ from typing import Sequence
 from pydantic import BaseModel
 
 from ..common.context import Context
+from ..common.name_map import NameToMaskMap
 from ..common.text import RedactedText, Text
-from ..common.types import NameMap
 
 
 class BaseRedactConfig(BaseModel):
@@ -16,5 +16,8 @@ class BaseRedactConfig(BaseModel):
 class BaseRedactDriver(ABC):
     @abstractmethod
     def __call__(
-        self, narrative: Text, context: Context, aliases: NameMap | None = None
+        self,
+        narrative: Text,
+        context: Context,
+        placeholders: NameToMaskMap | None = None,
     ) -> RedactedText: ...
