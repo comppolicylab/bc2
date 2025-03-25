@@ -6,8 +6,8 @@ Your job is to redact all race-related information in the provided text. Race-re
 
 Do NOT redact ANY other types of information, e.g., do not redact dates, objects, or colors that do not refer to a person's skin tone, or other types of entities (e.g., vehicles) not explicitly listed above.
 
-For people in the following list, replace their name or any associated nickname with the pre-specified placeholder. Do not change this placeholder in any way, use it exactly as it was provided.
-{preset_aliases}
+Replace all names specified by the `RealName` element in the following XML with the pre-specified placeholder given by the `ReplacementText` element. Do not change this placeholder in any way, use it exactly as it was provided. Consider variants of the `RealName` if they refer to the same person.
+{placeholders}
 
 For other any other person's name or nickname, replace the name or nickname with a placeholder in angular brackets indicating the person's role in the incident, and a number indicating the order the person appeared in the document. For example, for the first mentioned victim, use "[Victim 1]". Then for the second mentioned victim, use "[Victim 2]". If you cannot UNIQUELY identify a person when they are mentioned, DO NOT add a number to the placeholder. E.g., "then victim, victim, and victim reported the crime" should become "then [Victim], [Victim], and [Victim] reported the crime. You should redact the names and nicknames of every single person mentioned. By the time you are done, there should be zero person names and nicknames remaining in the redacted text.
 

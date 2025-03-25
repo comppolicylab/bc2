@@ -1,45 +1,27 @@
 from unittest.mock import MagicMock, patch
 
 from ..common.context import Context
+from ..common.name_map import NameToMaskMap
 from ..common.text import RedactedText, Text
 from .openai import OpenAIRedactConfig
 
-JINJA_PROMPT_WITH_ALIASES = """\
-Prompt with jinja formatting aliases.
+JINJA_PROMPT_WITH_PLACEHOLDERS = """\
+Prompt with jinja formatting placeholders.
 
-{% for k, v in preset_aliases.items() %}
-{{ k }} is {{ v }}
+{% for item in placeholders.to_json() %}
+{{ item["ReplacementText"] }} is {{ item["RealName"] }}
 {% endfor %}
 """
 
+STRING_PROMPT_WITH_PLACEHOLDERS = """\
+The xml is:
 
-def test_default_resolver():
-    cfg = OpenAIRedactConfig.model_validate(
-        {
-            "engine": "redact:openai",
-            "delimiters": ("[", "]"),
-            "client": {
-                "api_key": "abc123",
-                "base_url": "http://openai.local",
-            },
-            "generator": {
-                "method": "chat",
-                "model": "gpt-4o",
-                "system": {
-                    "engine": "jinja",
-                    "prompt": JINJA_PROMPT_WITH_ALIASES,
-                },
-            },
-        },
-    )
-
-    assert cfg.resolver is not None
-    assert cfg.resolver.system.prompt_id == "resolver"
-    assert cfg.resolver.extender is None
+{placeholders_xml}\
+"""
 
 
 @patch("bc2.core.common.openai.OpenAI")
-def test_redact_jinja_with_aliases(openai_mock):
+def test_redact_jinja_with_placeholders(openai_mock):
     def mock_create(*args, **kwargs):
         model_name = kwargs.get("model")
         if model_name == "resolver_model":
@@ -69,18 +51,10 @@ def test_redact_jinja_with_aliases(openai_mock):
             },
             "generator": {
                 "method": "chat",
-                "model": "gpt-4o",
+                "model": "gpt-4o-2024-05-13",
                 "system": {
                     "engine": "jinja",
-                    "prompt": JINJA_PROMPT_WITH_ALIASES,
-                },
-            },
-            "resolver": {
-                "method": "chat",
-                "model": "resolver_model",
-                "system": {
-                    "engine": "string",
-                    "prompt": "This is the resolver prompt.",
+                    "prompt": JINJA_PROMPT_WITH_PLACEHOLDERS,
                 },
             },
         },
@@ -89,26 +63,28 @@ def test_redact_jinja_with_aliases(openai_mock):
     result = cfg.driver(
         narrative=Text("Leopold, Pollock, and Abbott went to the store."),
         context=Context(),
-        aliases={
-            "Subject 1": "Leopold",
-            "Subject 2": "Pollock",
-            "Subject 3": "Abbott",
-        },
+        placeholders=NameToMaskMap(
+            {
+                "Leopold": "Subject 1",
+                "Pollock": "Subject 2",
+                "Abbott": "Subject 3",
+            }
+        ),
     )
     assert result == RedactedText(
         "Subject 1, Subject 2, and Subject 3 went to the store.",
         "Leopold, Pollock, and Abbott went to the store.",
         ("[", "]"),
     )
-    assert openai_mock.return_value.chat.completions.create.call_count == 2
-    openai_mock.return_value.chat.completions.create.assert_any_call(
-        model="gpt-4o",
+    openai_mock.return_value.chat.completions.create.assert_called_once_with(
+        model="gpt-4o-2024-05-13",
         n=1,
+        max_tokens=4_096,
         messages=[
             {
                 "role": "system",
                 "content": (
-                    "Prompt with jinja formatting aliases.\n\n\n"
+                    "Prompt with jinja formatting placeholders.\n\n\n"
                     "Subject 1 is Leopold\n\nSubject 2 is Pollock\n\n"
                     "Subject 3 is Abbott\n"
                 ),
@@ -124,29 +100,91 @@ def test_redact_jinja_with_aliases(openai_mock):
             },
         ],
     )
-    openai_mock.return_value.chat.completions.create.assert_any_call(
-        model="resolver_model",
+
+
+@patch("bc2.core.common.openai.OpenAI")
+def test_redact_string_with_placeholders(openai_mock):
+    def mock_create(*args, **kwargs):
+        model_name = kwargs.get("model")
+        if model_name == "resolver_model":
+            response = MagicMock()
+            response.choices = [MagicMock(message=MagicMock(content="{}"))]
+            return response
+        else:
+            response = MagicMock()
+            response.choices = [
+                MagicMock(
+                    message=MagicMock(
+                        content="Subject 1, Subject 2, and Subject 3 went to the store."
+                    )
+                )
+            ]
+            return response
+
+    openai_mock.return_value.chat.completions.create.side_effect = mock_create
+
+    cfg = OpenAIRedactConfig.model_validate(
+        {
+            "engine": "redact:openai",
+            "delimiters": ("{", "}"),
+            "client": {
+                "api_key": "abc123",
+                "base_url": "http://openai.local",
+            },
+            "generator": {
+                "method": "chat",
+                "model": "gpt-4o-2024-05-13",
+                "system": {
+                    "engine": "string",
+                    "prompt": STRING_PROMPT_WITH_PLACEHOLDERS,
+                },
+            },
+        },
+    )
+
+    placeholders = NameToMaskMap(
+        {
+            "Leopold": "Subject 1",
+            "Pollock": "Subject 2",
+            "Abbott": "Subject 3",
+        }
+    )
+
+    result = cfg.driver(
+        narrative=Text("Leopold, Pollock, and Abbott went to the store."),
+        context=Context(),
+        placeholders=placeholders,
+    )
+    assert result == RedactedText(
+        "Subject 1, Subject 2, and Subject 3 went to the store.",
+        "Leopold, Pollock, and Abbott went to the store.",
+        ("{", "}"),
+    )
+    openai_mock.return_value.chat.completions.create.assert_called_once_with(
+        model="gpt-4o-2024-05-13",
         n=1,
+        max_tokens=4_096,
         messages=[
             {
                 "role": "system",
-                "content": "This is the resolver prompt.",
+                "content": (
+                    """\
+The xml is:
+
+<Names><Name><RealName>Leopold</RealName>\
+<ReplacementText>Subject 1</ReplacementText></Name>\
+<Name><RealName>Pollock</RealName><ReplacementText>Subject 2</ReplacementText>\
+</Name><Name><RealName>Abbott</RealName>\
+<ReplacementText>Subject 3</ReplacementText></Name></Names>\
+"""
+                ),
             },
             {
                 "role": "user",
                 "content": [
                     {
                         "type": "text",
-                        "text": (
-                            "[MAP#1]\n{\n"
-                            '  "Subject 1": "Leopold",\n'
-                            '  "Subject 2": "Pollock",\n'
-                            '  "Subject 3": "Abbott"\n'
-                            "}\n\n"
-                            "[MAP#2]\n{}\n\n"
-                            "[NARRATIVE]\n"
-                            "Leopold, Pollock, and Abbott went to the store.\n"
-                        ),
+                        "text": "Leopold, Pollock, and Abbott went to the store.",
                     }
                 ],
             },

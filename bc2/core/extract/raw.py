@@ -1,5 +1,5 @@
 from functools import cached_property
-from typing import Literal
+from typing import Literal, Tuple
 
 from pydantic import BaseModel
 
@@ -21,8 +21,8 @@ class RawExtractDriver(BaseExtractDriver[str]):
     def __init__(self, config: RawExtractConfig) -> None:
         self.config = config
 
-    def extract(self, data: str) -> str:
-        return data
+    def extract(self, data: str) -> Tuple[str, bool]:
+        return data, False
 
     @register_preprocessor("^text/*")
     def format_text(self, file: MemoryFile) -> str:

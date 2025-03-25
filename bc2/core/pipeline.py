@@ -1,140 +1,39 @@
 import logging
-from inspect import signature
-from typing import Any, Union
 
 from pydantic import BaseModel
 
 from .common.context import Context
-from .extract.azuredi import AzureDIExtractConfig
-from .extract.openai import OpenAIExtractConfig
-from .extract.raw import RawExtractConfig
-from .extract.tesseract import TesseractExtractConfig
-from .input.azureblob import AzureBlobInputConfig
-from .input.file import FileInputConfig
-from .input.memory import MemoryInputConfig
-from .input.stdin import StdinInputConfig
-from .inspect.aliases import OpenAIAliasesInspectConfig
-from .inspect.annotations import InspectAnnotationsConfig
-from .inspect.quality import InspectQualityConfig
-from .output.azureblob import AzureBlobOutputConfig
-from .output.file import FileOutputConfig
-from .output.memory import MemoryOutputConfig
-from .output.stdout import StdoutOutputConfig
-from .parse.openai import OpenAIParseConfig
-from .redact.noop import NoOpRedactConfig
-from .redact.openai import OpenAIRedactConfig
-from .render.html import HtmlRenderConfig
-from .render.json import JsonRenderConfig
-from .render.pdf import PdfRenderConfig
-from .render.text import TextRenderConfig
+from .common.runtime import RuntimeConfig
 
 logger = logging.getLogger(__name__)
 
 
-InputConfig = Union[
-    AzureBlobInputConfig, FileInputConfig, StdinInputConfig, MemoryInputConfig
-]
-
-
-ExtractConfig = Union[
-    AzureDIExtractConfig,
-    OpenAIExtractConfig,
-    TesseractExtractConfig,
-    RawExtractConfig,
-]
-
-
-ParseConfig = Union[OpenAIParseConfig]
-
-
-RedactConfig = Union[OpenAIRedactConfig, NoOpRedactConfig]
-
-
-InspectConfig = Union[
-    InspectAnnotationsConfig, OpenAIAliasesInspectConfig, InspectQualityConfig
-]
-
-
-RenderConfig = Union[
-    PdfRenderConfig, HtmlRenderConfig, TextRenderConfig, JsonRenderConfig
-]
-
-
-OutputConfig = Union[
-    AzureBlobOutputConfig, FileOutputConfig, StdoutOutputConfig, MemoryOutputConfig
-]
-
-
-AnyConfig = Union[
-    InputConfig,
-    ExtractConfig,
-    RedactConfig,
-    InspectConfig,
-    ParseConfig,
-    RenderConfig,
-    OutputConfig,
-]
-
-
 class PipelineConfig(BaseModel):
-    pipe: list[AnyConfig]
+    pipe: list["AnyConfig"]
 
 
 class Pipeline:
-    """Blind charging pipeline."""
+    """Compose a sequence of processing operations into a single pipeline.
+
+    The pipeline is a special case of the `Compose` control module with
+    null input and output types. See `control/compose.py` for more details.
+    """
+
+    @classmethod
+    def create(cls, pipe: list["AnyConfig"]) -> "Pipeline":
+        """Create a pipeline from a list of processor configs."""
+        return cls(PipelineConfig(pipe=pipe))
 
     def __init__(self, config: PipelineConfig):
         """Initialize the pipeline."""
-        self.pipeline = config.pipe
+        none_t = type(None)
+        self.pipeline = ComposeDriver[none_t, none_t](config.pipe, none_t, none_t)
 
-    def validate(self, runtime_config: dict[str, Any]):
+    def validate(self, runtime_config: RuntimeConfig):
         """Validate the pipeline configuration."""
-        last_output: type | None = None
-        ctx = Context()
+        self.pipeline.validate(runtime_config)
 
-        # Iteratively validate that the pipeline can be chained together
-        for i, config in enumerate(self.pipeline):
-            sig = signature(config.driver)
-            params = sig.parameters
-            explicit_requires = set(getattr(config.driver, "required", []))
-            required_params = [
-                p
-                for p in params
-                if p != "self"
-                and (p in explicit_requires or params[p].default is params[p].empty)
-            ]
-
-            # Check the output of the previous step with the next function
-            if last_output is not None:
-                input_param = required_params.pop(0)
-                # Compare that last_output matches expected input type
-                if not issubclass(last_output, params[input_param].annotation):
-                    raise ValueError(
-                        f"Expected {params[input_param].annotation}"
-                        f"but got {last_output}"
-                    )
-
-            # Now check if we have all other required params from the runtime input
-            pipe_type = config.engine.split(":")[0]
-            rt_param_set = {"context": ctx}
-            rt_param_set.update(runtime_config.get(pipe_type, {}))
-            for param in required_params:
-                if rt_param_set.get(param, None) is None:
-                    raise ValueError(
-                        f"Step [{i}] `{config.engine}` is missing required "
-                        f"runtime parameter `{param}`. "
-                    )
-
-            # Update the last_output
-            last_output = sig.return_annotation
-
-        # Validate that last step returns `None`
-        if last_output is not None and last_output is not type(None):
-            raise ValueError(
-                f"Expected final step to return `None` but got {last_output}"
-            )
-
-    def run(self, runtime_config: dict[str, Any] | None = None) -> Context:
+    def run(self, runtime_config: RuntimeConfig | None = None) -> Context:
         """Run the pipeline.
 
         Args:
@@ -148,42 +47,39 @@ class Pipeline:
         runtime_config = runtime_config or {}
         ctx = Context()
         ctx.debug = runtime_config.get("debug", False)
+        if ctx.debug:
+            # Set the global logger to info mode.
+            logging.getLogger().setLevel(logging.INFO)
+            # Set all bc2 modules to debug mode.
+            for name in logging.root.manager.loggerDict:
+                if name.startswith("bc2"):
+                    logging.getLogger(name).setLevel(logging.DEBUG)
+            logger.debug("Debug mode enabled.")
         runtime_config["context"] = ctx
-        self.validate(runtime_config)
 
-        pipe: Any = None
-        for config in self.pipeline:
-            logger.debug(f"Running {config.engine} ...")
-
-            args = []
-            kwargs = {}
-
-            sig = signature(config.driver)
-            params = list(sig.parameters)
-            if params:
-                if params[0] == "self":
-                    params = params[1:]
-
-                if pipe is not None:
-                    args.append(pipe)
-                    params = params[1:]
-
-                # Try to fill in additional parameters from the runtime config
-                pipe_type = config.engine.split(":")[0]
-                rt_param_set = runtime_config.get(pipe_type, {})
-                for param in params:
-                    if param == "context":
-                        kwargs[param] = ctx
-                    elif param in rt_param_set:
-                        kwargs[param] = rt_param_set[param]
-
-            # NOTE(jnu): mypy can't validate the kwarg types, but we've effectively
-            # done this at runtime anyway so just hush the error.
-            pipe = config.driver(*args, **kwargs)  # type: ignore[arg-type]
+        output = self.pipeline(None, ctx, runtime_config)
 
         # The final pipe value is validated as None via type-checking.
         # It's not an error if the final pipe is not None, but we should log it.
         # The value is not returned and cannot be used.
-        if pipe is not None:
+        if output is not None:
             logger.warning("Pipeline did not end with a `None` return value.")
+
         return ctx
+
+
+# Since the configs are recursive in order to support recursive/self-referential
+# definitions, they require some amount of forward references / circular imports.
+# In order to avoid issues with both Python's module system and Pydantic's
+# type-checking system, we need to import the modules at the end of this file.
+from .common.all import AnyConfig
+from .control.chunk import ChunkConfig
+from .control.compose import ComposeConfig, ComposeDriver
+
+# Print a debugging message that we successfully solved the circular imports.
+# This ensures that the side-effect imports above are kept and not removed
+# by a meddling linter.
+logger.debug(
+    "Successfully resolved forward refs for control structures: "
+    f"{ChunkConfig}, {ComposeConfig}."
+)
