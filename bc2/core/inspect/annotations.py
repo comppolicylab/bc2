@@ -1,36 +1,28 @@
-import logging
 from functools import cached_property
 from typing import Literal
 
 from pydantic import BaseModel
 
 from ..common.context import Context
-from ..common.infer import infer_annotations, remove_hanging_redactions
+from ..common.infer import infer_annotations
 from ..common.name_map import IdToNameMap, NameToMaskMap
 from ..common.text import RedactedText
 from .base import BaseInspectDriver
 
-logger = logging.getLogger(__name__)
 
+class AnnotationsInspectConfig(BaseModel):
+    """Configuration for the annotations inspect driver."""
 
-class InspectAnnotationsConfig(BaseModel):
-    engine: Literal["inspect:annotations"]
+    engine: Literal["inspect:annotations"] = "inspect:annotations"
 
     @cached_property
-    def driver(self) -> "InspectAnnotationsDriver":
-        return InspectAnnotationsDriver(self)
+    def driver(self) -> "AnnotationsInspectDriver":
+        """Return the annotations inspect driver."""
+        return AnnotationsInspectDriver()
 
 
-class InspectAnnotationsDriver(BaseInspectDriver):
-    """An inspect driver that infers annotations from redacted text.
-
-    This driver is used to infer annotations from redacted text. The annotations
-    are stored in the context object, and can be referenced from other parts of
-    the pipeline.
-    """
-
-    def __init__(self, config: InspectAnnotationsConfig):
-        self.config = config
+class AnnotationsInspectDriver(BaseInspectDriver):
+    """Infer annotations in redacted text and store them in the context."""
 
     def __call__(
         self,
@@ -39,19 +31,23 @@ class InspectAnnotationsDriver(BaseInspectDriver):
         subjects: IdToNameMap | None = None,
         placeholders: NameToMaskMap | None = None,
     ) -> RedactedText:
-        """Infer annotations from redacted text."""
+        """Infer annotations in redacted text and store them in the context.
 
-        # Remove any hanging redactions in truncated results.
-        redaction = input.redacted
-        if input.truncated:
-            redaction = remove_hanging_redactions(
-                input.redacted, raw_delimiters=input.delimiters
+        Args:
+            input: The redacted text.
+            context: The context object.
+            subjects: The subjects identified by an ID.
+            placeholders: The subjects map inferred by the redaction process.
+
+        Returns:
+            The redacted text.
+        """
+        context.annotations = list(
+            infer_annotations(
+                input.original,
+                input.redacted,
+                delimiters=input.delimiters,
+                truncated=input.truncated,
             )
-
-        annotations = infer_annotations(
-            input.original, redaction, delimiters=input.delimiters
         )
-
-        context.annotations = list(annotations)
-
         return input

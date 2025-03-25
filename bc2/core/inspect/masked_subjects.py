@@ -3,6 +3,7 @@ from functools import cached_property
 from typing import Literal
 
 from ..common.context import Context
+from ..common.infer import infer_annotations
 from ..common.json import parse_llm_json
 from ..common.name_map import IdToMaskMap, IdToNameMap, NameToMaskMap
 from ..common.openai import (
@@ -58,7 +59,7 @@ class OpenAIMaskedSubjectsInspectDriver(BaseInspectDriver):
 
     def __call__(
         self,
-        redacted: RedactedText,
+        input: RedactedText,
         context: Context,
         subjects: IdToNameMap | None = None,
         placeholders: NameToMaskMap | None = None,
@@ -68,28 +69,23 @@ class OpenAIMaskedSubjectsInspectDriver(BaseInspectDriver):
                 "No subjects provided for id-mask reconciliation! "
                 "Skipping this step."
             )
-            return redacted
-
-        if context.annotations is None:
-            raise ValueError(
-                "Annotations are required for id-mask reconciliation. "
-                "This is a config error -- please run `inspect:annotations` "
-                "before running this step."
-            )
+            return input
 
         # Turn list of annotations into a map from name to replacement
         placeholders = NameToMaskMap()
-        for a in context.annotations:
+        for a in infer_annotations(
+            input.original,
+            input.redacted,
+            delimiters=input.delimiters,
+            truncated=input.truncated,
+        ):
             placeholders.set_mask(a["original"], a["redacted"])
 
         context.masked_subjects = self.generate_with_retry(
-            redacted.original, subjects, placeholders, debug=context.debug
+            input.original, subjects, placeholders, debug=context.debug
         )
 
-        if context.debug:
-            logger.info(f"Inferred subjects: {context.subjects}")
-
-        return redacted
+        return input
 
     def generate_with_retry(
         self,

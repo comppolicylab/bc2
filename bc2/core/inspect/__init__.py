@@ -1,12 +1,12 @@
 from typing import Union
 
-from .annotations import InspectAnnotationsConfig
+from .annotations import AnnotationsInspectConfig
 from .masked_subjects import OpenAIMaskedSubjectsInspectConfig
 from .placeholders import OpenAIPlaceholdersInspectConfig
 from .quality import InspectQualityConfig
 
 InspectConfig = Union[
-    InspectAnnotationsConfig,
+    AnnotationsInspectConfig,
     OpenAIPlaceholdersInspectConfig,
     OpenAIMaskedSubjectsInspectConfig,
     InspectQualityConfig,

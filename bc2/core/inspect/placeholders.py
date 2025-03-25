@@ -3,6 +3,7 @@ from functools import cached_property
 from typing import Literal
 
 from ..common.context import Context
+from ..common.infer import infer_annotations
 from ..common.json import parse_llm_json
 from ..common.name_map import IdToNameMap, NameToMaskMap
 from ..common.openai import (
@@ -55,7 +56,7 @@ class OpenAIPlaceholdersInspectDriver(BaseInspectDriver):
 
     def __call__(
         self,
-        redacted: RedactedText,
+        input: RedactedText,
         context: Context,
         subjects: IdToNameMap | None = None,
         placeholders: NameToMaskMap | None = None,
@@ -64,27 +65,25 @@ class OpenAIPlaceholdersInspectDriver(BaseInspectDriver):
             # Not a critical error, might be a mistake / bug.
             logger.debug("No existing placeholders provided for reconciliation!")
 
-        if context.annotations is None:
-            raise ValueError(
-                "Annotations are required for placeholder reconciliation. "
-                "This is a config error -- please run `inspect:annotations` "
-                "before running this step."
-            )
-
         # Turn list of annotations into a map from name to mask
         placeholders = NameToMaskMap.merge(placeholders, context.placeholders)
-        for a in context.annotations:
+        for a in infer_annotations(
+            input.original,
+            input.redacted,
+            delimiters=input.delimiters,
+            truncated=input.truncated,
+        ):
             if a["original"] not in placeholders:
                 placeholders.set_mask(a["original"], a["redacted"])
 
         context.placeholders = self.generate_with_retry(
-            redacted.original, placeholders, debug=context.debug
+            input.original, placeholders, debug=context.debug
         )
 
         if context.debug:
             logger.info(f"Generated placeholders: {context.placeholders.to_json()}")
 
-        return redacted
+        return input
 
     def generate_with_retry(
         self,
