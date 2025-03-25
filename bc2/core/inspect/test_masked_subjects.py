@@ -33,36 +33,6 @@ def test_inspect_subject_masks(openai_mock):
         "[]",
     )
     ctx = Context()
-    ctx.annotations = [
-        {
-            "start": 0,
-            "end": 7,
-            "content": "[Subject 1]",
-            "original": "Leopold",
-            "redacted": "Subject 1",
-        },
-        {
-            "start": 23,
-            "end": 30,
-            "content": "[Subject 2]",
-            "original": "Pollock",
-            "redacted": "Subject 2",
-        },
-        {
-            "start": 37,
-            "end": 43,
-            "content": "[Subject 3]",
-            "original": "Abbott",
-            "redacted": "Subject 3",
-        },
-        {
-            "start": 50,
-            "end": 57,
-            "content": "[Subject 1]",
-            "original": "Leopold",
-            "redacted": "Subject 1",
-        },
-    ]
 
     openai_mock.return_value.chat.completions.create.return_value.choices[
         0
@@ -133,6 +103,10 @@ def test_inspect_subject_masks(openai_mock):
                             "<Name>"
                             "<RealName>Abbott</RealName>"
                             "<ReplacementText>Subject 3</ReplacementText>"
+                            "</Name>"
+                            "<Name>"
+                            "<RealName>Poldy</RealName>"
+                            "<ReplacementText>Subject 1</ReplacementText>"
                             "</Name>"
                             "</Names>\n\n"
                             "[NARRATIVE]\n"

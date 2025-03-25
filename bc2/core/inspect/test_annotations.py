@@ -2,7 +2,7 @@ import pytest
 
 from ..common.context import Context
 from ..common.text import RedactedText
-from .annotations import InspectAnnotationsConfig
+from .annotations import AnnotationsInspectConfig
 
 
 @pytest.mark.parametrize(
@@ -62,7 +62,7 @@ from .annotations import InspectAnnotationsConfig
     ],
 )
 def test_inspect_annotations(original, redacted, expected):
-    cfg = InspectAnnotationsConfig.model_validate(
+    cfg = AnnotationsInspectConfig.model_validate(
         {
             "engine": "inspect:annotations",
         }
