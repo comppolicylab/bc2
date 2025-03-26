@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "bc2"
 version = "0.6.2"
-description = ""
+description = "Race blind charging redaction libary."
 authors = [
   "Joe Nudell <jnudell@hks.harvard.edu>",
   "Alex Chohlas-Wood <acw438@nyu.edu>"
