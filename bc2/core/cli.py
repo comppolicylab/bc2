@@ -1,14 +1,12 @@
 import json
 import logging
-from pathlib import Path
-from typing import Optional
 
 import tomllib
 import typer
 
+from ..logo import bc2_logo
 from .pipeline import Pipeline, PipelineConfig
 
-logging.basicConfig(level="DEBUG")
 logger = logging.getLogger(__name__)
 
 
@@ -17,33 +15,25 @@ cli = typer.Typer()
 
 @cli.command()
 def run(
-    config_path: str,
-    input_path: Optional[str] = None,
-    output_path: Optional[str] = None,
+    pipeline: str,
+    params: str,
     validate: bool = False,
-    aliases: Optional[str] = None,
     debug: bool = False,
 ):
     """Run the pipeline."""
+    logging.basicConfig(level=logging.DEBUG if debug else logging.INFO)
+
+    print(bc2_logo)
+
     logger.debug("Running pipeline ...")
 
-    raw_cfg = Path(config_path).read_text()
-    cfg_obj = tomllib.loads(raw_cfg)
+    cfg_obj = tomllib.loads(pipeline)
     config = PipelineConfig.model_validate(cfg_obj)
 
-    # Map of arguments passed at runtime to the pipeline.
-    runtime_cfg = {
-        "debug": debug,
-        "in": {
-            "path": input_path,
-        },
-        "out": {
-            "path": output_path,
-        },
-        "redact": {
-            "aliases": json.loads(aliases) if aliases else None,
-        },
-    }
+    runtime_cfg = json.loads(params)
+    logger.debug("Pipeline configuration loaded.")
+    if debug:
+        runtime_cfg["debug"] = True
 
     pipe = Pipeline(config)
     if validate:
