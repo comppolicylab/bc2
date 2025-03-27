@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Literal, Sequence, TypeAlias, cast
 
-from openai import AzureOpenAI, OpenAI
+from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam as _OpenAIChatCompletionAssistantMessageParam,
 )
@@ -53,7 +53,7 @@ class OpenAIClientConfig(BaseModel):
     azure_endpoint: str | None = None
     api_version: str | None = None
 
-    def init(self) -> OpenAI:
+    def init(self) -> OpenAI | AzureOpenAI:
         """Create an OpenAI client."""
         if self.azure_endpoint:
             if not self.api_version:
@@ -67,6 +67,26 @@ class OpenAIClientConfig(BaseModel):
                 api_version=self.api_version,
             )
         return OpenAI(
+            api_key=self.api_key,
+            organization=self.organization,
+            project=self.project,
+            base_url=self.base_url,
+        )
+
+    def init_async(self) -> AsyncOpenAI | AsyncAzureOpenAI:
+        """Create an async OpenAI client."""
+        if self.azure_endpoint:
+            if not self.api_version:
+                raise ValueError("Azure endpoint requires an API version.")
+            if not self.api_key:
+                raise ValueError("Azure endpoint requires an API key.")
+            return AsyncAzureOpenAI(
+                api_key=self.api_key,
+                organization=self.organization,
+                azure_endpoint=self.azure_endpoint,
+                api_version=self.api_version,
+            )
+        return AsyncOpenAI(
             api_key=self.api_key,
             organization=self.organization,
             project=self.project,
