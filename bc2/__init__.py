@@ -1,4 +1,13 @@
-from .core import IdToMaskMap, IdToNameMap, NameToMaskMap, Pipeline, PipelineConfig
+from .core import (
+    AnyConfig,
+    AnyIOConfig,
+    AnyProcessingConfig,
+    IdToMaskMap,
+    IdToNameMap,
+    NameToMaskMap,
+    Pipeline,
+    PipelineConfig,
+)
 
 __all__ = [
     "Pipeline",
@@ -6,4 +15,7 @@ __all__ = [
     "NameToMaskMap",
     "IdToNameMap",
     "IdToMaskMap",
+    "AnyConfig",
+    "AnyIOConfig",
+    "AnyProcessingConfig",
 ]
