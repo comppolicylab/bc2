@@ -12,23 +12,35 @@ from .pipeline import Pipeline, PipelineConfig
 # The reason we do this is to allow library users to import these types for use as
 # Pydantic models. Since our types are recursive and use forward references, we need
 # to resolve them before Pydantic can use them.
+#
+# We further define these with `typing.TypeAlias` to silence warnings about using
+# a variable as a type.
 
-AnyConfig = typing._eval_type(  # type: ignore[attr-defined]
-    _AnyConfig,
-    globals(),
-    locals(),
+AnyConfig: typing.TypeAlias = typing.cast(
+    typing.Type[_AnyConfig],
+    typing._eval_type(  # type: ignore[attr-defined]
+        _AnyConfig,
+        globals(),
+        locals(),
+    ),
 )
 
-AnyProcessingConfig = typing._eval_type(  # type: ignore[attr-defined]
-    _AnyProcessingConfig,
-    globals(),
-    locals(),
+AnyProcessingConfig: typing.TypeAlias = typing.cast(
+    typing.Type[_AnyProcessingConfig],
+    typing._eval_type(  # type: ignore[attr-defined]
+        _AnyProcessingConfig,
+        globals(),
+        locals(),
+    ),
 )
 
-AnyIOConfig = typing._eval_type(  # type: ignore[attr-defined]
-    _AnyIOConfig,
-    globals(),
-    locals(),
+AnyIOConfig: typing.TypeAlias = typing.cast(
+    typing.Type[_AnyIOConfig],
+    typing._eval_type(  # type: ignore[attr-defined]
+        _AnyIOConfig,
+        globals(),
+        locals(),
+    ),
 )
 
 __all__ = [
