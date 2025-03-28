@@ -1,4 +1,4 @@
-from typing import Union
+import typing
 
 from ..extract import ExtractConfig
 from ..input import InputConfig
@@ -8,16 +8,24 @@ from ..parse import ParseConfig
 from ..redact import RedactConfig
 from ..render import RenderConfig
 
-AnyConfig = Union[
+AnyIOConfig = typing.Union[
     InputConfig,
+    OutputConfig,
+]
+
+AnyProcessingConfig = typing.Union[
     ExtractConfig,
     RedactConfig,
     InspectConfig,
     ParseConfig,
     RenderConfig,
-    OutputConfig,
     "ChunkConfig",
     "ComposeConfig",
+]
+
+AnyConfig = typing.Union[
+    AnyIOConfig,
+    AnyProcessingConfig,
 ]
 
 # NOTE(jnu): the following two imports support some degree of recursive
