@@ -80,5 +80,5 @@ class OpenAIEmbeddingDriver(BaseEmbeddingDriver):
             result.data[0].embedding,
             vendor=vendor_name,
             model=self.config.model,
-            model_version=self.config.model_version,
+            model_version=version,
         )
