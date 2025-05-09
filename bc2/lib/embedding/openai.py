@@ -1,21 +1,69 @@
+import logging
 from functools import cached_property
 
+import tiktoken
 from openai import AsyncOpenAI, AzureOpenAI, OpenAI
 from openai.types import CreateEmbeddingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, PositiveInt
 
 from bc2.core.common.openai import OpenAIClientConfig
+from bc2.core.common.openai_metadata import (
+    EmbeddingModelMeta,
+    ModelNotFound,
+    get_embedding_model_meta,
+    get_encoding_for_model,
+)
 
 from .base import BaseEmbeddingDriver
 from .embedding import Embedding
+
+logger = logging.getLogger(__name__)
+
+
+_DEFAULT_MAX_INPUT_TOKENS = 8191  # Default max tokens for OpenAI embedding models
 
 
 class OpenAIEmbeddingGeneratorConfig(BaseModel):
     """Configuration for the model used for generating embeddings."""
 
     model: str
-    dimensions: int | None = None
+    openai_model: str | None = Field(
+        None,
+        description=(
+            "When using Azure, the `model` refers to a model *deployment*. "
+            "Set the `openai_model` parameter to indicate which "
+            "underlying OpenAI model is used."
+        ),
+    )
+    max_tokens: PositiveInt | None = None
+    dimensions: PositiveInt | None = None
     model_version: str = ""
+
+    @property
+    def model_meta(self) -> EmbeddingModelMeta | None:
+        """Get the completion tokens for the model."""
+        model_name = self.openai_model or self.model
+        try:
+            return get_embedding_model_meta(model_name)
+        except ModelNotFound:
+            logger.warning(f"Model '{model_name}' not found in metadata.")
+            return None
+
+    @property
+    def max_input_tokens(self) -> int:
+        """Get the max input tokens for the model."""
+        if self.max_tokens is not None:
+            return self.max_tokens
+        model_meta = self.model_meta
+        if model_meta:
+            return model_meta.max_input_tokens
+        return _DEFAULT_MAX_INPUT_TOKENS
+
+    @property
+    def encoding(self) -> tiktoken.Encoding:
+        """Get the encoding to use for the model."""
+        model_name = self.openai_model or self.model
+        return get_encoding_for_model(model_name)
 
 
 class OpenAIEmbeddingConfig(BaseModel):
@@ -43,14 +91,36 @@ class OpenAIEmbeddingDriver(BaseEmbeddingDriver):
         self.aclient = aclient
 
     def embed(self, text: str) -> Embedding:
+        text = self._trim_input(text)
         result = self.client.embeddings.create(input=text, model=self.config.model)
         return self._format_result(result)
 
     async def embed_async(self, text: str) -> Embedding:
+        text = self._trim_input(text)
         result = await self.aclient.embeddings.create(
             input=text, model=self.config.model
         )
         return self._format_result(result)
+
+    def _trim_input(self, text: str) -> str:
+        """Trim the input text to fit within the model's max input tokens.
+
+        Args:
+            text (str): The input text.
+
+        Returns:
+            str: The trimmed input text.
+        """
+        encoding = self.config.encoding
+        max_tokens = self.config.max_input_tokens
+
+        tokens = encoding.encode(text)
+        n = len(tokens)
+        if n > max_tokens:
+            logger.debug(f"Trimming embedding input from {n} to {max_tokens} tokens")
+            tokens = tokens[:max_tokens]
+            return encoding.decode(tokens)
+        return text
 
     def _format_result(self, result: CreateEmbeddingResponse) -> Embedding:
         """Format the result into an Embedding instance.
