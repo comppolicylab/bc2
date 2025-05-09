@@ -32,7 +32,7 @@ from pydantic import BaseModel, Field, PositiveInt
 
 from .datafile import DataType, load_data_file, load_data_file_from_path
 from .image import ImageUrl
-from .openai_metadata import ModelNotFound, get_model_meta
+from .openai_metadata import ModelNotFound, get_chat_model_meta
 from .template import TemplateEngine, get_formatter
 
 logger = logging.getLogger(__name__)
@@ -374,7 +374,7 @@ class OpenAIChatConfig(BaseModel):
         """Get the completion tokens for the model."""
         model_name = self.openai_model or self.model
         try:
-            return get_model_meta(model_name).output
+            return get_chat_model_meta(model_name).output
         except ModelNotFound:
             logger.warning(f"Model '{model_name}' not found in metadata.")
             return None
