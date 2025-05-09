@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 _DEFAULT_MAX_INPUT_TOKENS = 8191  # Default max tokens for OpenAI embedding models
+_DEFAULT_DIMENSIONS = 3072  # Default dimensions for OpenAI embedding models
 
 
 class OpenAIEmbeddingGeneratorConfig(BaseModel):
@@ -50,6 +51,17 @@ class OpenAIEmbeddingGeneratorConfig(BaseModel):
             return None
 
     @property
+    def model_dimensions(self) -> int:
+        """Get the dimensions for the model."""
+        if self.dimensions is not None:
+            return self.dimensions
+        model_meta = self.model_meta
+        if model_meta:
+            return model_meta.dimensions
+        logger.warning("Using default dimensions since we don't know the real size.")
+        return _DEFAULT_DIMENSIONS
+
+    @property
     def max_input_tokens(self) -> int:
         """Get the max input tokens for the model."""
         if self.max_tokens is not None:
@@ -57,6 +69,9 @@ class OpenAIEmbeddingGeneratorConfig(BaseModel):
         model_meta = self.model_meta
         if model_meta:
             return model_meta.max_input_tokens
+        logger.warning(
+            "Using default max input tokens since we don't know the real limit."
+        )
         return _DEFAULT_MAX_INPUT_TOKENS
 
     @property
