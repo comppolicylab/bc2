@@ -26,6 +26,7 @@ def validate_pipe(
 
     # Iteratively validate that the pipeline can be chained together
     for i, config in enumerate(pipe):
+        optional = getattr(config, "optional", False)
         explicit_requires = getattr(config.driver, "required", [])
         required_params = inspect_required_params(
             config.driver, explicit=explicit_requires
@@ -76,6 +77,14 @@ def validate_pipe(
 
         # Update the pointer in the pipe to this function's return type.
         last_output_t = inspect_return_type(config.driver)
+        if optional and not issubclass(input_t, last_output_t):
+            # If the driver is optional, the input must be compatible with the
+            # output type. (In case the step fails the input will be passed through.)
+            raise ValueError(
+                f"Step [{i}] `{config.engine}` is marked optional, but the "
+                f"input type {input_t} is not compatible with the output type "
+                f"{last_output_t}."
+            )
 
     return first_input_t, last_output_t
 
@@ -142,6 +151,23 @@ def run_pipe(
 
         # NOTE(jnu): mypy can't validate the kwarg types, but we've effectively
         # done this at runtime anyway so just hush the error.
-        output = config.driver(*args, **kwargs)  # type: ignore[arg-type]
+        try:
+            output = config.driver(*args, **kwargs)  # type: ignore[arg-type]
+        except Exception as e:
+            logger.error(f"Error in step {i} ({config.engine}): {e}")
+            ctx.errors.append(e)
+            # Allow configs to be marked optional to suppress the error.
+            # This is useful for certain metadata-generating steps that should not break
+            # the entire pipeline if they fail. Use with caution elsewhere.
+            #
+            # NOTE: In the pipeline validation step we verify that passing the input
+            # directly through despite the error will be valid.
+            optional = getattr(config, "optional", False)
+            if optional:
+                logger.warning(
+                    f"Step {i} ({config.engine}) is optional, continuing despite error."
+                )
+                continue
+            raise e
 
     return output
