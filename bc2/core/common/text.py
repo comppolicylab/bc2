@@ -130,6 +130,16 @@ class RedactedText:
 
         return final
 
+    def copy(self) -> "RedactedText":
+        """Return a copy of the redacted text."""
+        return RedactedText(
+            self.redacted,
+            self.original,
+            self.delimiters,
+            self.aliases,
+            self.truncated,
+        )
+
     def __repr__(self) -> str:
         return (
             f"RedactedText({self.redacted!r}, {self.original!r}, {self.delimiters!r})"

@@ -12,6 +12,7 @@ class EmbedInspectConfig(OpenAIEmbeddingConfig):
     """Configuration for the embedding inspect driver."""
 
     engine: Literal["inspect:embed"] = "inspect:embed"
+    optional: bool = True
 
     @cached_property
     def driver(self) -> "EmbedInspectDriver":
