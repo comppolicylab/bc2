@@ -13,6 +13,7 @@ from .base import BaseInspectDriver
 
 class InspectQualityConfig(BaseModel):
     engine: Literal["inspect:quality"]
+    optional: bool = True
 
     @cached_property
     def driver(self) -> "InspectQualityDriver":

@@ -41,6 +41,7 @@ class OpenAIPlaceholdersInspectConfig(OpenAIConfig):
 
     engine: Literal["inspect:placeholders"] = "inspect:placeholders"
     generator: OpenAIPlaceholdersInspectChatGeneratorConfig
+    optional: bool = True
 
     @cached_property
     def driver(self) -> "OpenAIPlaceholdersInspectDriver":

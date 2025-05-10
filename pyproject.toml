@@ -53,6 +53,9 @@ exclude = ["app/server/generated"]
 select = ["F", "E", "W", "I001", "C", "W", "B"]
 ignore = ["E402"]
 
+[tool.ruff.lint.mccabe]
+max-complexity = 11
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

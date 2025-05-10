@@ -47,6 +47,7 @@ class Pipeline:
         runtime_config = runtime_config or {}
         ctx = Context()
         ctx.debug = runtime_config.get("debug", False)
+        ctx.errors = list[Exception]()
         if ctx.debug:
             # Set the global logger to info mode.
             logging.getLogger().setLevel(logging.INFO)

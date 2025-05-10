@@ -44,6 +44,7 @@ class OpenAIMaskedSubjectsInspectConfig(OpenAIConfig):
 
     engine: Literal["inspect:subject_masks"] = "inspect:subject_masks"
     generator: OpenAIMaskedSubjectsInspectChatGeneratorConfig
+    optional: bool = True
 
     @cached_property
     def driver(self) -> "OpenAIMaskedSubjectsInspectDriver":
