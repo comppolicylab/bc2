@@ -23,18 +23,18 @@ def test_pipeline_simple_debug():
 
     in_buf = io.BytesIO(b"Hello, world!")
     out_buf = io.BytesIO()
+    opts = {
+        "debug": True,
+        "in": {
+            "buffer": in_buf,
+        },
+        "out": {
+            "buffer": out_buf,
+        },
+    }
+    pipe.validate(opts)
 
-    ctx = pipe.run(
-        {
-            "debug": True,
-            "in": {
-                "buffer": in_buf,
-            },
-            "out": {
-                "buffer": out_buf,
-            },
-        }
-    )
+    ctx = pipe.run(opts)
 
     assert out_buf.getvalue() == (
         b"=== Redacted Narrative for Race-Blind Charging ===\n\n\n"
@@ -71,17 +71,19 @@ def test_pipeline_chunk():
     in_buf = io.BytesIO(b"Hello, world!")
     out_buf = io.BytesIO()
 
-    ctx = pipe.run(
-        {
-            "debug": True,
-            "in": {
-                "buffer": in_buf,
-            },
-            "out": {
-                "buffer": out_buf,
-            },
-        }
-    )
+    opts = {
+        "debug": True,
+        "in": {
+            "buffer": in_buf,
+        },
+        "out": {
+            "buffer": out_buf,
+        },
+    }
+
+    # TODO pipe.validate(opts)
+
+    ctx = pipe.run(opts)
 
     assert out_buf.getvalue() == (
         b"=== Redacted Narrative for Race-Blind Charging ===\n\n\n"
@@ -119,18 +121,18 @@ def test_pipeline_optional_step(_mock):
 
     in_buf = io.BytesIO(b"Hello, with error!")
     out_buf = io.BytesIO()
+    opts = {
+        "debug": True,
+        "in": {
+            "buffer": in_buf,
+        },
+        "out": {
+            "buffer": out_buf,
+        },
+    }
 
-    ctx = pipe.run(
-        {
-            "debug": True,
-            "in": {
-                "buffer": in_buf,
-            },
-            "out": {
-                "buffer": out_buf,
-            },
-        }
-    )
+    # TODO pipe.validate(opts)
+    ctx = pipe.run(opts)
 
     assert len(ctx.errors) == 1
     assert isinstance(ctx.errors[0], Exception)
@@ -183,4 +185,42 @@ def test_pipeline_nonoptional_step(_mock):
                 },
             }
         )
-        assert str(excinfo.value) == "whoops!"
+    assert str(excinfo.value) == "whoops!"
+
+
+def test_pipeline_invalid_optional_step():
+    cfg = PipelineConfig.model_validate(
+        {
+            "pipe": [
+                {"engine": "in:memory"},
+                {"engine": "extract:raw"},
+                {"engine": "redact:noop", "delimiters": ["[", "]"]},
+                {"engine": "inspect:quality"},
+                {"engine": "render:text"},
+                {"engine": "out:memory"},
+            ],
+        }
+    )
+    object.__setattr__(cfg.pipe[1], "optional", True)
+
+    # Run the pipeline.
+    pipe = Pipeline(cfg)
+    in_buf = io.BytesIO(b"Hello, with error!")
+    out_buf = io.BytesIO()
+    with pytest.raises(ValueError) as excinfo:
+        pipe.validate(
+            {
+                "debug": True,
+                "in": {
+                    "buffer": in_buf,
+                },
+                "out": {
+                    "buffer": out_buf,
+                },
+            }
+        )
+    assert str(excinfo.value) == (
+        "Step [1] `extract:raw` is marked optional, but the input type "
+        "<class 'bc2.core.common.file.MemoryFile'> is not compatible with "
+        "the output type <class 'bc2.core.common.text.Text'>."
+    )

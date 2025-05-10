@@ -31,10 +31,12 @@ def validate_pipe(
         required_params = inspect_required_params(
             config.driver, explicit=explicit_requires
         )
+        local_first_input_t: Type = type(None)
 
         # Check the output of the previous step with the next function
         if i > 0:
             input_t = list(required_params.values())[0]
+            local_first_input_t = input_t
             # Compare that last_output matches expected input type
 
         # Now check if we have all other required params from the runtime input
@@ -77,13 +79,14 @@ def validate_pipe(
 
         # Update the pointer in the pipe to this function's return type.
         last_output_t = inspect_return_type(config.driver)
-        if optional and not issubclass(input_t, last_output_t):
+        if optional and not issubclass(local_first_input_t, last_output_t):
             # If the driver is optional, the input must be compatible with the
             # output type. (In case the step fails the input will be passed through.)
+
             raise ValueError(
                 f"Step [{i}] `{config.engine}` is marked optional, but the "
-                f"input type {input_t} is not compatible with the output type "
-                f"{last_output_t}."
+                f"input type {local_first_input_t} is not compatible with the "
+                f"output type {last_output_t}."
             )
 
     return first_input_t, last_output_t
