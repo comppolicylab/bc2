@@ -22,6 +22,20 @@ from .infer import infer_annotations, remove_hanging_redactions
         ),
         (
             "Hello, world!",
+            "Hello, <name>!",
+            "",  # Use default delims
+            [
+                {
+                    "start": 7,
+                    "end": 12,
+                    "content": "<name>",
+                    "original": "world",
+                    "redacted": "name",
+                }
+            ],
+        ),
+        (
+            "Hello, world!",
             "Hello, [name]!",
             "[]",
             [

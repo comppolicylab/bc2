@@ -1,7 +1,11 @@
 import difflib
+import logging
 import re
 from dataclasses import dataclass
 from typing import Generator, Literal, NamedTuple, Sequence, Tuple
+
+logger = logging.getLogger(__name__)
+
 
 TextSpan = NamedTuple(
     "TextSpan",
@@ -49,7 +53,8 @@ class Delimiter:
         """
         if len(delimiters) != 2:
             raise ValueError(
-                "Delimiters must be a sequence of two strings, such as ('<', '>')."
+                "Delimiters must be a sequence of two strings, such as ('<', '>'). "
+                f"Got: {delimiters}"
             )
         opener_re = re.compile(f"({re.escape(delimiters[0])})")
         opener_len = len(delimiters[0])
@@ -178,6 +183,12 @@ def segment(  # noqa: C901
     matcher = difflib.SequenceMatcher(None, original, redacted, autojunk=False)
 
     # Build regexes to match the delimiters
+    if not delimiters:
+        logger.warning(
+            f"Delimiters were not properly specified. Got {delimiters}. "
+            "Using default delimiters < and >."
+        )
+        delimiters = ("<", ">")
     opener_delim, closer_delim = Delimiter.parse(delimiters)
 
     op_seq_start = ("equal", 0, 0, 0, 0, "")
