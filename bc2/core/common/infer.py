@@ -173,6 +173,15 @@ def segment(  # noqa: C901
             function with `truncated=True` to clean up any potential
             "ragged ends" at the end of the document.
     """
+    # Fix delimiters if they are not properly specified. This is better than
+    # crashing on bad delimiters.
+    if not delimiters or len(delimiters) != 2:
+        logger.warning(
+            f"Delimiters `{delimiters}` are not properly specified. "
+            "Using default delimiters < and >."
+        )
+        delimiters = ("<", ">")
+
     if truncated:
         # TODO(jnu): might be worth just calling this every time. If the
         # risk of false positives in removing hanging redactions is basically
@@ -183,12 +192,6 @@ def segment(  # noqa: C901
     matcher = difflib.SequenceMatcher(None, original, redacted, autojunk=False)
 
     # Build regexes to match the delimiters
-    if not delimiters:
-        logger.warning(
-            f"Delimiters were not properly specified. Got {delimiters}. "
-            "Using default delimiters < and >."
-        )
-        delimiters = ("<", ">")
     opener_delim, closer_delim = Delimiter.parse(delimiters)
 
     op_seq_start = ("equal", 0, 0, 0, 0, "")
