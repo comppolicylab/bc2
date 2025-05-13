@@ -1,7 +1,11 @@
 import difflib
+import logging
 import re
 from dataclasses import dataclass
 from typing import Generator, Literal, NamedTuple, Sequence, Tuple
+
+logger = logging.getLogger(__name__)
+
 
 TextSpan = NamedTuple(
     "TextSpan",
@@ -49,7 +53,8 @@ class Delimiter:
         """
         if len(delimiters) != 2:
             raise ValueError(
-                "Delimiters must be a sequence of two strings, such as ('<', '>')."
+                "Delimiters must be a sequence of two strings, such as ('<', '>'). "
+                f"Got: {delimiters}"
             )
         opener_re = re.compile(f"({re.escape(delimiters[0])})")
         opener_len = len(delimiters[0])
@@ -168,6 +173,15 @@ def segment(  # noqa: C901
             function with `truncated=True` to clean up any potential
             "ragged ends" at the end of the document.
     """
+    # Fix delimiters if they are not properly specified. This is better than
+    # crashing on bad delimiters.
+    if not delimiters or len(delimiters) != 2:
+        logger.warning(
+            f"Delimiters `{delimiters}` are not properly specified. "
+            "Using default delimiters < and >."
+        )
+        delimiters = ("<", ">")
+
     if truncated:
         # TODO(jnu): might be worth just calling this every time. If the
         # risk of false positives in removing hanging redactions is basically
