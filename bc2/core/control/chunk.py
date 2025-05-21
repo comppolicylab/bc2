@@ -132,7 +132,9 @@ class ChunkDriver(Generic[T]):
         output = self._get_initial_state(input.text)
 
         while remainder.text:
-            logger.debug(f"Chunk iteration {iteration} ...")
+            logger.debug(
+                f"Chunk iteration {iteration} with {len(remainder.text)} bytes left ..."
+            )
             iteration += 1
 
             # Run the processor on the current chunk
