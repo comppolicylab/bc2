@@ -43,6 +43,12 @@ _OpenAIChatMessagePart: TypeAlias = (
 )
 
 
+class FilteredContentError(Exception):
+    """Error we throw when OpenAI content moderation is triggered."""
+
+    pass
+
+
 class OpenAIClientConfig(BaseModel):
     """OpenAI API settings."""
 
@@ -457,7 +463,21 @@ class OpenAIChatConfig(BaseModel):
         )
 
         # Interpret completion response.
-        content = completion.choices[0].message.content
+        if not completion.choices:
+            raise ValueError("Completion choices not found in response.")
+
+        choice = completion.choices[0]
+        stop_reason = getattr(choice, "finish_reason", None)
+        if stop_reason == "length":
+            # This should be planned for / expected by the caller.
+            logger.debug("OpenAI response hit max tokens")
+        elif stop_reason == "content_filter":
+            raise FilteredContentError(
+                "OpenAI request blocked by content filter. "
+                "Please check the content moderation settings."
+            )
+
+        content = choice.message.content
 
         if not completion.usage:
             raise ValueError("Completion usage not found in response.")
