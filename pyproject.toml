@@ -1,50 +1,42 @@
-[tool.poetry]
+[project]
+authors = [
+    {name = "Joe Nudell", email = "jnudell@hks.harvard.edu"},
+    {name = "Alex Chohlas-Wood", email = "acw438@nyu.edu"},
+]
+license = {text = "MIT"}
+requires-python = "<4.0,>=3.10"
+dependencies = [
+    "azure-ai-formrecognizer==3.3.3",
+    "pydantic==2.10.5",
+    "pydantic-settings==2.5.2",
+    "click<9.0.0,>=8.1.6",
+    "tqdm==4.66.5",
+    "pypdf==5.0.0",
+    "openai<2.0.0,>=1.47.1",
+    "reportlab==4.2.2",
+    "azure-storage-blob==12.23.0",
+    "azure-identity==1.18.0",
+    "typer==0.12.5",
+    "python-magic<1.0.0,>=0.4.27",
+    "pylibmagic<1.0.0,>=0.5.0",
+    "pymupdf<2.0.0,>=1.24.10",
+    "pytesseract==0.3.13",
+    "jinja2<4.0.0,>=3.1.4",
+    "rapidfuzz<4.0.0,>=3.10.1",
+    "tiktoken<1.0.0,>=0.9.0",
+]
 name = "bc2"
 version = "0.7.4"
 description = "Race-blind charging redaction libary."
-authors = [
-  "Joe Nudell <jnudell@hks.harvard.edu>",
-  "Alex Chohlas-Wood <acw438@nyu.edu>"
-]
-license = "MIT"
 readme = "README.md"
-packages = [
-    { include = "bc2" },
-]
-exclude = [
-    "bc2/core/sample_data/*",
-    "dev*",
-]
-include = [
-    {path = "bc2/data", format = ["sdist", "wheel"] }
-]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-azure-ai-formrecognizer = "3.3.3"
-pydantic = "2.10.5"
-pydantic-settings = "2.5.2"
-click = "^8.1.6"
-tqdm = "4.66.5"
-pypdf = "5.0.0"
-openai = "^1.47.1"
-reportlab = "4.2.2"
-azure-storage-blob = "12.23.0"
-azure-identity = "1.18.0"
-typer = "0.12.5"
-python-magic = "^0.4.27"
-pylibmagic = "^0.5.0"
-pymupdf = "^1.24.10"
-pytesseract = "0.3.13"
-jinja2 = "^3.1.4"
-rapidfuzz = "^3.10.1"
-tiktoken = "^0.9.0"
-
-[tool.poetry.group.dev.dependencies]
-pre-commit = "3.8.0"
-pytest = "8.3.3"
-python-jsonschema-objects = "^0.5.5"
-responses = "^0.25.3"
+[dependency-groups]
+dev = [
+    "pre-commit==3.8.0",
+    "pytest==8.3.3",
+    "python-jsonschema-objects<1.0.0,>=0.5.5",
+    "responses<1.0.0,>=0.25.3",
+]
 
 [tool.ruff]
 exclude = ["app/server/generated"]
@@ -55,7 +47,3 @@ ignore = ["E402"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 11
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
