@@ -24,4 +24,4 @@ You are looking for any text that is coherent and discusses crime details, relat
 
 If no freely-written text is found, return "No narratives found."
 
-Go slowly and triple-check your work. It is cruical that you faithfully extract any freely-written text contained in the input.
+Go slowly and triple-check your work. It is crucial that you faithfully extract any freely-written text contained in the input.

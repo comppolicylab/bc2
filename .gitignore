@@ -16,3 +16,4 @@ config*.toml
 .python-version
 .Rproj.user
 demo_pdfs
+*.egg-info
