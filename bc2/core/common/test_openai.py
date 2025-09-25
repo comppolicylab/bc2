@@ -10,6 +10,57 @@ from .openai import (
 )
 
 
+def test_chat_prompt_builtin_serialize():
+    c = OpenAIChatPromptBuiltIn(prompt_id="redact")
+    d = c.model_dump()
+    assert d == {
+        "engine": "string",
+        "prompt_id": c.prompt_id,
+        "examples_id": c.examples_id,
+    }
+    d2 = c.model_dump(context={"freeze": True})
+    assert d2 == {
+        "engine": "string",
+        "prompt": c.prompt_value,
+        "examples": c.examples_value,
+    }
+
+
+def test_chat_prompt_inline_serialize():
+    c = OpenAIChatPromptInline(prompt="Hello, {alias}!", engine="string")
+    d = c.model_dump()
+    assert d == {
+        "engine": "string",
+        "prompt": c.prompt,
+        "examples": c.examples,
+    }
+    d2 = c.model_dump(context={"freeze": True})
+    assert d2 == {
+        "engine": "string",
+        "prompt": c.prompt,
+        "examples": c.examples,
+    }
+
+
+def test_chat_prompt_file_serialize():
+    with tempfile.NamedTemporaryFile(mode="w") as f:
+        f.write("Hello, {alias}!")
+        f.flush()
+        c = OpenAIChatPromptFile(prompt_file=f.name, engine="string")
+        d = c.model_dump()
+        assert d == {
+            "engine": "string",
+            "prompt_file": c.prompt_file,
+            "examples_file": c.examples_file,
+        }
+        d2 = c.model_dump(context={"freeze": True})
+        assert d2 == {
+            "engine": "string",
+            "prompt": c.prompt_value,
+            "examples": c.examples_value,
+        }
+
+
 def test_chat_prompt_builtin():
     c = OpenAIChatPromptBuiltIn(prompt_id="redact")
     # Real file is in ../../../data/prompts/redact.txt

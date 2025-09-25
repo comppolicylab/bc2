@@ -6,7 +6,7 @@ import os
 from abc import abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Literal, Sequence, TypeAlias, cast
+from typing import Any, Literal, Sequence, TypeAlias, cast
 
 from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI
 from openai.types.chat import (
@@ -28,7 +28,7 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam as _OpenAIChatCompletionUserMessageParam,
 )
 from openai.types.chat.chat_completion_content_part_image_param import ImageURL
-from pydantic import BaseModel, Field, PositiveInt
+from pydantic import BaseModel, Field, PositiveInt, SerializationInfo, model_serializer
 
 from .datafile import DataType, load_data_file, load_data_file_from_path
 from .image import ImageUrl
@@ -213,6 +213,33 @@ class ChatPrompt:
     @property
     @abstractmethod
     def examples_value(self) -> list[dict[str, str]] | None: ...
+
+    @model_serializer()
+    def serialize_prompt(self, info: SerializationInfo | None) -> dict[str, Any]:
+        """Serialize the prompt.
+
+        When context.freeze is True, this will serialize as an Inline prompt,
+        so that all the information needed to re-run the pipeline perfectly
+        is preserved.
+
+        Otherwise, it will serialize as a BuiltIn prompt. If the external
+        prompt file changes, the pipeline results could change, even if the
+        pipeline itself is unchanged.
+
+        Args:
+            info: The serialization info.
+
+        Returns:
+            The serialized prompt.
+        """
+        if info and info.context and info.context.get("freeze", False):
+            return {
+                "engine": self.engine,
+                "prompt": self.prompt_value,
+                "examples": self.examples_value,
+            }
+        else:
+            return {k: getattr(self, k) for k in getattr(self, "model_fields", {})}
 
     def format(
         self, input: AnyChatInput | Sequence[AnyChatInput], **kwargs
