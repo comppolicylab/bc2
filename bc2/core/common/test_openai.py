@@ -10,6 +10,22 @@ from .openai import (
 )
 
 
+def test_chat_prompt_serialize_freeze():
+    c = OpenAIChatPromptBuiltIn(prompt_id="redact")
+    d = c.model_dump()
+    assert d == {
+        "engine": "string",
+        "prompt_id": c.prompt_id,
+        "examples_id": c.examples_id,
+    }
+    d2 = c.model_dump(context={"freeze": True})
+    assert d2 == {
+        "engine": "string",
+        "prompt": c.prompt_value,
+        "examples": c.examples_value,
+    }
+
+
 def test_chat_prompt_builtin():
     c = OpenAIChatPromptBuiltIn(prompt_id="redact")
     # Real file is in ../../../data/prompts/redact.txt
