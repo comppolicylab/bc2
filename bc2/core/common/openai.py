@@ -232,14 +232,23 @@ class ChatPrompt:
         Returns:
             The serialized prompt.
         """
+        candidate = dict[str, Any]()
         if info and info.context and info.context.get("freeze", False):
-            return {
+            candidate = {
                 "engine": self.engine,
                 "prompt": self.prompt_value,
                 "examples": self.examples_value,
             }
         else:
-            return {k: getattr(self, k) for k in getattr(self, "model_fields", {})}
+            candidate = {k: getattr(self, k) for k in getattr(self, "model_fields", {})}
+
+        # TODO(jnu): there are some more conditions that could be included here
+        # from `SerializationInfo`, but `exclude_none` is the most important
+        # due to how it can break TOML serialization if not handled.
+        if info and getattr(info, "exclude_none", False):
+            return {k: v for k, v in candidate.items() if v is not None}
+
+        return candidate
 
     def format(
         self, input: AnyChatInput | Sequence[AnyChatInput], **kwargs

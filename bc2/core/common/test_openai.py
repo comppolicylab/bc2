@@ -24,6 +24,17 @@ def test_chat_prompt_builtin_serialize():
         "prompt": c.prompt_value,
         "examples": c.examples_value,
     }
+    d3 = c.model_dump(exclude_none=True)
+    assert d3 == {
+        "engine": "string",
+        "prompt_id": c.prompt_id,
+    }
+    d4 = c.model_dump(context={"freeze": True}, exclude_none=True)
+    assert d4 == {
+        "engine": "string",
+        "prompt": c.prompt_value,
+        "examples": [],
+    }
 
 
 def test_chat_prompt_inline_serialize():
