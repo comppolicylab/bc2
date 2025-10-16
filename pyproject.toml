@@ -7,7 +7,7 @@ license = {text = "MIT"}
 requires-python = "<4.0,>=3.10"
 dependencies = [
     "azure-ai-formrecognizer==3.3.3",
-    "pydantic==2.10.5",
+    "pydantic>=2.12.2",
     "pydantic-settings==2.5.2",
     "click<9.0.0,>=8.1.6",
     "tqdm==4.66.5",
