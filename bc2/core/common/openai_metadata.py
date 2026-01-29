@@ -34,6 +34,7 @@ _MODELS = {
     # NOTE(jnu): ADD NEW MODELS HERE AS WE SUPPORT THEM.
     ##########################################################
     for meta in [
+        ChatModelMeta(name="gpt-4.1-2025-04-14", context=1_047_576, output=32_768),
         ChatModelMeta(name="gpt-4o-2024-05-13", context=128_000, output=4_096),
         ChatModelMeta(name="gpt-4o-2024-08-06", context=128_000, output=16_384),
         ChatModelMeta(name="gpt-4o-2024-11-20", context=128_000, output=16_384),
