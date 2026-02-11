@@ -26,7 +26,7 @@ dependencies = [
     "tiktoken<1.0.0,>=0.9.0",
 ]
 name = "bc2"
-version = "0.7.5"
+version = "0.7.6"
 description = "Race-blind charging redaction libary."
 readme = "README.md"
 
