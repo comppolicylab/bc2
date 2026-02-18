@@ -53,6 +53,6 @@ ignore = ["E402"]
 max-complexity = 11
 
 [tool.uv.build-backend]
-data = ["bc2/data"]
+data = ["bc2/data/**"]
 module-name = "bc2"
 module-root = ""
