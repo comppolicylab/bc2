@@ -106,7 +106,7 @@ wheels = [
 
 [[package]]
 name = "bc2"
-version = "0.7.8"
+version = "0.7.9"
 source = { editable = "." }
 dependencies = [
     { name = "azure-ai-formrecognizer" },
