@@ -1,8 +1,11 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from ..common.context import Context
 from ..common.name_map import NameToMaskMap
 from ..common.text import RedactedText, Text
+from .base import MissingNarrativeError
 from .openai import OpenAIRedactConfig
 
 JINJA_PROMPT_WITH_PLACEHOLDERS = """\
@@ -190,3 +193,35 @@ The xml is:
             },
         ],
     )
+
+
+@pytest.mark.parametrize("narrative", ["", "No narratives found."])
+@patch("bc2.core.common.openai.OpenAI")
+def test_redact_raises_on_empty_narrative(openai_mock, narrative):
+    cfg = OpenAIRedactConfig.model_validate(
+        {
+            "engine": "redact:openai",
+            "delimiters": ("[", "]"),
+            "client": {
+                "api_key": "abc123",
+                "base_url": "http://openai.local",
+            },
+            "generator": {
+                "method": "chat",
+                "model": "gpt-4o-2024-05-13",
+                "system": {
+                    "engine": "string",
+                    "prompt": "Redact the text.",
+                },
+            },
+        },
+    )
+
+    with pytest.raises(MissingNarrativeError):
+        cfg.driver(
+            narrative=Text(narrative),
+            context=Context(),
+            placeholders=NameToMaskMap({"Leopold": "Subject 1"}),
+        )
+
+    openai_mock.return_value.chat.completions.create.assert_not_called()
