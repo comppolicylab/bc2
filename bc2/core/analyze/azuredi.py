@@ -3,7 +3,7 @@ from functools import cached_property
 from io import BytesIO
 from typing import Literal
 
-from azure.ai.formrecognizer import AnalyzeResult, DocumentAnalysisClient
+from azure.ai.documentintelligence import AnalyzeResult, DocumentAnalysisClient
 from azure.core.credentials import AzureKeyCredential
 from pydantic import BaseModel, Field
 
