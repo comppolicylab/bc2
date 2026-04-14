@@ -1,14 +1,14 @@
 import logging
 from functools import cached_property
-from io import BytesIO
 from typing import Literal, Tuple
 
-from azure.ai.formrecognizer import AnalyzeResult, DocumentAnalysisClient
-from azure.core.credentials import AzureKeyCredential
+from azure.ai.formrecognizer import AnalyzeResult
 from pydantic import BaseModel, Field
 
 from ..common.file import MemoryFile
-from .base import BaseExtractDriver, register_preprocessor
+from ..common.json import date_aware_json_load
+from ..common.preprocess import register_preprocessor
+from .base import BaseExtractDriver
 
 logger = logging.getLogger(__name__)
 
@@ -17,40 +17,27 @@ class AzureDIExtractConfig(BaseModel):
     """Azure DI Extract config."""
 
     engine: Literal["extract:azuredi"]
-    endpoint: str
-    api_key: str
-    # Todo: Add api_version, since we'll need to match what's on GovCloud,
-    # which has more limited releases than commerical Azure.
-    document_model: str = Field("prebuilt-read")
     labels: list[str] | None = Field(None)
     min_confidence: float = Field(0.04)
-    locale: str = Field("en-US")
 
     @cached_property
     def driver(self) -> "AzureDIExtract":
         return AzureDIExtract(self)
 
 
-class AzureDIExtract(BaseExtractDriver):
+class AzureDIExtract(BaseExtractDriver[AnalyzeResult]):
     def __init__(self, config: AzureDIExtractConfig):
         self.config = config
-        self.document_analysis_client = DocumentAnalysisClient(
-            endpoint=config.endpoint,
-            credential=AzureKeyCredential(config.api_key),
-        )
 
-    @register_preprocessor(r"^application/pdf")
-    def convert_pdf(self, file: MemoryFile) -> BytesIO:
+    @register_preprocessor(r"^application/x-analyze-result")
+    def load_analyze_result(self, file: MemoryFile) -> AnalyzeResult:
         file.buffer.seek(0)
-        return file.buffer
+        # Parse JSON and inflate the AnalyzeResult object.
+        content = date_aware_json_load(file.buffer)
+        return AnalyzeResult.from_dict(content)
 
-    @register_preprocessor(r"^image/tiff")
-    def convert_tiff(self, file: MemoryFile) -> BytesIO:
-        file.buffer.seek(0)
-        return file.buffer
-
-    def extract(self, doc: BytesIO) -> Tuple[str, bool]:
-        result = self._extract_text_from_doc(doc) or ""
+    def extract(self, analysis: AnalyzeResult) -> Tuple[str, bool]:
+        result = self._extract_text_from_analysis(analysis) or ""
         return result, False
 
     def _extract_document_content(
@@ -98,18 +85,17 @@ class AzureDIExtract(BaseExtractDriver):
                     chunks.append(para.content)
         return chunks
 
-    def _extract_text_from_doc(
-        self, doc: BytesIO, chunk_separator: str = "\n\n"
+    def _extract_text_from_analysis(
+        self, analysis: AnalyzeResult, chunk_separator: str = "\n\n"
     ) -> str | None:
-        """Extract text from a PDF.
+        """Extract text from an analysis result.
 
         Args:
-            doc (BytesIO): Stream containing the PDF.
+            analysis (AnalyzeResult): Analysis result from Azure DI
 
         Returns:
             str: The text, if text was found.
         """
-        analysis = self._analyze_document(doc)
         chunks = self._extract_document_content(analysis, self.config.labels)
 
         if not chunks:
@@ -117,27 +103,3 @@ class AzureDIExtract(BaseExtractDriver):
             return None
 
         return chunk_separator.join(chunks)
-
-    def _analyze_document(
-        self,
-        doc: BytesIO,
-    ) -> AnalyzeResult:
-        """Run a PDF through Azure document analysis.
-
-        Args:
-            doc (BytesIO): The PDF to analyze.
-
-        Returns:
-            AnalyzeResult: Results from Azure document analysis.
-        """
-        logger.info(f"Running analysis with model {self.config.document_model} ...")
-
-        # Run analysis on the document using the remote service.
-        doc.seek(0)
-        docbytes = doc.read()
-        poller = self.document_analysis_client.begin_analyze_document(
-            self.config.document_model,
-            document=docbytes,
-            locale=self.config.locale,
-        )
-        return poller.result()

@@ -4,7 +4,8 @@ from typing import Literal, Tuple
 from pydantic import BaseModel
 
 from ..common.file import MemoryFile
-from .base import BaseExtractDriver, register_preprocessor
+from ..common.preprocess import register_preprocessor
+from .base import BaseExtractDriver
 
 
 class RawExtractConfig(BaseModel):
