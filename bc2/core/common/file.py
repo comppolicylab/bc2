@@ -6,8 +6,9 @@ import magic
 
 
 class MemoryFile:
-    def __init__(self, content: bytes = b""):
+    def __init__(self, content: bytes = b"", mime_type: str | None = None):
         self.buffer = BytesIO(content)
+        self._explicit_mime_type = mime_type
 
     def content(self):
         return self.buffer.getvalue()
@@ -22,7 +23,12 @@ class MemoryFile:
 
     @cached_property
     def mime_type(self) -> str:
-        """Get the (auto-detected) mime type for the content."""
+        """Get the mime type for the content.
+
+        This will be auto-detected if not set explicitly.
+        """
+        if self._explicit_mime_type:
+            return self._explicit_mime_type
         self.buffer.seek(0)
         header = self.buffer.read(2048)
         mime = magic.from_buffer(header, mime=True)
