@@ -502,8 +502,6 @@ class OpenAIChatConfig(BaseModel, Generic[TResult]):
                 openai_api_settings[k] = v
                 continue
 
-            raise ValueError(f"Unsupported parameter: {k}")
-
         # Format chat message
         messages = [m.as_chat_message() for m in self.system.format(input, **kwargs)]
 
