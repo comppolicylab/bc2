@@ -3,7 +3,8 @@ from functools import cached_property
 from io import BytesIO
 from typing import Literal
 
-from azure.ai.documentintelligence import AnalyzeResult, DocumentAnalysisClient
+from azure.ai.documentintelligence import DocumentIntelligenceClient
+from azure.ai.documentintelligence.models import AnalyzeResult
 from azure.core.credentials import AzureKeyCredential
 from pydantic import BaseModel, Field
 
@@ -34,7 +35,7 @@ class AzureDIAnalyzeConfig(BaseModel):
 class AzureDIAnalyze(BaseAnalyzeDriver):
     def __init__(self, config: AzureDIAnalyzeConfig):
         self.config = config
-        self.document_analysis_client = DocumentAnalysisClient(
+        self.di_client = DocumentIntelligenceClient(
             endpoint=config.endpoint,
             credential=AzureKeyCredential(config.api_key),
         )
@@ -76,7 +77,7 @@ class AzureDIAnalyze(BaseAnalyzeDriver):
         # Run analysis on the document using the remote service.
         doc.seek(0)
         docbytes = doc.read()
-        poller = self.document_analysis_client.begin_analyze_document(
+        poller = self.di_client.begin_analyze_document(
             self.config.document_model,
             document=docbytes,
             locale=self.config.locale,
