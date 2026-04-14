@@ -5,7 +5,8 @@ from ..common.file import MemoryFile
 from ..common.image import ImageUrl
 from ..common.openai import OpenAIChatConfig, OpenAIConfig
 from ..common.pdf import pdf2imgs
-from .base import BaseExtractDriver, register_preprocessor
+from ..common.preprocess import register_preprocessor
+from .base import BaseExtractDriver
 
 
 class OpenAIExtractConfig(OpenAIConfig):
