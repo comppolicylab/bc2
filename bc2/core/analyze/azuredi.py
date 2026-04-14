@@ -24,6 +24,7 @@ class AzureDIAnalyzeConfig(BaseModel):
     # Todo: Add api_version, since we'll need to match what's on GovCloud,
     # which has more limited releases than commerical Azure.
     document_model: str = Field("prebuilt-read")
+    locale: str = Field("en-US")
 
     @cached_property
     def driver(self) -> "AzureDIAnalyze":
