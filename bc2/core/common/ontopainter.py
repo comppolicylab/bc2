@@ -118,7 +118,7 @@ class OntoPainter(BaseModel):
         """Paint a rectangle on a document."""
         for region in chunk.regions:
             # The coordinates come normalized in (0, 1) space. Project into page coords.
-            page = doc.load_page(chunk.regions[0].page)
+            page = doc.load_page(region.page)
             page_width, page_height = page.mediabox[2:]
             shape = page.new_shape()
             scaled_points = [
