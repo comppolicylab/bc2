@@ -8,7 +8,7 @@ from ..common.preprocess import PreprocessMixin
 T = TypeVar("T")
 
 
-class BasePainter(ABC, Generic[T], PreprocessMixin[T]):
+class BasePainterDriver(ABC, Generic[T], PreprocessMixin[T]):
     def __call__(self, file: MemoryFile, context: Context) -> MemoryFile:
         """Paint a file, returning an annotated version.
 
