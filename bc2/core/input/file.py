@@ -23,7 +23,7 @@ class FileInput(BaseInputDriver):
 
     required = ["path"]
 
-    def __call__(self, path: str = "", buffer: io.BytesIO | None = None) -> MemoryFile:
+    def load_file(self, path: str = "", buffer: io.BytesIO | None = None) -> MemoryFile:
         """Read from a file."""
         if not path:
             raise ValueError("Path is required for file input.")

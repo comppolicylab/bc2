@@ -21,7 +21,7 @@ class AzureBlobInput(BaseInputDriver, AzureBlobDriver):
     def __init__(self, config: AzureBlobInputConfig):
         self.init_client(config)
 
-    def __call__(self, path: str = "", buffer: io.BytesIO | None = None) -> MemoryFile:
+    def load_file(self, path: str = "", buffer: io.BytesIO | None = None) -> MemoryFile:
         """Read from an Azure Blob."""
         f = MemoryFile()
         full_path = f"{self.config.prefix}{path}"
