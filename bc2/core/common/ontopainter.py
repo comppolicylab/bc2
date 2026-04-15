@@ -4,8 +4,7 @@ from typing import Callable
 import pymupdf
 from pydantic import BaseModel, model_validator
 
-from ..common.ontology import Cited, PoliceReport, PoliceReportParseResult, SourceChunk
-from ..common.palette import Palette
+from .ontology import Cited, PoliceReport, PoliceReportParseResult, SourceChunk
 
 
 class OntoPainterMark(Enum):
@@ -61,13 +60,13 @@ class OntoPainter(BaseModel):
 
     def paint(
         self,
-        pdf_path: str,
+        pdf: str | pymupdf.Document,
         parse_result: PoliceReportParseResult,
         pages: str | None = None,
     ) -> pymupdf.Document:
         """Paint a document annotated with the parse result."""
-        # 1. Load the input path.
-        doc = self._load_pdf(pdf_path, pages)
+        # 1. Load the requested pages from the input path / doc
+        doc = self._load_pdf(pdf, pages)
 
         # 2. Loop over field configs and paint each field.
         for field_config in self.fields:
@@ -129,16 +128,21 @@ class OntoPainter(BaseModel):
             shape.finish(color=field_config.stroke, width=field_config.stroke_width)
             shape.commit()
 
-    def _load_pdf(self, pdf_path: str, pages: str | None = None) -> pymupdf.Document:
+    def _load_pdf(
+        self, doc: str | pymupdf.Document, pages: str | None = None
+    ) -> pymupdf.Document:
         """Load a PDF document."""
-        with open(pdf_path, "rb") as f:
-            doc = pymupdf.open(f)
+        if isinstance(doc, str):
+            with open(doc, "rb") as f:
+                pdf_doc = pymupdf.open(f)
+        else:
+            pdf_doc = doc
 
         filter_pages = _parse_pages_range(pages)
         if filter_pages:
-            doc.select(filter_pages)
+            pdf_doc.select(filter_pages)
 
-        return doc
+        return pdf_doc
 
 
 def _parse_pages_range(pages: str | None = None) -> list[int] | None:
@@ -169,141 +173,3 @@ def _parse_pages_range(pages: str | None = None) -> list[int] | None:
             page_list.append(int(segment.strip()))
     # Clean up duplicates and sort.
     return sorted([x - 1 for x in set(page_list)])
-
-
-default_onto_painter = OntoPainter(
-    fields=[
-        OntoPainterFieldConfig(
-            field="case_number",
-            label="Case Number",
-            mark=OntoPainterMark.RECT,
-            fill=None,
-            stroke=Palette.Red1,
-            stroke_width=2,
-        ),
-        OntoPainterFieldConfig(
-            field="location",
-            label="Location",
-            mark=OntoPainterMark.RECT,
-            fill=None,
-            stroke=Palette.Green1,
-            stroke_width=2,
-        ),
-        OntoPainterFieldConfig(
-            field="incident_type",
-            label="Incident Type",
-            mark=OntoPainterMark.RECT,
-            fill=None,
-            stroke=Palette.Blue1,
-            stroke_width=2,
-        ),
-        OntoPainterFieldConfig(
-            field="reporting_agency",
-            label="Reporting Agency",
-            mark=OntoPainterMark.RECT,
-            fill=None,
-            stroke=Palette.Purple1,
-            stroke_width=2,
-        ),
-        OntoPainterFieldConfig(
-            field="narratives",
-            label="Narrative",
-            mark=OntoPainterMark.RECT,
-            fill=None,
-            stroke=Palette.Blue1,
-            stroke_width=2,
-        ),
-        # Subject fields:
-        # type, name, address, phone, race, sex, dob
-        OntoPainterFieldConfig(
-            accessor=lambda report: [subject.type for subject in report.subjects],
-            label="Subject Type",
-            mark=OntoPainterMark.RECT,
-            fill=None,
-            stroke=Palette.Cyan1,
-            stroke_width=2,
-        ),
-        OntoPainterFieldConfig(
-            accessor=lambda report: [subject.name for subject in report.subjects],
-            label="Subject",
-            mark=OntoPainterMark.RECT,
-            fill=None,
-            stroke=Palette.Cyan1,
-            stroke_width=2,
-        ),
-        OntoPainterFieldConfig(
-            accessor=lambda report: [subject.address for subject in report.subjects],
-            label="Subject Address",
-            mark=OntoPainterMark.RECT,
-            fill=None,
-            stroke=Palette.Cyan1,
-            stroke_width=2,
-        ),
-        OntoPainterFieldConfig(
-            accessor=lambda report: [subject.phone for subject in report.subjects],
-            label="Subject Phone",
-            mark=OntoPainterMark.RECT,
-            fill=None,
-            stroke=Palette.Cyan1,
-            stroke_width=2,
-        ),
-        OntoPainterFieldConfig(
-            accessor=lambda report: [subject.race for subject in report.subjects],
-            label="Subject Race",
-            mark=OntoPainterMark.RECT,
-            fill=None,
-            stroke=Palette.Cyan1,
-            stroke_width=2,
-        ),
-        OntoPainterFieldConfig(
-            accessor=lambda report: [subject.sex for subject in report.subjects],
-            label="Subject Sex",
-            mark=OntoPainterMark.RECT,
-            fill=None,
-            stroke=Palette.Cyan1,
-            stroke_width=2,
-        ),
-        OntoPainterFieldConfig(
-            accessor=lambda report: [subject.dob for subject in report.subjects],
-            label="Subject DOB",
-            mark=OntoPainterMark.RECT,
-            fill=None,
-            stroke=Palette.Cyan1,
-            stroke_width=2,
-        ),
-        OntoPainterFieldConfig(
-            accessor=lambda report: [subject.dob for subject in report.subjects],
-            label="Subject DOB",
-            mark=OntoPainterMark.RECT,
-            fill=None,
-            stroke=Palette.Cyan1,
-            stroke_width=2,
-        ),
-        # Offense fields:
-        # crime, code
-        OntoPainterFieldConfig(
-            accessor=lambda report: [offense.crime for offense in report.offenses],
-            label="Offense Crime",
-            mark=OntoPainterMark.RECT,
-            fill=None,
-            stroke=Palette.Orange1,
-            stroke_width=2,
-        ),
-        OntoPainterFieldConfig(
-            accessor=lambda report: [offense.code for offense in report.offenses],
-            label="Offense Code",
-            mark=OntoPainterMark.RECT,
-            fill=None,
-            stroke=Palette.Orange1,
-            stroke_width=2,
-        ),
-        OntoPainterFieldConfig(
-            accessor=lambda report: [offense.statute for offense in report.offenses],
-            label="Offense Statute",
-            mark=OntoPainterMark.RECT,
-            fill=None,
-            stroke=Palette.Orange1,
-            stroke_width=2,
-        ),
-    ]
-)
