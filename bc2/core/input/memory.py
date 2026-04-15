@@ -23,11 +23,16 @@ class MemoryInput(BaseInputDriver):
 
     required = ["buffer"]
 
-    def load_file(self, path: str = "", buffer: io.BytesIO | None = None) -> MemoryFile:
+    def load_file(
+        self,
+        path: str = "",
+        buffer: io.BytesIO | None = None,
+        mime_type: str | None = None,
+    ) -> MemoryFile:
         """Read from a buffer in memory."""
         if not buffer:
             raise ValueError("Buffer is required for memory input.")
-        f = MemoryFile()
+        f = MemoryFile(mime_type=mime_type)
         # Consume all the buffer and write it to memory
         while True:
             data = buffer.read(self.config.buffer_size)
