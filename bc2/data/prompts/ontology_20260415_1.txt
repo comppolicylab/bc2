@@ -1,0 +1,4 @@
+The following XML represents a police report parsed by Azure Document Intelligence.
+Extract information for EACH field in the output model.
+If the input does not include a field, leave it empty.
+Return one or more `id` attributes for each piece of relevant content.
