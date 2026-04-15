@@ -60,9 +60,7 @@ def validate_pipe(
                     # For the first argument of sub-commands, check that the output
                     # of the previous command matches the input of the next command.
                     if not issubclass(last_output_t, input_t):
-                        raise ValueError(
-                            f"Expected {input_t}" f"but got {last_output_t}"
-                        )
+                        raise ValueError(f"Expected {input_t} but got {last_output_t}")
                 # Skip additional validation for the first param.
                 continue
 
