@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class OpenAIOntologyConfig(OpenAIConfig):
     """OpenAI Ontology config."""
 
-    engine: Literal["ontology:openai"]
+    engine: Literal["ontology:openai"] = "ontology:openai"
     generator: OpenAIChatConfig[PoliceReport]
 
     @cached_property
