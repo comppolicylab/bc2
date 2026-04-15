@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import Literal
 
 import pymupdf
@@ -8,7 +9,7 @@ from ..common.ontology import PoliceReportParseResult
 from ..common.ontopainter import OntoPainter, OntoPainterFieldConfig, OntoPainterMark
 from ..common.palette import Palette
 from ..common.preprocess import register_preprocessor
-from .base import BasePainter
+from .base import BasePainterDriver
 
 painter = OntoPainter(
     fields=[
@@ -151,8 +152,15 @@ painter = OntoPainter(
 class OntologyPainterConfig(BaseModel):
     engine: Literal["paint:ontology"] = "paint:ontology"
 
+    @cached_property
+    def driver(self) -> "OntologyPainterDriver":
+        return OntologyPainterDriver(self)
 
-class OntologyPainter(BasePainter[PoliceReportParseResult]):
+
+class OntologyPainterDriver(BasePainterDriver[PoliceReportParseResult]):
+    def __init__(self, config: OntologyPainterConfig):
+        self.config = config
+
     @register_preprocessor(r"application/x-ontology")
     def preprocess_ontology(self, file: MemoryFile) -> PoliceReportParseResult:
         """Deserialize an ontology MemoryFile into a PoliceReportParseResult."""
