@@ -495,7 +495,7 @@ class OpenAIChatConfig(BaseModel, Generic[TResult]):
         # Note that `max_tokens` is determined and applied separate from these params.
         openai_api_settings = {}
         for k, v in props.items():
-            if k in unsupported_openai_params:
+            if k in unsupported_openai_params and v is not None:
                 logger.warning(f"Deprecated OpenAI parameter (ignoring): {k}")
                 continue
             if k in openai_api_params and v is not None:
@@ -540,7 +540,7 @@ class OpenAIChatConfig(BaseModel, Generic[TResult]):
         completion_tokens = response.usage.output_tokens
         return OpenAIChatOutput[TResult](
             max_tokens=max_tokens,
-            content=response.output_text,
+            content=response.output_text or "",
             completion_tokens=completion_tokens,
             parsed=response.output_parsed,
         )
