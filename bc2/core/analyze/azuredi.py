@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class AzureDIAnalyzeConfig(BaseModel):
     """Azure DI Analyze config."""
 
-    engine: Literal["analyze:azuredi"]
+    engine: Literal["analyze:azuredi"] = "analyze:azuredi"
     endpoint: str
     api_key: str
     # Todo: Add api_version, since we'll need to match what's on GovCloud,
