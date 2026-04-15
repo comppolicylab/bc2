@@ -22,7 +22,7 @@ class StdinInput(BaseInputDriver):
     def __init__(self, config: StdinInputConfig):
         self.config = config
 
-    def __call__(self, path: str = "", buffer: io.BytesIO | None = None) -> MemoryFile:
+    def load_file(self, path: str = "", buffer: io.BytesIO | None = None) -> MemoryFile:
         """Read from stdin."""
         f = MemoryFile()
         # Consume all the stdin pipe and write it to memory
