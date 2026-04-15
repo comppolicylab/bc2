@@ -22,8 +22,7 @@ class AzureDIAnalyzeConfig(BaseModel):
     engine: Literal["analyze:azuredi"] = "analyze:azuredi"
     endpoint: str
     api_key: str
-    # Todo: Add api_version, since we'll need to match what's on GovCloud,
-    # which has more limited releases than commerical Azure.
+    api_version: str = Field("2024-11-30")
     document_model: str = Field("prebuilt-read")
     locale: str = Field("en-US")
     kv: bool = Field(False)
@@ -40,6 +39,7 @@ class AzureDIAnalyze(BaseAnalyzeDriver):
         self.di_client = DocumentIntelligenceClient(
             endpoint=config.endpoint,
             credential=AzureKeyCredential(config.api_key),
+            api_version=config.api_version,
         )
 
     @register_preprocessor(r"^application/pdf")
