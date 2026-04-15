@@ -6,7 +6,7 @@ import os
 from abc import abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Literal, Sequence, TypeAlias, cast
+from typing import Any, Generic, Literal, Sequence, Type, TypeAlias, TypeVar, cast
 
 from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI
 from openai.types.chat import (
@@ -37,6 +37,8 @@ from .template import TemplateEngine, get_formatter
 
 logger = logging.getLogger(__name__)
 
+
+TResult = TypeVar("TResult")
 
 _OpenAIChatMessagePart: TypeAlias = (
     _OpenAIChatTextMessagePart | _OpenAIChatImageMessagePart
@@ -183,12 +185,13 @@ AnyChatInput = str | ImageUrl
 
 
 @dataclass
-class OpenAIChatOutput:
+class OpenAIChatOutput(Generic[TResult]):
     """A chat output for an OpenAI model."""
 
     content: str
     completion_tokens: int
     max_tokens: int | None = None
+    parsed: TResult | None = None
 
     @property
     def is_truncated(self) -> bool:
@@ -383,7 +386,7 @@ OpenAIChatPrompt = (
 )
 
 
-class OpenAIChatConfig(BaseModel):
+class OpenAIChatConfig(BaseModel, Generic[TResult]):
     """OpenAI Chat config."""
 
     method: Literal["chat"] = "chat"
@@ -469,15 +472,20 @@ class OpenAIChatConfig(BaseModel):
         self,
         client: OpenAI,
         input: AnyChatInput | Sequence[AnyChatInput],
+        response_format: Type[TResult] | None = None,
         **kwargs,
-    ) -> OpenAIChatOutput:
+    ) -> OpenAIChatOutput[TResult]:
         """Invoke the chat."""
         props = self.model_dump()
+        unsupported_openai_params = {
+            "seed",
+            "frequency_penalty",
+            "presence_penalty",
+            "n",
+        }
+
         openai_api_params = {
             "model",
-            "frequency_penalty",
-            "n",
-            "presence_penalty",
             "seed",
             "temperature",
             "top_p",
@@ -485,26 +493,31 @@ class OpenAIChatConfig(BaseModel):
 
         # Only keep populated settings that are in the OpenAI API params list.
         # Note that `max_tokens` is determined and applied separate from these params.
-        openai_api_settings = {
-            k: v for k, v in props.items() if k in openai_api_params and v is not None
-        }
+        openai_api_settings = {}
+        for k, v in props.items():
+            if k in unsupported_openai_params and v is not None:
+                logger.warning(f"Deprecated OpenAI parameter (ignoring): {k}")
+                continue
+            if k in openai_api_params and v is not None:
+                openai_api_settings[k] = v
+                continue
 
         # Format chat message
         messages = [m.as_chat_message() for m in self.system.format(input, **kwargs)]
 
         # Configure max tokens and submit the query.
         max_tokens = self.token_cap
-        completion = client.chat.completions.create(
-            **openai_api_settings, max_tokens=max_tokens, messages=messages
+        response = client.responses.parse(
+            **openai_api_settings,
+            max_output_tokens=max_tokens,
+            input=messages,
+            text_format=response_format,
+            store=False,
         )
 
-        # Interpret completion response.
-        if not completion.choices:
-            raise ValueError("Completion choices not found in response.")
-
-        choice = completion.choices[0]
-        stop_reason = getattr(choice, "finish_reason", None)
-        if stop_reason == "length":
+        # Interpret response
+        stop_reason = response.incomplete_details and response.incomplete_details.reason
+        if stop_reason == "max_output_tokens":
             # This should be planned for / expected by the caller.
             logger.debug("OpenAI response hit max tokens")
         elif stop_reason == "content_filter":
@@ -513,16 +526,23 @@ class OpenAIChatConfig(BaseModel):
                 "Please check the content moderation settings."
             )
 
-        content = choice.message.content
+        if response.status != "completed":
+            logger.error(
+                f"OpenAI response status is {response.status}: {response.error}"
+            )
+            raise ValueError(
+                f"OpenAI response status is not completed ({response.status})"
+            )
 
-        if not completion.usage:
+        if not response.usage:
             raise ValueError("Completion usage not found in response.")
 
-        completion_tokens = completion.usage.completion_tokens
-        return OpenAIChatOutput(
+        completion_tokens = response.usage.output_tokens
+        return OpenAIChatOutput[TResult](
             max_tokens=max_tokens,
-            content=content or "",
+            content=response.output_text or "",
             completion_tokens=completion_tokens,
+            parsed=response.output_parsed,
         )
 
 

@@ -67,8 +67,7 @@ class OpenAIMaskedSubjectsInspectDriver(BaseInspectDriver):
     ) -> RedactedText:
         if not subjects:
             logger.warning(
-                "No subjects provided for id-mask reconciliation! "
-                "Skipping this step."
+                "No subjects provided for id-mask reconciliation! Skipping this step."
             )
             return input
 
