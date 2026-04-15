@@ -29,20 +29,26 @@ def test_redact_jinja_with_placeholders(openai_mock):
         model_name = kwargs.get("model")
         if model_name == "resolver_model":
             response = MagicMock()
-            response.choices = [MagicMock(message=MagicMock(content="{}"))]
+            response.output_text = "{}"
+            response.status = "completed"
+            response.usage = type("Usage", (), {"output_tokens": 10})()
+            response.incomplete_details = None
+            response.output_parsed = None
+            response.error = None
             return response
         else:
             response = MagicMock()
-            response.choices = [
-                MagicMock(
-                    message=MagicMock(
-                        content="Subject 1, Subject 2, and Subject 3 went to the store."
-                    )
-                )
-            ]
+            response.output_text = (
+                "Subject 1, Subject 2, and Subject 3 went to the store."
+            )
+            response.status = "completed"
+            response.usage = type("Usage", (), {"output_tokens": 10})()
+            response.incomplete_details = None
+            response.output_parsed = None
+            response.error = None
             return response
 
-    openai_mock.return_value.chat.completions.create.side_effect = mock_create
+    openai_mock.return_value.responses.parse.side_effect = mock_create
 
     cfg = OpenAIRedactConfig.model_validate(
         {
@@ -79,11 +85,12 @@ def test_redact_jinja_with_placeholders(openai_mock):
         "Leopold, Pollock, and Abbott went to the store.",
         ("[", "]"),
     )
-    openai_mock.return_value.chat.completions.create.assert_called_once_with(
+    openai_mock.return_value.responses.parse.assert_called_once_with(
         model="gpt-4o-2024-05-13",
-        n=1,
-        max_tokens=4_096,
-        messages=[
+        max_output_tokens=4_096,
+        text_format=None,
+        store=False,
+        input=[
             {
                 "role": "system",
                 "content": (
@@ -111,20 +118,26 @@ def test_redact_string_with_placeholders(openai_mock):
         model_name = kwargs.get("model")
         if model_name == "resolver_model":
             response = MagicMock()
-            response.choices = [MagicMock(message=MagicMock(content="{}"))]
+            response.output_text = "{}"
+            response.status = "completed"
+            response.usage = type("Usage", (), {"output_tokens": 10})()
+            response.incomplete_details = None
+            response.output_parsed = None
+            response.error = None
             return response
         else:
             response = MagicMock()
-            response.choices = [
-                MagicMock(
-                    message=MagicMock(
-                        content="Subject 1, Subject 2, and Subject 3 went to the store."
-                    )
-                )
-            ]
+            response.output_text = (
+                "Subject 1, Subject 2, and Subject 3 went to the store."
+            )
+            response.status = "completed"
+            response.usage = type("Usage", (), {"output_tokens": 10})()
+            response.incomplete_details = None
+            response.output_parsed = None
+            response.error = None
             return response
 
-    openai_mock.return_value.chat.completions.create.side_effect = mock_create
+    openai_mock.return_value.responses.parse.side_effect = mock_create
 
     cfg = OpenAIRedactConfig.model_validate(
         {
@@ -163,11 +176,12 @@ def test_redact_string_with_placeholders(openai_mock):
         "Leopold, Pollock, and Abbott went to the store.",
         ("{", "}"),
     )
-    openai_mock.return_value.chat.completions.create.assert_called_once_with(
+    openai_mock.return_value.responses.parse.assert_called_once_with(
         model="gpt-4o-2024-05-13",
-        n=1,
-        max_tokens=4_096,
-        messages=[
+        max_output_tokens=4_096,
+        text_format=None,
+        store=False,
+        input=[
             {
                 "role": "system",
                 "content": (
@@ -224,4 +238,4 @@ def test_redact_raises_on_empty_narrative(openai_mock, narrative):
             placeholders=NameToMaskMap({"Leopold": "Subject 1"}),
         )
 
-    openai_mock.return_value.chat.completions.create.assert_not_called()
+    openai_mock.return_value.responses.parse.assert_not_called()

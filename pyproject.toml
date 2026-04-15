@@ -6,13 +6,12 @@ authors = [
 license = {text = "MIT"}
 requires-python = "<4.0,>=3.10"
 dependencies = [
-    "azure-ai-formrecognizer==3.3.3",
     "pydantic>=2.12.5",
     "pydantic-settings==2.5.2",
     "click<9.0.0,>=8.1.6",
     "tqdm==4.66.5",
     "pypdf==6.10.0",
-    "openai>=2.17",
+    "openai>=2.31",
     "reportlab==4.4.10",
     "azure-storage-blob==12.28.0",
     "azure-identity==1.25.3",
@@ -24,6 +23,7 @@ dependencies = [
     "jinja2<4.0.0,>=3.1.4",
     "rapidfuzz<4.0.0,>=3.10.1",
     "tiktoken<1.0.0,>=0.9.0",
+    "azure-ai-documentintelligence>=1.0.2",
 ]
 name = "bc2"
 version = "0.7.10"

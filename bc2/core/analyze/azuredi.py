@@ -3,7 +3,8 @@ from functools import cached_property
 from io import BytesIO
 from typing import Literal
 
-from azure.ai.formrecognizer import AnalyzeResult, DocumentAnalysisClient
+from azure.ai.documentintelligence import DocumentIntelligenceClient
+from azure.ai.documentintelligence.models import AnalyzeResult, DocumentAnalysisFeature
 from azure.core.credentials import AzureKeyCredential
 from pydantic import BaseModel, Field
 
@@ -25,6 +26,8 @@ class AzureDIAnalyzeConfig(BaseModel):
     # which has more limited releases than commerical Azure.
     document_model: str = Field("prebuilt-read")
     locale: str = Field("en-US")
+    kv: bool = Field(False)
+    high_res: bool = Field(False)
 
     @cached_property
     def driver(self) -> "AzureDIAnalyze":
@@ -34,7 +37,7 @@ class AzureDIAnalyzeConfig(BaseModel):
 class AzureDIAnalyze(BaseAnalyzeDriver):
     def __init__(self, config: AzureDIAnalyzeConfig):
         self.config = config
-        self.document_analysis_client = DocumentAnalysisClient(
+        self.di_client = DocumentIntelligenceClient(
             endpoint=config.endpoint,
             credential=AzureKeyCredential(config.api_key),
         )
@@ -76,9 +79,19 @@ class AzureDIAnalyze(BaseAnalyzeDriver):
         # Run analysis on the document using the remote service.
         doc.seek(0)
         docbytes = doc.read()
-        poller = self.document_analysis_client.begin_analyze_document(
+
+        poller = self.di_client.begin_analyze_document(
             self.config.document_model,
-            document=docbytes,
+            body=docbytes,
             locale=self.config.locale,
+            features=self._get_features(),
         )
         return poller.result()
+
+    def _get_features(self) -> list[DocumentAnalysisFeature]:
+        features = list[DocumentAnalysisFeature]()
+        if self.config.kv:
+            features.append(DocumentAnalysisFeature.KEY_VALUE_PAIRS)
+        if self.config.high_res:
+            features.append(DocumentAnalysisFeature.OCR_HIGH_RESOLUTION)
+        return features

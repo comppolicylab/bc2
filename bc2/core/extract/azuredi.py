@@ -2,7 +2,7 @@ import logging
 from functools import cached_property
 from typing import Literal, Tuple
 
-from azure.ai.formrecognizer import AnalyzeResult
+from azure.ai.documentintelligence.models import AnalyzeResult
 from pydantic import BaseModel, Field
 
 from ..common.file import MemoryFile
