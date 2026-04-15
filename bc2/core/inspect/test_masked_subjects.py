@@ -34,15 +34,20 @@ def test_inspect_subject_masks(openai_mock):
     )
     ctx = Context()
 
-    openai_mock.return_value.chat.completions.create.return_value.choices[
-        0
-    ].message.content = json.dumps(
+    openai_mock.return_value.responses.parse.return_value.output_text = json.dumps(
         {
             "A": "Subject 1",
             "B": "Subject 2",
             "C": "Subject 3",
         }
     )
+    openai_mock.return_value.responses.parse.return_value.status = "completed"
+    openai_mock.return_value.responses.parse.return_value.usage = type(
+        "Usage", (), {"output_tokens": 10}
+    )()
+    openai_mock.return_value.responses.parse.return_value.incomplete_details = None
+    openai_mock.return_value.responses.parse.return_value.output_parsed = None
+    openai_mock.return_value.responses.parse.return_value.error = None
 
     result = cfg.driver(
         rt,
@@ -63,11 +68,12 @@ def test_inspect_subject_masks(openai_mock):
             "C": "Subject 3",
         }
     )
-    openai_mock.return_value.chat.completions.create.assert_called_once_with(
+    openai_mock.return_value.responses.parse.assert_called_once_with(
         model="gpt-4o",
-        n=1,
-        max_tokens=None,
-        messages=[
+        max_output_tokens=None,
+        text_format=None,
+        store=False,
+        input=[
             {
                 "role": "system",
                 "content": masked_subjects_prompt,
