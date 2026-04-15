@@ -23,7 +23,7 @@ class MemoryInput(BaseInputDriver):
 
     required = ["buffer"]
 
-    def __call__(self, path: str = "", buffer: io.BytesIO | None = None) -> MemoryFile:
+    def load_file(self, path: str = "", buffer: io.BytesIO | None = None) -> MemoryFile:
         """Read from a buffer in memory."""
         if not buffer:
             raise ValueError("Buffer is required for memory input.")
