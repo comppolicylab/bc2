@@ -55,7 +55,7 @@ class AzureDIAnalyze(BaseAnalyzeDriver):
     def analyze(self, doc: BytesIO) -> MemoryFile:
         analysis = self._analyze_document(doc)
         # Serialize the analysis result
-        result = date_aware_json_dumps(analysis.to_dict())
+        result = date_aware_json_dumps(analysis.as_dict())
         # Set an explicit mime type, so that subsequent steps will be able to load
         # it as a structured `AnalyzeResult` object.
         return MemoryFile(
