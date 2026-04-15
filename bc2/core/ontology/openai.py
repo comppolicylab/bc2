@@ -2,7 +2,7 @@ import logging
 from functools import cached_property
 from typing import Literal
 
-from azure.ai.formrecognizer import AnalyzeResult
+from azure.ai.documentintelligence.models import AnalyzeResult
 from openai import OpenAI
 
 from ..common.file import MemoryFile

@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 
+from ..common.context import Context
 from ..common.file import MemoryFile
 from ..common.ontology import PoliceReportParseResult
 from ..common.preprocess import PreprocessMixin
@@ -15,7 +16,7 @@ class EmptyOntologyError(Exception):
 
 
 class BaseOntologyDriver(ABC, Generic[T], PreprocessMixin[T]):
-    def __call__(self, file: MemoryFile) -> MemoryFile:
+    def __call__(self, file: MemoryFile, context: Context) -> MemoryFile:
         """Extract a structured police report ontology from a file."""
         data = self.preprocess(file)
         result = self.extract(data)
@@ -23,6 +24,9 @@ class BaseOntologyDriver(ABC, Generic[T], PreprocessMixin[T]):
             raise EmptyOntologyError(
                 "No source chunks found in ontology extraction result."
             )
+
+        # Save the extracted ontology in context.
+        context.ontology = result
 
         # Serialize for transport.
         f = MemoryFile(
