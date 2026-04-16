@@ -93,7 +93,8 @@ class OpenAIClientConfig(BaseModel):
         stripped_ep = azure_endpoint.rstrip("/")
         if not stripped_ep.endswith("/openai/v1"):
             logger.debug(
-                f"Azure endpoint {azure_endpoint} does not end with /openai/v1/"
+                f"Azure endpoint {azure_endpoint} does not end with /openai/v1/. "
+                "Adding it automatically."
             )
             azure_endpoint = stripped_ep + "/openai/v1/"
         if self.api_version:
