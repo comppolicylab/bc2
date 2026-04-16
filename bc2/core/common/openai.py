@@ -6,28 +6,15 @@ import os
 from abc import abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Generic, Literal, Sequence, Type, TypeAlias, TypeVar, cast
+from typing import Any, Generic, Literal, Sequence, Type, TypeVar, cast
 
 from openai import AsyncOpenAI, OpenAI
-from openai.types.chat import (
-    ChatCompletionAssistantMessageParam as _OpenAIChatCompletionAssistantMessageParam,
+from openai.types.responses import (
+    ResponseInputImage as _OpenAIResponseInputImage,
 )
-from openai.types.chat import (
-    ChatCompletionContentPartImageParam as _OpenAIChatImageMessagePart,
+from openai.types.responses import (
+    ResponseInputText as _OpenAIResponseInputText,
 )
-from openai.types.chat import (
-    ChatCompletionContentPartTextParam as _OpenAIChatTextMessagePart,
-)
-from openai.types.chat import (
-    ChatCompletionMessageParam as _OpenAIChatCompletionMessageParam,
-)
-from openai.types.chat import (
-    ChatCompletionSystemMessageParam as _OpenAIChatCompletionSystemMessageParam,
-)
-from openai.types.chat import (
-    ChatCompletionUserMessageParam as _OpenAIChatCompletionUserMessageParam,
-)
-from openai.types.chat.chat_completion_content_part_image_param import ImageURL
 from pydantic import BaseModel, Field, PositiveInt, SerializationInfo, model_serializer
 
 from .datafile import DataType, load_data_file, load_data_file_from_path
@@ -39,10 +26,6 @@ logger = logging.getLogger(__name__)
 
 
 TResult = TypeVar("TResult")
-
-_OpenAIChatMessagePart: TypeAlias = (
-    _OpenAIChatTextMessagePart | _OpenAIChatImageMessagePart
-)
 
 
 class FilteredContentError(Exception):
@@ -114,9 +97,9 @@ class OpenAIChatInputText(BaseModel):
     type: Literal["text"] = "text"
     text: str
 
-    def as_chat_message_part(self) -> _OpenAIChatTextMessagePart:
+    def as_chat_message_part(self) -> _OpenAIResponseInputText:
         """Convert the input to a chat message."""
-        return _OpenAIChatTextMessagePart(type=self.type, text=self.text)
+        return _OpenAIResponseInputText(type="input_text", text=self.text)
 
 
 class OpenAIUrl(BaseModel):
@@ -131,14 +114,12 @@ class OpenAIChatInputImageUrl(BaseModel):
     type: Literal["image_url"] = "image_url"
     image_url: OpenAIUrl
 
-    def as_chat_message_part(self) -> _OpenAIChatImageMessagePart:
+    def as_chat_message_part(self) -> _OpenAIResponseInputImage:
         """Convert the input to a chat message."""
-        return _OpenAIChatImageMessagePart(
-            type=self.type,
-            image_url=ImageURL(
-                url=self.image_url.url,
-                detail="high",
-            ),
+        return _OpenAIResponseInputImage(
+            type="input_image",
+            detail="high",
+            image_url=self.image_url.url,
         )
 
 
@@ -148,36 +129,24 @@ OpenAIChatInput = OpenAIChatInputText | OpenAIChatInputImageUrl
 class OpenAIChatTurn(BaseModel):
     """A chat turn for an OpenAI model."""
 
-    role: Literal["assistant", "user", "system"]
+    role: Literal["user", "system"]
     content: str | list[OpenAIChatInput]
 
-    def as_chat_message(self) -> _OpenAIChatCompletionMessageParam:
+    def as_chat_message(self) -> dict[str, Any]:
         """Convert the turn to a chat message."""
-        match self.role:
-            case "assistant":
-                return _OpenAIChatCompletionAssistantMessageParam(
-                    role=self.role,
-                    content=self._format_content_no_images(),
-                )
-            case "user":
-                return _OpenAIChatCompletionUserMessageParam(
-                    role=self.role,
-                    content=self._format_content(),
-                )
-            case "system":
-                return _OpenAIChatCompletionSystemMessageParam(
-                    role=self.role,
-                    content=self._format_content_no_images(),
-                )
+        return {
+            "role": self.role,
+            "content": self._format_content(),
+        }
 
-    def _format_content(self) -> str | list[_OpenAIChatMessagePart]:
+    def _format_content(self) -> str | list[OpenAIChatInput]:
         if isinstance(self.content, str):
             return self.content
         return [
             c if isinstance(c, str) else c.as_chat_message_part() for c in self.content
         ]
 
-    def _format_content_no_images(self) -> str | list[_OpenAIChatTextMessagePart]:
+    def _format_content_no_images(self) -> str | list[OpenAIChatInput]:
         if isinstance(self.content, str):
             return self.content
         return [
@@ -513,13 +482,20 @@ class OpenAIChatConfig(BaseModel, Generic[TResult]):
 
         # Configure max tokens and submit the query.
         max_tokens = self.token_cap
-        response = client.responses.parse(
+
+        call_params = dict(
             **openai_api_settings,
             max_output_tokens=max_tokens,
             input=messages,
-            text_format=response_format,
             store=False,
         )
+
+        # Call the API using `parse` or `create` depending on structured output.
+        if response_format:
+            call_params["text_format"] = response_format
+            response = client.responses.parse(**call_params)
+        else:
+            response = client.responses.create(**call_params)
 
         # Interpret response
         stop_reason = response.incomplete_details and response.incomplete_details.reason
@@ -548,7 +524,7 @@ class OpenAIChatConfig(BaseModel, Generic[TResult]):
             max_tokens=max_tokens,
             content=response.output_text or "",
             completion_tokens=completion_tokens,
-            parsed=response.output_parsed,
+            parsed=getattr(response, "output_parsed", None),
         )
 
 
