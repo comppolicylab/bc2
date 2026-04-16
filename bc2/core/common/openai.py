@@ -378,11 +378,17 @@ class OpenAIChatConfig(BaseModel, Generic[TResult]):
         ),
     )
     system: OpenAIChatPrompt
-    frequency_penalty: float | None = None
+    frequency_penalty: float | None = Field(
+        None, deprecated="OpenAI no longer supports `frequency_penalty` parameter"
+    )
     max_tokens: PositiveInt | None = None
-    n: int = 1
-    presence_penalty: float | None = None
-    seed: int | None = None
+    n: int | None = Field(None, deprecated="OpenAI no longer supports `n` parameter")
+    presence_penalty: float | None = Field(
+        None, deprecated="OpenAI no longer supports `presence_penalty` parameter"
+    )
+    seed: int | None = Field(
+        None, deprecated="OpenAI no longer supports `seed` parameter"
+    )
     temperature: float | None = None
     top_p: float | None = None
 
