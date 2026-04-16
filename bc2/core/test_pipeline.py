@@ -224,3 +224,34 @@ def test_pipeline_invalid_optional_step():
         "<class 'bc2.core.common.file.MemoryFile'> is not compatible with "
         "the output type <class 'bc2.core.common.text.Text'>."
     )
+
+
+def test_pipeline_initial_context():
+    cfg = PipelineConfig.model_validate(
+        {
+            "pipe": [
+                {"engine": "in:memory"},
+                {"engine": "extract:raw"},
+                {"engine": "redact:noop", "delimiters": ["[", "]"]},
+                {"engine": "render:text"},
+                {"engine": "out:memory"},
+            ],
+        }
+    )
+    # Run the pipeline.
+    pipe = Pipeline(cfg)
+
+    in_buf = io.BytesIO(b"Hello, world!")
+    out_buf = io.BytesIO()
+    opts = {
+        "debug": True,
+        "in": {
+            "buffer": in_buf,
+        },
+        "out": {
+            "buffer": out_buf,
+        },
+    }
+    ctx = pipe.run(runtime_config=opts, context={"foo": "bar"})
+    assert ctx.foo == "bar"
+    assert ctx.debug is True
