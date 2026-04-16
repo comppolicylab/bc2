@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from openai.types.responses import ResponseInputText
 
 from ..common.context import Context
 from ..common.name_map import NameToMaskMap
@@ -48,7 +49,7 @@ def test_redact_jinja_with_placeholders(openai_mock):
             response.error = None
             return response
 
-    openai_mock.return_value.responses.parse.side_effect = mock_create
+    openai_mock.return_value.responses.create.side_effect = mock_create
 
     cfg = OpenAIRedactConfig.model_validate(
         {
@@ -85,10 +86,9 @@ def test_redact_jinja_with_placeholders(openai_mock):
         "Leopold, Pollock, and Abbott went to the store.",
         ("[", "]"),
     )
-    openai_mock.return_value.responses.parse.assert_called_once_with(
+    openai_mock.return_value.responses.create.assert_called_once_with(
         model="gpt-4o-2024-05-13",
         max_output_tokens=4_096,
-        text_format=None,
         store=False,
         input=[
             {
@@ -102,10 +102,12 @@ def test_redact_jinja_with_placeholders(openai_mock):
             {
                 "role": "user",
                 "content": [
-                    {
-                        "type": "text",
-                        "text": "Leopold, Pollock, and Abbott went to the store.",
-                    }
+                    ResponseInputText.model_validate(
+                        {
+                            "type": "input_text",
+                            "text": "Leopold, Pollock, and Abbott went to the store.",
+                        }
+                    )
                 ],
             },
         ],
@@ -137,7 +139,7 @@ def test_redact_string_with_placeholders(openai_mock):
             response.error = None
             return response
 
-    openai_mock.return_value.responses.parse.side_effect = mock_create
+    openai_mock.return_value.responses.create.side_effect = mock_create
 
     cfg = OpenAIRedactConfig.model_validate(
         {
@@ -176,10 +178,9 @@ def test_redact_string_with_placeholders(openai_mock):
         "Leopold, Pollock, and Abbott went to the store.",
         ("{", "}"),
     )
-    openai_mock.return_value.responses.parse.assert_called_once_with(
+    openai_mock.return_value.responses.create.assert_called_once_with(
         model="gpt-4o-2024-05-13",
         max_output_tokens=4_096,
-        text_format=None,
         store=False,
         input=[
             {
@@ -199,10 +200,12 @@ The xml is:
             {
                 "role": "user",
                 "content": [
-                    {
-                        "type": "text",
-                        "text": "Leopold, Pollock, and Abbott went to the store.",
-                    }
+                    ResponseInputText.model_validate(
+                        {
+                            "type": "input_text",
+                            "text": "Leopold, Pollock, and Abbott went to the store.",
+                        }
+                    )
                 ],
             },
         ],
@@ -239,3 +242,4 @@ def test_redact_raises_on_empty_narrative(openai_mock, narrative):
         )
 
     openai_mock.return_value.responses.parse.assert_not_called()
+    openai_mock.return_value.responses.create.assert_not_called()
