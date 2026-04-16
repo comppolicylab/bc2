@@ -6,7 +6,6 @@ from ..input import InputConfig
 from ..inspect import InspectConfig
 from ..ontology import OntologyConfig
 from ..output import OutputConfig
-from ..paint import PaintConfig
 from ..parse import ParseConfig
 from ..redact import RedactConfig
 from ..render import RenderConfig
@@ -20,7 +19,6 @@ AnyProcessingConfig = typing.Union[
     AnalyzeConfig,
     ExtractConfig,
     OntologyConfig,
-    PaintConfig,
     RedactConfig,
     InspectConfig,
     ParseConfig,

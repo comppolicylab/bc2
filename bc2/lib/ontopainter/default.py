@@ -1,17 +1,7 @@
-from functools import cached_property
-from typing import Literal
+from .ontopainter import OntoPainter, OntoPainterFieldConfig, OntoPainterMark
+from .palette import Palette
 
-import pymupdf
-from pydantic import BaseModel
-
-from ..common.file import MemoryFile
-from ..common.ontology import PoliceReportParseResult
-from ..common.ontopainter import OntoPainter, OntoPainterFieldConfig, OntoPainterMark
-from ..common.palette import Palette
-from ..common.preprocess import register_preprocessor
-from .base import BasePainterDriver
-
-painter = OntoPainter(
+default_painter = OntoPainter(
     fields=[
         OntoPainterFieldConfig(
             field="case_number",
@@ -147,35 +137,3 @@ painter = OntoPainter(
         ),
     ]
 )
-
-
-class OntologyPainterConfig(BaseModel):
-    engine: Literal["paint:ontology"] = "paint:ontology"
-
-    @cached_property
-    def driver(self) -> "OntologyPainterDriver":
-        return OntologyPainterDriver(self)
-
-
-class OntologyPainterDriver(BasePainterDriver[PoliceReportParseResult]):
-    def __init__(self, config: OntologyPainterConfig):
-        self.config = config
-
-    @register_preprocessor(r"application/x-ontology")
-    def preprocess_ontology(self, file: MemoryFile) -> PoliceReportParseResult:
-        """Deserialize an ontology MemoryFile into a PoliceReportParseResult."""
-        file.buffer.seek(0)
-        return PoliceReportParseResult.model_validate_json(file.buffer.read())
-
-    def paint(self, original: MemoryFile, data: PoliceReportParseResult) -> MemoryFile:
-        """Paint the original PDF with ontology annotations."""
-        original.buffer.seek(0)
-        if original.mime_type != "application/pdf":
-            raise ValueError(f"Expected PDF, got {original.mime_type}")
-        doc = pymupdf.open(stream=original.buffer.read(), filetype="pdf")
-
-        painted = painter.paint(doc, data)
-
-        out = MemoryFile(mime_type="application/pdf")
-        out.writeb(painted.tobytes())
-        return out
