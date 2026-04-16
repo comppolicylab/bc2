@@ -10,6 +10,9 @@ from typing import Any, Generic, Literal, Sequence, Type, TypeVar, cast
 
 from openai import AsyncOpenAI, OpenAI
 from openai.types.responses import (
+    EasyInputMessageParam as _OpenAIEasyInputMessageParam,
+)
+from openai.types.responses import (
     ResponseInputImage as _OpenAIResponseInputImage,
 )
 from openai.types.responses import (
@@ -132,12 +135,12 @@ class OpenAIChatTurn(BaseModel):
     role: Literal["user", "system"]
     content: str | list[OpenAIChatInput]
 
-    def as_chat_message(self) -> dict[str, Any]:
+    def as_chat_message(self) -> _OpenAIEasyInputMessageParam:
         """Convert the turn to a chat message."""
-        return {
-            "role": self.role,
-            "content": self._format_content(),
-        }
+        return _OpenAIEasyInputMessageParam(
+            role=self.role,
+            content=self._format_content(),
+        )
 
     def _format_content(self) -> str | list[OpenAIChatInput]:
         if isinstance(self.content, str):
