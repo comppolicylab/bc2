@@ -26,7 +26,7 @@ dependencies = [
     "azure-ai-documentintelligence>=1.0.2",
 ]
 name = "bc2"
-version = "0.8.0-alpha.4"
+version = "0.8.0-alpha.5"
 description = "Race-blind charging redaction libary."
 readme = "README.md"
 
