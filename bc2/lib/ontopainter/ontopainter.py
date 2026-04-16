@@ -4,7 +4,12 @@ from typing import Callable
 import pymupdf
 from pydantic import BaseModel, model_validator
 
-from .ontology import Cited, PoliceReport, PoliceReportParseResult, SourceChunk
+from bc2.core.common.ontology import (
+    Cited,
+    PoliceReport,
+    PoliceReportParseResult,
+    SourceChunk,
+)
 
 
 class OntoPainterMark(Enum):

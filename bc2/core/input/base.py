@@ -25,9 +25,7 @@ class BaseInputDriver(ABC):
         mime_type: str | None = None,
     ) -> MemoryFile:
         """Load a file from a path or buffer."""
-        f = self.load_file(path=path, buffer=buffer, mime_type=mime_type)
-        context.input_file = f
-        return f
+        return self.load_file(path=path, buffer=buffer, mime_type=mime_type)
 
     @abstractmethod
     def load_file(

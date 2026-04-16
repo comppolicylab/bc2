@@ -1,5 +1,4 @@
 import logging
-from typing import Any
 
 from pydantic import BaseModel
 
@@ -37,7 +36,6 @@ class Pipeline:
     def run(
         self,
         runtime_config: RuntimeConfig | None = None,
-        context: Context | dict[str, Any] | None = None,
     ) -> Context:
         """Run the pipeline.
 
@@ -45,15 +43,12 @@ class Pipeline:
             runtime_config: The runtime configuration.
             Most values in the runtime config are dependent on the pipeline.
             The `debug` flag is interpretted globally.
-            context: Initial context object to use for the pipeline run.
 
         Returns:
             The context object created during the pipeline run.
-            Note if an initial context is provided, it will be copied but not modified;
-            a new reference is returned at the end of the run.
         """
         runtime_config = runtime_config or {}
-        ctx = Context(context or {})
+        ctx = Context()
         ctx.debug = runtime_config.get("debug", False)
         ctx.errors = list[Exception]()
         if ctx.debug:
