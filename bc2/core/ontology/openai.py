@@ -41,7 +41,7 @@ class OpenAIOntologyDriver(BaseOntologyDriver[AnalyzeResult]):
     def load_analyze_result(self, file: MemoryFile) -> AnalyzeResult:
         file.buffer.seek(0)
         content = date_aware_json_load(file.buffer)
-        return AnalyzeResult.from_dict(content)
+        return AnalyzeResult(content)
 
     def extract(self, data: AnalyzeResult) -> PoliceReportParseResult:
         xml = _format_analyze_result(data)
