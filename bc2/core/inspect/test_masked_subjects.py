@@ -1,6 +1,8 @@
 import json
 from unittest.mock import patch
 
+from openai.types.responses import ResponseInputText
+
 from ..common.context import Context
 from ..common.datafile import DataType, load_data_file
 from ..common.name_map import IdToMaskMap, IdToNameMap
@@ -34,20 +36,20 @@ def test_inspect_subject_masks(openai_mock):
     )
     ctx = Context()
 
-    openai_mock.return_value.responses.parse.return_value.output_text = json.dumps(
+    openai_mock.return_value.responses.create.return_value.output_text = json.dumps(
         {
             "A": "Subject 1",
             "B": "Subject 2",
             "C": "Subject 3",
         }
     )
-    openai_mock.return_value.responses.parse.return_value.status = "completed"
-    openai_mock.return_value.responses.parse.return_value.usage = type(
+    openai_mock.return_value.responses.create.return_value.status = "completed"
+    openai_mock.return_value.responses.create.return_value.usage = type(
         "Usage", (), {"output_tokens": 10}
     )()
-    openai_mock.return_value.responses.parse.return_value.incomplete_details = None
-    openai_mock.return_value.responses.parse.return_value.output_parsed = None
-    openai_mock.return_value.responses.parse.return_value.error = None
+    openai_mock.return_value.responses.create.return_value.incomplete_details = None
+    openai_mock.return_value.responses.create.return_value.output_parsed = None
+    openai_mock.return_value.responses.create.return_value.error = None
 
     result = cfg.driver(
         rt,
@@ -68,10 +70,9 @@ def test_inspect_subject_masks(openai_mock):
             "C": "Subject 3",
         }
     )
-    openai_mock.return_value.responses.parse.assert_called_once_with(
+    openai_mock.return_value.responses.create.assert_called_once_with(
         model="gpt-4o",
         max_output_tokens=None,
-        text_format=None,
         store=False,
         input=[
             {
@@ -81,45 +82,47 @@ def test_inspect_subject_masks(openai_mock):
             {
                 "role": "user",
                 "content": [
-                    {
-                        "type": "text",
-                        "text": (
-                            "[COLLECTION#1]\n"
-                            "<Names>"
-                            "<Name>"
-                            "<ID>A</ID><RealName>Leopold</RealName>"
-                            "</Name>"
-                            "<Name>"
-                            "<ID>B</ID><RealName>Pollock</RealName>"
-                            "</Name>"
-                            "<Name>"
-                            "<ID>C</ID><RealName>Abbott</RealName>"
-                            "</Name>"
-                            "</Names>\n\n"
-                            "[COLLECTION#2]\n"
-                            "<Names>"
-                            "<Name>"
-                            "<RealName>Leopold</RealName>"
-                            "<ReplacementText>Subject 1</ReplacementText>"
-                            "</Name>"
-                            "<Name>"
-                            "<RealName>Pollock</RealName>"
-                            "<ReplacementText>Subject 2</ReplacementText>"
-                            "</Name>"
-                            "<Name>"
-                            "<RealName>Abbott</RealName>"
-                            "<ReplacementText>Subject 3</ReplacementText>"
-                            "</Name>"
-                            "<Name>"
-                            "<RealName>Poldy</RealName>"
-                            "<ReplacementText>Subject 1</ReplacementText>"
-                            "</Name>"
-                            "</Names>\n\n"
-                            "[NARRATIVE]\n"
-                            "Leopold is first, then Pollock, then Abbott, "
-                            "then Poldy again."
-                        ),
-                    }
+                    ResponseInputText.model_validate(
+                        {
+                            "type": "input_text",
+                            "text": (
+                                "[COLLECTION#1]\n"
+                                "<Names>"
+                                "<Name>"
+                                "<ID>A</ID><RealName>Leopold</RealName>"
+                                "</Name>"
+                                "<Name>"
+                                "<ID>B</ID><RealName>Pollock</RealName>"
+                                "</Name>"
+                                "<Name>"
+                                "<ID>C</ID><RealName>Abbott</RealName>"
+                                "</Name>"
+                                "</Names>\n\n"
+                                "[COLLECTION#2]\n"
+                                "<Names>"
+                                "<Name>"
+                                "<RealName>Leopold</RealName>"
+                                "<ReplacementText>Subject 1</ReplacementText>"
+                                "</Name>"
+                                "<Name>"
+                                "<RealName>Pollock</RealName>"
+                                "<ReplacementText>Subject 2</ReplacementText>"
+                                "</Name>"
+                                "<Name>"
+                                "<RealName>Abbott</RealName>"
+                                "<ReplacementText>Subject 3</ReplacementText>"
+                                "</Name>"
+                                "<Name>"
+                                "<RealName>Poldy</RealName>"
+                                "<ReplacementText>Subject 1</ReplacementText>"
+                                "</Name>"
+                                "</Names>\n\n"
+                                "[NARRATIVE]\n"
+                                "Leopold is first, then Pollock, then Abbott, "
+                                "then Poldy again."
+                            ),
+                        }
+                    )
                 ],
             },
         ],
