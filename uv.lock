@@ -95,7 +95,7 @@ wheels = [
 
 [[package]]
 name = "bc2"
-version = "0.8.0a3"
+version = "0.8.0a4"
 source = { editable = "." }
 dependencies = [
     { name = "azure-ai-documentintelligence" },
