@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, Generic, Literal, Sequence, Type, TypeAlias, TypeVar, cast
 
-from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI
+from openai import AsyncOpenAI, OpenAI
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam as _OpenAIChatCompletionAssistantMessageParam,
 )
@@ -61,45 +61,51 @@ class OpenAIClientConfig(BaseModel):
     azure_endpoint: str | None = None
     api_version: str | None = None
 
-    def init(self) -> OpenAI | AzureOpenAI:
+    def init(self) -> OpenAI:
         """Create an OpenAI client."""
-        if self.azure_endpoint:
-            if not self.api_version:
-                raise ValueError("Azure endpoint requires an API version.")
-            if not self.api_key:
-                raise ValueError("Azure endpoint requires an API key.")
-            return AzureOpenAI(
-                api_key=self.api_key,
-                organization=self.organization,
-                azure_endpoint=self.azure_endpoint,
-                api_version=self.api_version,
-            )
-        return OpenAI(
-            api_key=self.api_key,
-            organization=self.organization,
-            project=self.project,
-            base_url=self.base_url,
-        )
+        return OpenAI(**self._get_client_params())
 
-    def init_async(self) -> AsyncOpenAI | AsyncAzureOpenAI:
+    def init_async(self) -> AsyncOpenAI:
         """Create an async OpenAI client."""
+        return AsyncOpenAI(**self._get_client_params())
+
+    def _get_client_params(self) -> dict[str, str | None]:
+        if not self.api_key:
+            raise ValueError("API key is required.")
+
         if self.azure_endpoint:
-            if not self.api_version:
-                raise ValueError("Azure endpoint requires an API version.")
-            if not self.api_key:
-                raise ValueError("Azure endpoint requires an API key.")
-            return AsyncAzureOpenAI(
-                api_key=self.api_key,
-                organization=self.organization,
-                azure_endpoint=self.azure_endpoint,
-                api_version=self.api_version,
+            return self._get_azure_client_params()
+        return self._get_openai_client_params()
+
+    def _get_openai_client_params(self) -> dict[str, str | None]:
+        return {
+            "api_key": self.api_key,
+            "organization": self.organization,
+            "project": self.project,
+            "base_url": self.base_url,
+        }
+
+    def _get_azure_client_params(self) -> dict[str, str | None]:
+        # Ensure endpoint ends with `openai/v1/`
+        if not self.azure_endpoint:
+            raise AssertionError("Azure endpoint is required.")
+        azure_endpoint = self.azure_endpoint
+        stripped_ep = azure_endpoint.rstrip("/")
+        if not stripped_ep.endswith("/openai/v1"):
+            logger.debug(
+                f"Azure endpoint {azure_endpoint} does not end with /openai/v1/. "
+                "Adding it automatically."
             )
-        return AsyncOpenAI(
-            api_key=self.api_key,
-            organization=self.organization,
-            project=self.project,
-            base_url=self.base_url,
-        )
+            azure_endpoint = stripped_ep + "/openai/v1/"
+        if self.api_version:
+            logger.debug(
+                f"Azure API version {self.api_version} is set but will be ignored."
+            )
+        return {
+            "api_key": self.api_key,
+            "organization": self.organization,
+            "base_url": azure_endpoint,
+        }
 
 
 class OpenAIChatInputText(BaseModel):

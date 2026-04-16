@@ -7,7 +7,19 @@ from .openai import (
     OpenAIChatPromptFile,
     OpenAIChatPromptInline,
     OpenAIChatTurn,
+    OpenAIClientConfig,
 )
+
+
+def test_fix_azure_endpoint():
+    cfg = OpenAIClientConfig(
+        api_key="my-api-key",
+        azure_endpoint="https://my-azure-endpoint.com/",
+        api_version="2024-11-30",
+    )
+    assert cfg.azure_endpoint == "https://my-azure-endpoint.com/"
+    client = cfg.init()
+    assert client.base_url == "https://my-azure-endpoint.com/openai/v1/"
 
 
 def test_chat_prompt_builtin_serialize():
