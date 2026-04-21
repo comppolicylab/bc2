@@ -7,10 +7,10 @@ license = {text = "MIT"}
 requires-python = "<4.0,>=3.10"
 dependencies = [
     "pydantic>=2.12.5",
-    "pydantic-settings==2.5.2",
+    "pydantic-settings==2.13.1",
     "click<9.0.0,>=8.1.6",
-    "tqdm==4.66.5",
-    "pypdf==6.10.1",
+    "tqdm==4.67.3",
+    "pypdf==6.10.2",
     "openai>=2.31",
     "reportlab==4.4.10",
     "azure-storage-blob==12.28.0",
@@ -18,7 +18,7 @@ dependencies = [
     "typer>=0.21.1",
     "python-magic<1.0.0,>=0.4.27",
     "pylibmagic<1.0.0,>=0.5.0",
-    "pymupdf<2.0.0,>=1.24.10",
+    "pymupdf>=1.27.2.2,<2.0.0",
     "pytesseract==0.3.13",
     "jinja2<4.0.0,>=3.1.4",
     "rapidfuzz<4.0.0,>=3.10.1",
