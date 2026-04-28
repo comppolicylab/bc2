@@ -6,7 +6,7 @@ authors = [
 license = {text = "MIT"}
 requires-python = "<4.0,>=3.10"
 dependencies = [
-    "pydantic>=2.12.5",
+    "pydantic>=2.13.3",
     "pydantic-settings==2.13.1",
     "click>=8.3.2,<9.0.0",
     "tqdm==4.67.3",
