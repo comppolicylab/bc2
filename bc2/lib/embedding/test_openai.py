@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from openai import AsyncOpenAI, OpenAI
@@ -94,3 +94,22 @@ def test_embed_config_dimensions_override():
     )
     assert config.generator.dimensions == 512
     assert config.generator.model_dimensions == 512
+
+
+@pytest.mark.asyncio
+async def test_embed_async_passes_dimensions():
+    client = MagicMock(spec=OpenAI)
+    aclient = MagicMock(spec=AsyncOpenAI)
+    aclient.embeddings.create = AsyncMock(return_value=_mock_embedding_response())
+
+    config = OpenAIEmbeddingGeneratorConfig(
+        model="text-embedding-3-large",
+        dimensions=512,
+    )
+    driver = OpenAIEmbeddingDriver(client, aclient, config)
+    await driver.embed_async("hello")
+    aclient.embeddings.create.assert_awaited_once()
+    call_kwargs = aclient.embeddings.create.call_args.kwargs
+    assert call_kwargs["input"] == "hello"
+    assert call_kwargs["model"] == "text-embedding-3-large"
+    assert call_kwargs["dimensions"] == 512
