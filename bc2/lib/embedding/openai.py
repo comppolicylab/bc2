@@ -107,7 +107,13 @@ class OpenAIEmbeddingDriver(BaseEmbeddingDriver):
 
     def embed(self, text: str) -> Embedding:
         text = self._trim_input(text)
-        result = self.client.embeddings.create(input=text, model=self.config.model)
+        params = {
+            "input": text,
+            "model": self.config.model,
+        }
+        if self.config.dimensions:
+            params["dimensions"] = self.config.dimensions
+        result = self.client.embeddings.create(**params)
         return self._format_result(result)
 
     async def embed_async(self, text: str) -> Embedding:
