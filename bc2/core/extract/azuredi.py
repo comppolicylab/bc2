@@ -33,8 +33,10 @@ class AzureDIExtract(BaseExtractDriver[AnalyzeResult]):
     def load_analyze_result(self, file: MemoryFile) -> AnalyzeResult:
         file.buffer.seek(0)
         # Parse JSON and inflate the AnalyzeResult object.
+        # azure-ai-documentintelligence >= 1.0.0 dropped `from_dict` in favour
+        # of Model-style direct construction from the raw REST payload.
         content = date_aware_json_load(file.buffer)
-        return AnalyzeResult.from_dict(content)
+        return AnalyzeResult(content)
 
     def extract(self, analysis: AnalyzeResult) -> Tuple[str, bool]:
         result = self._extract_text_from_analysis(analysis) or ""
