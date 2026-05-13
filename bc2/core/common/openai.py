@@ -480,7 +480,7 @@ class OpenAIChatConfig(BaseModel, Generic[TResult]):
         openai_api_settings = {}
         for k, v in props.items():
             if k in unsupported_openai_params and v is not None:
-                logger.warning(f"Deprecated OpenAI parameter (ignoring): {k}")
+                logger.debug(f"Deprecated OpenAI parameter (ignoring): {k}")
                 continue
             if k in openai_api_params and v is not None:
                 openai_api_settings[k] = v
