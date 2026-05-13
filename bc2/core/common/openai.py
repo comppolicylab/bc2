@@ -519,10 +519,12 @@ class OpenAIChatConfig(BaseModel, Generic[TResult]):
 
         if response.status != "completed":
             logger.error(
-                f"OpenAI response status is {response.status}: {response.error}"
+                f"OpenAI response status is {response.status} / {stop_reason}: "
+                f"{response.error}"
             )
             raise ValueError(
-                f"OpenAI response status is not completed ({response.status})"
+                "OpenAI response status is not completed "
+                f"({response.status} / {stop_reason})"
             )
 
         if not response.usage:
