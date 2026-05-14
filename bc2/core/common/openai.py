@@ -170,17 +170,25 @@ class OpenAIChatOutput(Generic[TResult]):
     completion_tokens: int
     max_tokens: int | None = None
     parsed: TResult | None = None
+    truncated: bool = False
 
     @property
     def is_truncated(self) -> bool:
         """Check if the output is truncated.
 
-        This checks if the completion tokens are equal to the max tokens.
-        Thus there is an edge case where the expected token output is exactly
+        If the response was explicitly flagged as truncated (e.g. the API
+        returned an `incomplete` status due to `max_output_tokens`), report
+        that directly. Otherwise fall back to comparing completion tokens to
+        the cap, which catches cases where the API doesn't surface a stop
+        reason but we still got the maximum allowed output.
+
+        There is still an edge case where the expected token output is exactly
         equal to the max tokens. In this case no truncation happened. Since
         this is a very uncommon case and impossible to see from the information
         we have in this class, we ignore it.
         """
+        if self.truncated:
+            return True
         return self.completion_tokens == self.max_tokens
 
 
@@ -508,16 +516,20 @@ class OpenAIChatConfig(BaseModel, Generic[TResult]):
 
         # Interpret response
         stop_reason = response.incomplete_details and response.incomplete_details.reason
+        truncated = False
         if stop_reason == "max_output_tokens":
-            # This should be planned for / expected by the caller.
+            # Hitting the output token cap is an expected outcome that the
+            # caller (typically the chunker) is responsible for handling by
+            # resuming on the remainder. Return the partial output instead of
+            # raising so it can be marked truncated downstream.
             logger.debug("OpenAI response hit max tokens")
+            truncated = True
         elif stop_reason == "content_filter":
             raise FilteredContentError(
                 "OpenAI request blocked by content filter. "
                 "Please check the content moderation settings."
             )
-
-        if response.status != "completed":
+        elif response.status != "completed":
             logger.error(
                 f"OpenAI response status is {response.status} / {stop_reason}: "
                 f"{response.error}"
@@ -536,6 +548,7 @@ class OpenAIChatConfig(BaseModel, Generic[TResult]):
             content=response.output_text or "",
             completion_tokens=completion_tokens,
             parsed=getattr(response, "output_parsed", None),
+            truncated=truncated,
         )
 
 
