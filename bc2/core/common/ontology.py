@@ -1,18 +1,41 @@
 from typing import Generic, TypedDict, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 T = TypeVar("T")
 
+# Maximum number of chunk IDs that can be cited for a single field value.
+# OpenAI's structured outputs do not support `uniqueItems`, so we cap the
+# list length instead. The cap should be high enough that legitimate
+# citations are never truncated, but low enough that a model stuck in a
+# degenerate-generation loop (repeating the same ID over and over) hits the
+# limit before exhausting the context window.
+MAX_CITED_IDS = 32
+
 
 class Cited(BaseModel, Generic[T]):
-    # IDs are a set pointing to the index of a chunk returned in the
-    # PoliceReportParseResult.chunks list. The `set` type is an important
-    # constraint that inhibits "degenerate generation," where a model can
-    # get stuck in a loop repeating the same ID over and over, ultimately
-    # reaching another failure state (like max tokens).
-    ids: set[int]
+    # IDs point to the index of a chunk returned in the
+    # PoliceReportParseResult.chunks list. Ideally this would be a `set` to
+    # inhibit "degenerate generation" (where a model gets stuck in a loop
+    # repeating the same ID until it hits another failure state like max
+    # tokens), but OpenAI structured outputs reject `uniqueItems`. Instead
+    # we use a bounded list, lean on the field description to instruct the
+    # model, and dedupe in a validator below.
+    ids: list[int] = Field(
+        max_length=MAX_CITED_IDS,
+        description=(
+            "Indices of the source chunks that support this value. Each index "
+            "must appear at most once; do not repeat the same ID. Include "
+            "only the chunks that are actually relevant -- typically just one "
+            "or two."
+        ),
+    )
     content: T
+
+    @field_validator("ids", mode="after")
+    @classmethod
+    def _dedupe_ids(cls, ids: list[int]) -> list[int]:
+        return sorted(set(ids))
 
 
 class Offense(BaseModel):
