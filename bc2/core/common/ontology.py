@@ -10,7 +10,7 @@ T = TypeVar("T")
 # citations are never truncated, but low enough that a model stuck in a
 # degenerate-generation loop (repeating the same ID over and over) hits the
 # limit before exhausting the context window.
-MAX_CITED_IDS = 32
+MAX_CITED_IDS = 2048
 
 
 class Cited(BaseModel, Generic[T]):
