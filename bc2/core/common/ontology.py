@@ -6,7 +6,12 @@ T = TypeVar("T")
 
 
 class Cited(BaseModel, Generic[T]):
-    ids: list[int]
+    # IDs are a set pointing to the index of a chunk returned in the
+    # PoliceReportParseResult.chunks list. The `set` type is an important
+    # constraint that inhibits "degenerate generation," where a model can
+    # get stuck in a loop repeating the same ID over and over, ultimately
+    # reaching another failure state (like max tokens).
+    ids: set[int]
     content: T
 
 
