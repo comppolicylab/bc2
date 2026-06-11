@@ -1,7 +1,7 @@
 import json
 import logging
-
 import tomllib
+
 import typer
 
 from ..logo import bc2_logo
