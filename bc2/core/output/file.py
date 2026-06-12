@@ -29,10 +29,5 @@ class FileOutput(BaseOutputDriver):
         """Write to a file."""
         if not path:
             raise ValueError("Path is required for file output.")
-        file.buffer.seek(0)
         with open(path, "wb") as f:
-            while True:
-                data = file.buffer.read(self.config.buffer_size)
-                if not data:
-                    break
-                f.write(data)
+            file.copy_into(f, self.config.buffer_size)
