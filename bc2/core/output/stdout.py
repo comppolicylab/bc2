@@ -26,10 +26,5 @@ class StdoutOutput(BaseOutputDriver):
         self, file: MemoryFile, path: str = "", buffer: io.BytesIO | None = None
     ) -> None:
         """Write to stdout."""
-        file.buffer.seek(0)
-        while True:
-            b = file.buffer.read(self.config.buffer_size)
-            if not b:
-                break
-            sys.stdout.buffer.write(b)
+        file.copy_into(sys.stdout.buffer, self.config.buffer_size)
         return None

@@ -27,7 +27,9 @@ class RawExtractDriver(BaseExtractDriver[str]):
 
     @register_preprocessor("^text/*")
     def format_text(self, file: MemoryFile) -> str:
-        return file.buffer.getvalue().decode("utf-8")
+        # Decode directly from a zero-copy view to avoid an intermediate
+        # full-size bytes copy from getvalue().
+        return str(file.view(), "utf-8")
 
     @register_preprocessor("^application/x-empty")
     def format_empty(self, file: MemoryFile) -> str:
@@ -35,4 +37,4 @@ class RawExtractDriver(BaseExtractDriver[str]):
 
     @register_preprocessor("^application/octet-stream")
     def format_binary(self, file: MemoryFile) -> str:
-        return file.buffer.getvalue().decode("utf-8", errors="replace")
+        return str(file.view(), "utf-8", "replace")
