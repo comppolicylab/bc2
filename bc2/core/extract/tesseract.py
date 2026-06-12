@@ -1,7 +1,7 @@
 import io
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Literal, Tuple
+from typing import Iterable, Iterator, Literal, Tuple
 
 import pytesseract
 from PIL import Image
@@ -16,7 +16,10 @@ from .base import BaseExtractDriver
 @dataclass
 class WrappedData:
     raw_text: str
-    images: list[Image.Image]
+    # An iterable (often a lazy generator) of page images. Keeping this lazy
+    # lets us OCR one page at a time instead of materializing every page of a
+    # document in memory simultaneously.
+    images: Iterable[Image.Image] = field(default_factory=list)
 
 
 class TesseractExtractConfig(BaseModel):
@@ -42,28 +45,38 @@ class TesseractExtractDriver(BaseExtractDriver[WrappedData]):
 
     @register_preprocessor(r"^application/pdf")
     def convert_pdf(self, file: MemoryFile) -> WrappedData:
-        images: list[Image.Image] = []
         file.buffer.seek(0)
+        return WrappedData(raw_text="", images=self._iter_pdf_images(file))
+
+    def _iter_pdf_images(self, file: MemoryFile) -> Iterator[Image.Image]:
+        """Lazily yield one rendered page image at a time.
+
+        The image (and its backing per-page bytes) is released as the consumer
+        advances, so only a single page is held in memory at once.
+        """
         for img_bytes in pdf2imgs(file.buffer):
-            img = Image.open(io.BytesIO(img_bytes))
-            images.append(img)
-        return WrappedData(raw_text="", images=images)
+            yield Image.open(io.BytesIO(img_bytes))
 
     @register_preprocessor(r"^text/.*")
     def convert_text(self, file: MemoryFile) -> WrappedData:
-        return WrappedData(raw_text=file.buffer.read().decode(), images=[])
+        # Decode from a zero-copy view; this also avoids depending on the
+        # buffer's current read position.
+        return WrappedData(raw_text=str(file.view(), "utf-8"), images=[])
 
     def extract(self, data: WrappedData) -> Tuple[str, bool]:
         return self._format(data), False
 
     def _format(self, data: WrappedData, separator: str = "\n\n") -> str:
-        result = ""
+        parts: list[str] = []
         if data.raw_text:
-            result += data.raw_text
+            parts.append(data.raw_text)
 
         for img in data.images:
-            if result:
-                result += separator
-            result += pytesseract.image_to_string(img, config=self.config.tesseract_cmd)
+            try:
+                parts.append(
+                    pytesseract.image_to_string(img, config=self.config.tesseract_cmd)
+                )
+            finally:
+                img.close()
 
-        return result
+        return separator.join(parts)

@@ -1,3 +1,4 @@
+import base64
 from functools import cached_property
 from typing import Literal, Tuple
 
@@ -33,9 +34,14 @@ class OpenAIExtractDriver(BaseExtractDriver[list[ImageUrl]]):
     def convert_pdf(self, file: MemoryFile) -> list[ImageUrl]:
         imgs = list[ImageUrl]()
         file.buffer.seek(0)
+        # `pdf2imgs` renders one page at a time as PNG. Encode each page's
+        # bytes directly into a data URL rather than wrapping it in a throwaway
+        # MemoryFile and copying via content()/getvalue(). Only the resulting
+        # base64 strings are retained (they must all be sent in one request);
+        # each page's raw bytes are released as the loop advances.
         for img_bytes in pdf2imgs(file.buffer):
-            img_file = MemoryFile(img_bytes)
-            imgs.append(ImageUrl(url=img_file.data_url()))
+            encoded = base64.b64encode(img_bytes).decode()
+            imgs.append(ImageUrl(url=f"data:image/png;base64,{encoded}"))
         return imgs
 
     # TODO(jnu): support for text/* and potentially other types.

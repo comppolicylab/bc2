@@ -77,12 +77,13 @@ class AzureDIAnalyze(BaseAnalyzeDriver):
         logger.info(f"Running analysis with model {self.config.document_model} ...")
 
         # Run analysis on the document using the remote service.
+        # Pass the stream directly instead of reading it into a separate bytes
+        # object, which would duplicate the entire document in memory.
         doc.seek(0)
-        docbytes = doc.read()
 
         poller = self.di_client.begin_analyze_document(
             self.config.document_model,
-            body=docbytes,
+            body=doc,
             locale=self.config.locale,
             features=self._get_features(),
         )
