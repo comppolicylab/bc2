@@ -399,7 +399,13 @@ class OpenAIChatConfig(BaseModel, Generic[TResult]):
     )
     temperature: float | None = None
     top_p: float | None = None
-    reasoning_effort: Literal["low", "medium", "high", "xhigh"] | None = None
+    # NOTE(jnu): "none" is different from None!
+    # None uses the default, while "none" means "no reasoning," and is
+    # probably *not* the default. The default (and the valid values) depends
+    # on the model in use. For gpt-5.5, the default is "medium."
+    reasoning_effort: (
+        Literal["none", "minimal", "low", "medium", "high", "xhigh"] | None
+    ) = None
 
     extender: None = Field(
         None,
