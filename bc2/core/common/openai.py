@@ -399,6 +399,13 @@ class OpenAIChatConfig(BaseModel, Generic[TResult]):
     )
     temperature: float | None = None
     top_p: float | None = None
+    # NOTE(jnu): "none" is different from None!
+    # None uses the default, while "none" means "no reasoning," and is
+    # probably *not* the default. The default (and the valid values) depends
+    # on the model in use. For gpt-5.5, the default is "medium."
+    reasoning_effort: (
+        Literal["none", "minimal", "low", "medium", "high", "xhigh"] | None
+    ) = None
 
     extender: None = Field(
         None,
@@ -481,6 +488,7 @@ class OpenAIChatConfig(BaseModel, Generic[TResult]):
             "seed",
             "temperature",
             "top_p",
+            "reasoning_effort",
         }
 
         # Only keep populated settings that are in the OpenAI API params list.
@@ -493,6 +501,11 @@ class OpenAIChatConfig(BaseModel, Generic[TResult]):
             if k in openai_api_params and v is not None:
                 openai_api_settings[k] = v
                 continue
+
+        # Reasoning is actually a nested parameter, so handle accordingly.
+        reasoning_effort = openai_api_settings.pop("reasoning_effort", None)
+        if reasoning_effort:
+            openai_api_settings["reasoning"] = {"effort": reasoning_effort}
 
         # Format chat message
         messages = [m.as_chat_message() for m in self.system.format(input, **kwargs)]
