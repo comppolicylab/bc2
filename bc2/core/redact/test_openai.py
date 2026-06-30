@@ -1,8 +1,12 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
+from openai.types.responses import ResponseInputText
+
 from ..common.context import Context
 from ..common.name_map import NameToMaskMap
 from ..common.text import RedactedText, Text
+from .base import MissingNarrativeError
 from .openai import OpenAIRedactConfig
 
 JINJA_PROMPT_WITH_PLACEHOLDERS = """\
@@ -26,20 +30,26 @@ def test_redact_jinja_with_placeholders(openai_mock):
         model_name = kwargs.get("model")
         if model_name == "resolver_model":
             response = MagicMock()
-            response.choices = [MagicMock(message=MagicMock(content="{}"))]
+            response.output_text = "{}"
+            response.status = "completed"
+            response.usage = type("Usage", (), {"output_tokens": 10})()
+            response.incomplete_details = None
+            response.output_parsed = None
+            response.error = None
             return response
         else:
             response = MagicMock()
-            response.choices = [
-                MagicMock(
-                    message=MagicMock(
-                        content="Subject 1, Subject 2, and Subject 3 went to the store."
-                    )
-                )
-            ]
+            response.output_text = (
+                "Subject 1, Subject 2, and Subject 3 went to the store."
+            )
+            response.status = "completed"
+            response.usage = type("Usage", (), {"output_tokens": 10})()
+            response.incomplete_details = None
+            response.output_parsed = None
+            response.error = None
             return response
 
-    openai_mock.return_value.chat.completions.create.side_effect = mock_create
+    openai_mock.return_value.responses.create.side_effect = mock_create
 
     cfg = OpenAIRedactConfig.model_validate(
         {
@@ -76,11 +86,11 @@ def test_redact_jinja_with_placeholders(openai_mock):
         "Leopold, Pollock, and Abbott went to the store.",
         ("[", "]"),
     )
-    openai_mock.return_value.chat.completions.create.assert_called_once_with(
+    openai_mock.return_value.responses.create.assert_called_once_with(
         model="gpt-4o-2024-05-13",
-        n=1,
-        max_tokens=4_096,
-        messages=[
+        max_output_tokens=4_096,
+        store=False,
+        input=[
             {
                 "role": "system",
                 "content": (
@@ -92,10 +102,12 @@ def test_redact_jinja_with_placeholders(openai_mock):
             {
                 "role": "user",
                 "content": [
-                    {
-                        "type": "text",
-                        "text": "Leopold, Pollock, and Abbott went to the store.",
-                    }
+                    ResponseInputText.model_validate(
+                        {
+                            "type": "input_text",
+                            "text": "Leopold, Pollock, and Abbott went to the store.",
+                        }
+                    )
                 ],
             },
         ],
@@ -108,20 +120,26 @@ def test_redact_string_with_placeholders(openai_mock):
         model_name = kwargs.get("model")
         if model_name == "resolver_model":
             response = MagicMock()
-            response.choices = [MagicMock(message=MagicMock(content="{}"))]
+            response.output_text = "{}"
+            response.status = "completed"
+            response.usage = type("Usage", (), {"output_tokens": 10})()
+            response.incomplete_details = None
+            response.output_parsed = None
+            response.error = None
             return response
         else:
             response = MagicMock()
-            response.choices = [
-                MagicMock(
-                    message=MagicMock(
-                        content="Subject 1, Subject 2, and Subject 3 went to the store."
-                    )
-                )
-            ]
+            response.output_text = (
+                "Subject 1, Subject 2, and Subject 3 went to the store."
+            )
+            response.status = "completed"
+            response.usage = type("Usage", (), {"output_tokens": 10})()
+            response.incomplete_details = None
+            response.output_parsed = None
+            response.error = None
             return response
 
-    openai_mock.return_value.chat.completions.create.side_effect = mock_create
+    openai_mock.return_value.responses.create.side_effect = mock_create
 
     cfg = OpenAIRedactConfig.model_validate(
         {
@@ -160,11 +178,11 @@ def test_redact_string_with_placeholders(openai_mock):
         "Leopold, Pollock, and Abbott went to the store.",
         ("{", "}"),
     )
-    openai_mock.return_value.chat.completions.create.assert_called_once_with(
+    openai_mock.return_value.responses.create.assert_called_once_with(
         model="gpt-4o-2024-05-13",
-        n=1,
-        max_tokens=4_096,
-        messages=[
+        max_output_tokens=4_096,
+        store=False,
+        input=[
             {
                 "role": "system",
                 "content": (
@@ -182,11 +200,46 @@ The xml is:
             {
                 "role": "user",
                 "content": [
-                    {
-                        "type": "text",
-                        "text": "Leopold, Pollock, and Abbott went to the store.",
-                    }
+                    ResponseInputText.model_validate(
+                        {
+                            "type": "input_text",
+                            "text": "Leopold, Pollock, and Abbott went to the store.",
+                        }
+                    )
                 ],
             },
         ],
     )
+
+
+@pytest.mark.parametrize("narrative", ["", "No narratives found."])
+@patch("bc2.core.common.openai.OpenAI")
+def test_redact_raises_on_empty_narrative(openai_mock, narrative):
+    cfg = OpenAIRedactConfig.model_validate(
+        {
+            "engine": "redact:openai",
+            "delimiters": ("[", "]"),
+            "client": {
+                "api_key": "abc123",
+                "base_url": "http://openai.local",
+            },
+            "generator": {
+                "method": "chat",
+                "model": "gpt-4o-2024-05-13",
+                "system": {
+                    "engine": "string",
+                    "prompt": "Redact the text.",
+                },
+            },
+        },
+    )
+
+    with pytest.raises(MissingNarrativeError):
+        cfg.driver(
+            narrative=Text(narrative),
+            context=Context(),
+            placeholders=NameToMaskMap({"Leopold": "Subject 1"}),
+        )
+
+    openai_mock.return_value.responses.parse.assert_not_called()
+    openai_mock.return_value.responses.create.assert_not_called()

@@ -33,7 +33,10 @@ class Pipeline:
         """Validate the pipeline configuration."""
         self.pipeline.validate(runtime_config)
 
-    def run(self, runtime_config: RuntimeConfig | None = None) -> Context:
+    def run(
+        self,
+        runtime_config: RuntimeConfig | None = None,
+    ) -> Context:
         """Run the pipeline.
 
         Args:

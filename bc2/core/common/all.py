@@ -1,8 +1,10 @@
 import typing
 
+from ..analyze import AnalyzeConfig
 from ..extract import ExtractConfig
 from ..input import InputConfig
 from ..inspect import InspectConfig
+from ..ontology import OntologyConfig
 from ..output import OutputConfig
 from ..parse import ParseConfig
 from ..redact import RedactConfig
@@ -14,7 +16,9 @@ AnyIOConfig = typing.Union[
 ]
 
 AnyProcessingConfig = typing.Union[
+    AnalyzeConfig,
     ExtractConfig,
+    OntologyConfig,
     RedactConfig,
     InspectConfig,
     ParseConfig,

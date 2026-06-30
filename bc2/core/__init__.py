@@ -1,5 +1,6 @@
 import typing
 
+from . import common as _common
 from .common.all import AnyConfig as _AnyConfig
 from .common.all import AnyIOConfig as _AnyIOConfig
 from .common.all import AnyProcessingConfig as _AnyProcessingConfig
@@ -15,13 +16,22 @@ from .pipeline import Pipeline, PipelineConfig
 #
 # We further define these with `typing.TypeAlias` to silence warnings about using
 # a variable as a type.
+#
+# The forward references (e.g. "ChunkConfig", "ComposeConfig") are declared inside
+# `bc2.core.common.all` and only become resolvable after that module's bottom-of-file
+# circular-import imports complete. We therefore evaluate them against that module's
+# globals rather than the globals of this module. Prior to Python 3.14 the standard
+# library was more lenient about looking up forward refs (in particular it consulted
+# `ForwardRef.__forward_module__` more aggressively), which is why passing this
+# module's `globals()` happened to work on 3.12 but raises `NameError` on 3.14+.
+_fwd_globals = vars(_common.all)
 
 AnyConfig: typing.TypeAlias = typing.cast(
     typing.Type[_AnyConfig],
     typing._eval_type(  # type: ignore[attr-defined]
         _AnyConfig,
-        globals(),
-        locals(),
+        _fwd_globals,
+        None,
     ),
 )
 
@@ -29,8 +39,8 @@ AnyProcessingConfig: typing.TypeAlias = typing.cast(
     typing.Type[_AnyProcessingConfig],
     typing._eval_type(  # type: ignore[attr-defined]
         _AnyProcessingConfig,
-        globals(),
-        locals(),
+        _fwd_globals,
+        None,
     ),
 )
 
@@ -38,8 +48,8 @@ AnyIOConfig: typing.TypeAlias = typing.cast(
     typing.Type[_AnyIOConfig],
     typing._eval_type(  # type: ignore[attr-defined]
         _AnyIOConfig,
-        globals(),
-        locals(),
+        _fwd_globals,
+        None,
     ),
 )
 

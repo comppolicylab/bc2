@@ -29,9 +29,4 @@ class MemoryOutput(BaseOutputDriver):
         """Write to a memory buffer."""
         if not buffer:
             raise ValueError("Buffer is required for memory output.")
-        file.buffer.seek(0)
-        while True:
-            b = file.buffer.read(self.config.buffer_size)
-            if not b:
-                break
-            buffer.write(b)
+        file.copy_into(buffer, self.config.buffer_size)

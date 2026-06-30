@@ -6,28 +6,18 @@ import os
 from abc import abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Literal, Sequence, TypeAlias, cast
+from typing import Any, Generic, Literal, Sequence, Type, TypeVar, cast
 
-from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI
-from openai.types.chat import (
-    ChatCompletionAssistantMessageParam as _OpenAIChatCompletionAssistantMessageParam,
+from openai import AsyncOpenAI, OpenAI
+from openai.types.responses import (
+    EasyInputMessageParam as _OpenAIEasyInputMessageParam,
 )
-from openai.types.chat import (
-    ChatCompletionContentPartImageParam as _OpenAIChatImageMessagePart,
+from openai.types.responses import (
+    ResponseInputImage as _OpenAIResponseInputImage,
 )
-from openai.types.chat import (
-    ChatCompletionContentPartTextParam as _OpenAIChatTextMessagePart,
+from openai.types.responses import (
+    ResponseInputText as _OpenAIResponseInputText,
 )
-from openai.types.chat import (
-    ChatCompletionMessageParam as _OpenAIChatCompletionMessageParam,
-)
-from openai.types.chat import (
-    ChatCompletionSystemMessageParam as _OpenAIChatCompletionSystemMessageParam,
-)
-from openai.types.chat import (
-    ChatCompletionUserMessageParam as _OpenAIChatCompletionUserMessageParam,
-)
-from openai.types.chat.chat_completion_content_part_image_param import ImageURL
 from pydantic import BaseModel, Field, PositiveInt, SerializationInfo, model_serializer
 
 from .datafile import DataType, load_data_file, load_data_file_from_path
@@ -38,9 +28,7 @@ from .template import TemplateEngine, get_formatter
 logger = logging.getLogger(__name__)
 
 
-_OpenAIChatMessagePart: TypeAlias = (
-    _OpenAIChatTextMessagePart | _OpenAIChatImageMessagePart
-)
+TResult = TypeVar("TResult")
 
 
 class FilteredContentError(Exception):
@@ -59,45 +47,51 @@ class OpenAIClientConfig(BaseModel):
     azure_endpoint: str | None = None
     api_version: str | None = None
 
-    def init(self) -> OpenAI | AzureOpenAI:
+    def init(self) -> OpenAI:
         """Create an OpenAI client."""
-        if self.azure_endpoint:
-            if not self.api_version:
-                raise ValueError("Azure endpoint requires an API version.")
-            if not self.api_key:
-                raise ValueError("Azure endpoint requires an API key.")
-            return AzureOpenAI(
-                api_key=self.api_key,
-                organization=self.organization,
-                azure_endpoint=self.azure_endpoint,
-                api_version=self.api_version,
-            )
-        return OpenAI(
-            api_key=self.api_key,
-            organization=self.organization,
-            project=self.project,
-            base_url=self.base_url,
-        )
+        return OpenAI(**self._get_client_params())
 
-    def init_async(self) -> AsyncOpenAI | AsyncAzureOpenAI:
+    def init_async(self) -> AsyncOpenAI:
         """Create an async OpenAI client."""
+        return AsyncOpenAI(**self._get_client_params())
+
+    def _get_client_params(self) -> dict[str, str | None]:
+        if not self.api_key:
+            raise ValueError("API key is required.")
+
         if self.azure_endpoint:
-            if not self.api_version:
-                raise ValueError("Azure endpoint requires an API version.")
-            if not self.api_key:
-                raise ValueError("Azure endpoint requires an API key.")
-            return AsyncAzureOpenAI(
-                api_key=self.api_key,
-                organization=self.organization,
-                azure_endpoint=self.azure_endpoint,
-                api_version=self.api_version,
+            return self._get_azure_client_params()
+        return self._get_openai_client_params()
+
+    def _get_openai_client_params(self) -> dict[str, str | None]:
+        return {
+            "api_key": self.api_key,
+            "organization": self.organization,
+            "project": self.project,
+            "base_url": self.base_url,
+        }
+
+    def _get_azure_client_params(self) -> dict[str, str | None]:
+        # Ensure endpoint ends with `openai/v1/`
+        if not self.azure_endpoint:
+            raise AssertionError("Azure endpoint is required.")
+        azure_endpoint = self.azure_endpoint
+        stripped_ep = azure_endpoint.rstrip("/")
+        if not stripped_ep.endswith("/openai/v1"):
+            logger.debug(
+                f"Azure endpoint {azure_endpoint} does not end with /openai/v1/. "
+                "Adding it automatically."
             )
-        return AsyncOpenAI(
-            api_key=self.api_key,
-            organization=self.organization,
-            project=self.project,
-            base_url=self.base_url,
-        )
+            azure_endpoint = stripped_ep + "/openai/v1/"
+        if self.api_version:
+            logger.debug(
+                f"Azure API version {self.api_version} is set but will be ignored."
+            )
+        return {
+            "api_key": self.api_key,
+            "organization": self.organization,
+            "base_url": azure_endpoint,
+        }
 
 
 class OpenAIChatInputText(BaseModel):
@@ -106,9 +100,9 @@ class OpenAIChatInputText(BaseModel):
     type: Literal["text"] = "text"
     text: str
 
-    def as_chat_message_part(self) -> _OpenAIChatTextMessagePart:
+    def as_chat_message_part(self) -> _OpenAIResponseInputText:
         """Convert the input to a chat message."""
-        return _OpenAIChatTextMessagePart(type=self.type, text=self.text)
+        return _OpenAIResponseInputText(type="input_text", text=self.text)
 
 
 class OpenAIUrl(BaseModel):
@@ -123,14 +117,12 @@ class OpenAIChatInputImageUrl(BaseModel):
     type: Literal["image_url"] = "image_url"
     image_url: OpenAIUrl
 
-    def as_chat_message_part(self) -> _OpenAIChatImageMessagePart:
+    def as_chat_message_part(self) -> _OpenAIResponseInputImage:
         """Convert the input to a chat message."""
-        return _OpenAIChatImageMessagePart(
-            type=self.type,
-            image_url=ImageURL(
-                url=self.image_url.url,
-                detail="high",
-            ),
+        return _OpenAIResponseInputImage(
+            type="input_image",
+            detail="high",
+            image_url=self.image_url.url,
         )
 
 
@@ -140,36 +132,24 @@ OpenAIChatInput = OpenAIChatInputText | OpenAIChatInputImageUrl
 class OpenAIChatTurn(BaseModel):
     """A chat turn for an OpenAI model."""
 
-    role: Literal["assistant", "user", "system"]
+    role: Literal["user", "system"]
     content: str | list[OpenAIChatInput]
 
-    def as_chat_message(self) -> _OpenAIChatCompletionMessageParam:
+    def as_chat_message(self) -> _OpenAIEasyInputMessageParam:
         """Convert the turn to a chat message."""
-        match self.role:
-            case "assistant":
-                return _OpenAIChatCompletionAssistantMessageParam(
-                    role=self.role,
-                    content=self._format_content_no_images(),
-                )
-            case "user":
-                return _OpenAIChatCompletionUserMessageParam(
-                    role=self.role,
-                    content=self._format_content(),
-                )
-            case "system":
-                return _OpenAIChatCompletionSystemMessageParam(
-                    role=self.role,
-                    content=self._format_content_no_images(),
-                )
+        return _OpenAIEasyInputMessageParam(
+            role=self.role,
+            content=self._format_content(),
+        )
 
-    def _format_content(self) -> str | list[_OpenAIChatMessagePart]:
+    def _format_content(self) -> str | list[OpenAIChatInput]:
         if isinstance(self.content, str):
             return self.content
         return [
             c if isinstance(c, str) else c.as_chat_message_part() for c in self.content
         ]
 
-    def _format_content_no_images(self) -> str | list[_OpenAIChatTextMessagePart]:
+    def _format_content_no_images(self) -> str | list[OpenAIChatInput]:
         if isinstance(self.content, str):
             return self.content
         return [
@@ -183,23 +163,32 @@ AnyChatInput = str | ImageUrl
 
 
 @dataclass
-class OpenAIChatOutput:
+class OpenAIChatOutput(Generic[TResult]):
     """A chat output for an OpenAI model."""
 
     content: str
     completion_tokens: int
     max_tokens: int | None = None
+    parsed: TResult | None = None
+    truncated: bool = False
 
     @property
     def is_truncated(self) -> bool:
         """Check if the output is truncated.
 
-        This checks if the completion tokens are equal to the max tokens.
-        Thus there is an edge case where the expected token output is exactly
+        If the response was explicitly flagged as truncated (e.g. the API
+        returned an `incomplete` status due to `max_output_tokens`), report
+        that directly. Otherwise fall back to comparing completion tokens to
+        the cap, which catches cases where the API doesn't surface a stop
+        reason but we still got the maximum allowed output.
+
+        There is still an edge case where the expected token output is exactly
         equal to the max tokens. In this case no truncation happened. Since
         this is a very uncommon case and impossible to see from the information
         we have in this class, we ignore it.
         """
+        if self.truncated:
+            return True
         return self.completion_tokens == self.max_tokens
 
 
@@ -383,7 +372,7 @@ OpenAIChatPrompt = (
 )
 
 
-class OpenAIChatConfig(BaseModel):
+class OpenAIChatConfig(BaseModel, Generic[TResult]):
     """OpenAI Chat config."""
 
     method: Literal["chat"] = "chat"
@@ -397,13 +386,26 @@ class OpenAIChatConfig(BaseModel):
         ),
     )
     system: OpenAIChatPrompt
-    frequency_penalty: float | None = None
+    frequency_penalty: float | None = Field(
+        None, deprecated="OpenAI no longer supports `frequency_penalty` parameter"
+    )
     max_tokens: PositiveInt | None = None
-    n: int = 1
-    presence_penalty: float | None = None
-    seed: int | None = None
+    n: int | None = Field(None, deprecated="OpenAI no longer supports `n` parameter")
+    presence_penalty: float | None = Field(
+        None, deprecated="OpenAI no longer supports `presence_penalty` parameter"
+    )
+    seed: int | None = Field(
+        None, deprecated="OpenAI no longer supports `seed` parameter"
+    )
     temperature: float | None = None
     top_p: float | None = None
+    # NOTE(jnu): "none" is different from None!
+    # None uses the default, while "none" means "no reasoning," and is
+    # probably *not* the default. The default (and the valid values) depends
+    # on the model in use. For gpt-5.5, the default is "medium."
+    reasoning_effort: (
+        Literal["none", "minimal", "low", "medium", "high", "xhigh"] | None
+    ) = None
 
     extender: None = Field(
         None,
@@ -469,60 +471,97 @@ class OpenAIChatConfig(BaseModel):
         self,
         client: OpenAI,
         input: AnyChatInput | Sequence[AnyChatInput],
+        response_format: Type[TResult] | None = None,
         **kwargs,
-    ) -> OpenAIChatOutput:
+    ) -> OpenAIChatOutput[TResult]:
         """Invoke the chat."""
         props = self.model_dump()
+        unsupported_openai_params = {
+            "seed",
+            "frequency_penalty",
+            "presence_penalty",
+            "n",
+        }
+
         openai_api_params = {
             "model",
-            "frequency_penalty",
-            "n",
-            "presence_penalty",
             "seed",
             "temperature",
             "top_p",
+            "reasoning_effort",
         }
 
         # Only keep populated settings that are in the OpenAI API params list.
         # Note that `max_tokens` is determined and applied separate from these params.
-        openai_api_settings = {
-            k: v for k, v in props.items() if k in openai_api_params and v is not None
-        }
+        openai_api_settings = {}
+        for k, v in props.items():
+            if k in unsupported_openai_params and v is not None:
+                logger.debug(f"Deprecated OpenAI parameter (ignoring): {k}")
+                continue
+            if k in openai_api_params and v is not None:
+                openai_api_settings[k] = v
+                continue
+
+        # Reasoning is actually a nested parameter, so handle accordingly.
+        reasoning_effort = openai_api_settings.pop("reasoning_effort", None)
+        if reasoning_effort:
+            openai_api_settings["reasoning"] = {"effort": reasoning_effort}
 
         # Format chat message
         messages = [m.as_chat_message() for m in self.system.format(input, **kwargs)]
 
         # Configure max tokens and submit the query.
         max_tokens = self.token_cap
-        completion = client.chat.completions.create(
-            **openai_api_settings, max_tokens=max_tokens, messages=messages
+
+        call_params = dict(
+            **openai_api_settings,
+            max_output_tokens=max_tokens,
+            input=messages,
+            store=False,
         )
 
-        # Interpret completion response.
-        if not completion.choices:
-            raise ValueError("Completion choices not found in response.")
+        # Call the API using `parse` or `create` depending on structured output.
+        if response_format:
+            call_params["text_format"] = response_format
+            response = client.responses.parse(**call_params)
+        else:
+            response = client.responses.create(**call_params)
 
-        choice = completion.choices[0]
-        stop_reason = getattr(choice, "finish_reason", None)
-        if stop_reason == "length":
-            # This should be planned for / expected by the caller.
+        # Interpret response
+        stop_reason = response.incomplete_details and response.incomplete_details.reason
+        truncated = False
+        if stop_reason == "max_output_tokens":
+            # Hitting the output token cap is an expected outcome that the
+            # caller (typically the chunker) is responsible for handling by
+            # resuming on the remainder. Return the partial output instead of
+            # raising so it can be marked truncated downstream.
             logger.debug("OpenAI response hit max tokens")
+            truncated = True
         elif stop_reason == "content_filter":
             raise FilteredContentError(
                 "OpenAI request blocked by content filter. "
                 "Please check the content moderation settings."
             )
+        elif response.status != "completed":
+            logger.error(
+                f"OpenAI response status is {response.status} / {stop_reason}: "
+                f"{response.error}"
+            )
+            raise ValueError(
+                "OpenAI response status is not completed "
+                f"({response.status} / {stop_reason})"
+            )
 
-        content = choice.message.content
-
-        if not completion.usage:
+        if not response.usage:
             raise ValueError("Completion usage not found in response.")
 
-        completion_tokens = completion.usage.completion_tokens
-        return OpenAIChatOutput(
+        completion_tokens = response.usage.output_tokens
+        return OpenAIChatOutput[TResult](
             max_tokens=max_tokens,
-            content=content or "",
+            content=response.output_text or "",
             completion_tokens=completion_tokens,
+            parsed=getattr(response, "output_parsed", None),
+            truncated=truncated,
         )
 
 

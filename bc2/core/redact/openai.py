@@ -11,7 +11,7 @@ from ..common.openai import (
     OpenAIConfig,
 )
 from ..common.text import RedactedText, Text
-from .base import BaseRedactConfig, BaseRedactDriver
+from .base import BaseRedactConfig, BaseRedactDriver, MissingNarrativeError
 
 
 class OpenAIRedactConfig(BaseRedactConfig, OpenAIConfig):
@@ -41,7 +41,7 @@ class OpenAIRedactDriver(BaseRedactDriver):
         placeholders: NameToMaskMap | None = None,
     ) -> RedactedText:
         if not narrative.text or narrative.text == "No narratives found.":
-            raise ValueError("No narrative text in input.")
+            raise MissingNarrativeError("No narrative text in input.")
 
         placeholders = NameToMaskMap.merge(placeholders, context.placeholders)
         redacted = self.generate(narrative.text, placeholders=placeholders)
