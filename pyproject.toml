@@ -33,7 +33,7 @@ readme = "README.md"
 [dependency-groups]
 dev = [
     "pre-commit==4.6.0",
-    "pytest==9.0.3",
+    "pytest==9.1.0",
     "pytest-asyncio>=1.4.0",
     "python-jsonschema-objects<1.0.0,>=0.5.5",
     "responses>=0.26.1,<1.0.0",
