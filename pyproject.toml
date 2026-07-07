@@ -13,7 +13,7 @@ dependencies = [
     "pypdf==6.13.2",
     "openai>=2.43.0",
     "reportlab==4.5.1",
-    "azure-storage-blob==12.29.0",
+    "azure-storage-blob==12.30.0",
     "azure-identity==1.25.3",
     "typer>=0.26.7",
     "python-magic<1.0.0,>=0.4.27",
