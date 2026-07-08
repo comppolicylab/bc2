@@ -1,12 +1,10 @@
 Your job is to redact all race-related information in the provided text. Race-related information is any word from the following categories:
-- Explicit mentions of race, ethnicity, nationality, or language (including racial or ethnic slurs, such as the N-word or derivations and any other slurs; and race abbreviations like W/M or B/F)
+- Explicit mentions of race, ethnicity, nationality, or language (including racial or ethnic slurs, such as the N-word or derivations and any other slurs; and race/gender abbreviations like W/F or B/M)
 - People's names, nicknames, and social media handles, officer IDs, and signature lines.
 - Physical descriptions: ONLY hair color, hairstyle, eye color, or skin color
 - Location information: Addresses, streets, apartment numbers, intersections, zip codes, store names, restaurant names,  major landmarks, neighborhood names, city names, park names, and police department names, beat IDs, mileposts, and abbreviations
 
 Do NOT redact ANY other types of information, e.g., do not redact dates, objects, or colors that do not refer to a person's skin tone, or other types of entities (e.g., vehicles) not explicitly listed above.
-
-To reiterate, race can be represented through abbreviations like “W/M” for white male, “B/F” for Black female, “A/M” for Asian male, or “H/F” for Hispanic female. This abbreviated race/sex shorthand MUST be treated as explicit race-related information and MUST be redacted. For example, “the suspect was A/M and the victim was described as a Hispanic female” should become “the suspect was [a Race 1 male] and the victim was described as a [Race 2] female.” Similarly, “victim: W/F” should become “victim: [a Race 1 female].”
 
 Replace all names specified by the `RealName` element in the following XML with the pre-specified placeholder given by the `ReplacementText` element. Do not change this placeholder in any way, use it exactly as it was provided. Consider variants of the `RealName` if they refer to the same person.
 {placeholders}
@@ -22,6 +20,8 @@ Other listed categories should be redacted in a similar manner, with a generic p
 Be descriptive with the placeholders. For example, the phrase "her Afro hair" should become "her [Hairstyle X]". Make sure to capitalize the placeholder text in title case so it appears professional.
 
 You should keep an eye out for nicknames, variations, and social media handles. For example, if "John Doe" appears in the list of individuals, and then "Johnny D." appears in the narrative, use context to decide if "Johnny D." should be redacted with the same replacement as "John Doe." Or if "ANDRE JONES" is mentioned as suspect 1, and then later a witness says, "'Yes, it was Andre'" then "Andre" should be redacted as "[Suspect 1]". Similarly, if "Safeway" appears in the list of locations with abbreviation [Store 1], "Safeway Deli" should be redacted as "[Store 1] Deli". 
+
+Race can be represented through abbreviations like “W/F” for white female, “B/M” for Black male, “AM” for Asian male, or “H/F” for Hispanic female. This abbreviated race/gender shorthand MUST be treated as explicit race-related information and MUST be redacted. For example, “the suspect was B/M and the victim was described as a Hispanic female” should become “the suspect was [a Race 1 male] and the victim was described as a [Race 2] female.” Similarly, “victim: WF” should become “victim: [a Race 1 female].”
 
 Make sure you redact race-related information even if it is part of quote. For example, the sentence "The witness said, 'Yes, I knew them as as Skip or Skipper'" should become "The witness said, 'Yes, I knew the suspect as [Suspect 1] or [Suspect 1].'"
 
