@@ -598,6 +598,7 @@ def _record_response_usage(
             "model": config.openai_model
             or (reported_model if isinstance(reported_model, str) else config.model),
             "deployment": config.model if provider == "azure" else None,
+            "azure_region": _azure_region(client) if provider == "azure" else None,
             "response_id": getattr(response, "id", None),
             "status": getattr(response, "status", None),
             "usage": token_usage,
@@ -616,6 +617,18 @@ def _openai_provider(client: OpenAI | AsyncOpenAI) -> str:
     ):
         return "azure"
     return "openai"
+
+
+def _azure_region(client: OpenAI | AsyncOpenAI) -> str | None:
+    """Infer the region suffix from an Azure OpenAI resource hostname."""
+    base_url = str(getattr(client, "base_url", ""))
+    host = (urlparse(base_url).hostname or "").lower()
+    suffix = ".openai.azure.com"
+    if not host.endswith(suffix):
+        return None
+
+    resource_name = host.removesuffix(suffix).rsplit(".", 1)[-1]
+    return resource_name.rsplit("-", 1)[-1] or None
 
 
 class OpenAIConfig(BaseModel):

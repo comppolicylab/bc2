@@ -316,7 +316,7 @@ def test_invoke_completed_response_is_not_truncated():
 def test_invoke_records_response_usage():
     cfg = _build_chat_config()
     client = MagicMock()
-    client.base_url = "https://example.openai.azure.com/openai/v1/"
+    client.base_url = "https://hks-cpl-blindcharging-eastus.openai.azure.com/openai/v1/"
     client.responses.create.return_value = _mock_response(
         status="completed",
         output_text="full answer",
@@ -331,6 +331,7 @@ def test_invoke_records_response_usage():
 
     call = report["calls"][0]
     assert call["provider"] == "azure"
+    assert call["azure_region"] == "eastus"
     assert call["service"] == "responses"
     assert call["operation"] == "parse:openai"
     assert call["response_id"] == "resp_test"

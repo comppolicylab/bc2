@@ -37,7 +37,7 @@ class AzureRetailPricing:
         self, call: dict[str, Any], runtime_config: dict[str, Any]
     ) -> dict[str, Any]:
         """Estimate the cost of one Azure service call."""
-        region = runtime_config.get("azure_region")
+        region = runtime_config.get("azure_region") or call.get("azure_region")
         if not region:
             raise AzurePricingUnavailable(
                 "azure_region is required to look up Azure retail pricing"

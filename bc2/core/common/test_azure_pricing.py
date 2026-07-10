@@ -115,6 +115,30 @@ def test_missing_region_fails_without_fetching_prices():
         )
 
 
+def test_region_falls_back_to_usage_call(monkeypatch):
+    pricing = AzureRetailPricing()
+    monkeypatch.setattr(
+        pricing,
+        "_estimate_openai_tokens",
+        lambda call, runtime_config, region: {
+            "estimated_cost": 0.0,
+            "currency": "USD",
+        },
+    )
+
+    estimate = pricing.estimate(
+        {
+            "service": "responses",
+            "model": "gpt-4.1",
+            "azure_region": "eastus",
+            "usage": {"input_tokens": 10},
+        },
+        {},
+    )
+
+    assert estimate["region"] == "eastus"
+
+
 def test_ambiguous_meter_fails_gracefully(monkeypatch):
     pricing = AzureRetailPricing()
     meters = [
