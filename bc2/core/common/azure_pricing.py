@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import threading
 import time
@@ -9,6 +10,8 @@ import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 AZURE_RETAIL_PRICES_URL = "https://prices.azure.com/api/retail/prices"
 DEFAULT_CACHE_TTL_SECONDS = 24 * 60 * 60
@@ -145,9 +148,11 @@ class AzureRetailPricing:
             raise AzurePricingUnavailable(
                 f"unsupported Document Intelligence model: {model or '<unknown>'}"
             )
+        # Features other than key-value pairs cost extra.
+        # Warn that
         if features:
-            raise AzurePricingUnavailable(
-                "Document Intelligence feature add-on pricing is not supported"
+            logger.warning(
+                f"Document Intelligence features pricing is not supported: {features}"
             )
 
         pages = int((call.get("usage") or {}).get("pages") or 0)
