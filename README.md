@@ -96,6 +96,38 @@ The specific type of this object depends entirely on the pipeline configuration.
 Most commonly, results from the `inspect` modules will be stored here.
 For example, if you use the `inspect:quality` module, `context.quality` will contain those results.
 
+#### Usage reporting
+
+Set `report_usage` in the runtime configuration to collect one usage record for
+each OpenAI, Azure OpenAI, embedding, or Azure Document Intelligence call:
+
+```py
+context = pipe.run({
+    "report_usage": True,
+    # ... input and output runtime configuration
+})
+print(context.usage)
+```
+
+Set `estimate_cost` to enable usage reporting and add best-effort Azure retail
+cost estimates to each call. Azure pricing is fetched from the Azure Retail
+Prices API and cached in memory for 24 hours. The Azure region is required
+because retail prices can vary by region:
+
+```py
+context = pipe.run({
+    "estimate_cost": True,
+    "azure_region": "eastus",
+    # Optional; these are the defaults:
+    "azure_deployment_type": "global",  # global, data_zone, or regional
+    "azure_context_tier": "short",      # short or long
+})
+```
+
+Cost estimates currently support Azure only. If a price cannot be fetched or
+matched unambiguously, the pipeline continues and the call's `cost_estimate`
+contains a null estimate and an error message.
+
 #### Validation
 
 The pipeline will validate correctness before it runs.

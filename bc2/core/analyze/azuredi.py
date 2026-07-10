@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from ..common.file import MemoryFile
 from ..common.json import date_aware_json_dumps
 from ..common.preprocess import register_preprocessor
+from ..common.usage import record_usage
 from .base import BaseAnalyzeDriver
 
 logger = logging.getLogger(__name__)
@@ -81,13 +82,27 @@ class AzureDIAnalyze(BaseAnalyzeDriver):
         # object, which would duplicate the entire document in memory.
         doc.seek(0)
 
+        features = self._get_features()
         poller = self.di_client.begin_analyze_document(
             self.config.document_model,
             body=doc,
             locale=self.config.locale,
-            features=self._get_features(),
+            features=features,
         )
-        return poller.result()
+        result = poller.result()
+        record_usage(
+            {
+                "provider": "azure",
+                "service": "document_intelligence",
+                "model": self.config.document_model,
+                "api_version": self.config.api_version,
+                "features": [
+                    getattr(feature, "value", str(feature)) for feature in features
+                ],
+                "usage": {"pages": len(result.pages or [])},
+            }
+        )
+        return result
 
     def _get_features(self) -> list[DocumentAnalysisFeature]:
         features = list[DocumentAnalysisFeature]()

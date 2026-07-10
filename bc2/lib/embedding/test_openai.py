@@ -5,6 +5,11 @@ from openai import AsyncOpenAI, OpenAI
 
 from bc2.core.common.openai import OpenAIClientConfig
 from bc2.core.common.openai_metadata import get_encoding_for_model
+from bc2.core.common.usage import (
+    create_usage_tracker,
+    usage_operation,
+    usage_tracking,
+)
 
 from .openai import (
     OpenAIEmbeddingConfig,
@@ -46,6 +51,7 @@ def _mock_embedding_response(model: str = "text-embedding-3-large") -> MagicMock
     response = MagicMock()
     response.data = [MagicMock(embedding=[0.0, 0.1, 0.2])]
     response.model = model
+    response.usage = MagicMock(prompt_tokens=12, total_tokens=12)
     return response
 
 
@@ -94,6 +100,32 @@ def test_embed_config_dimensions_override():
     )
     assert config.generator.dimensions == 512
     assert config.generator.model_dimensions == 512
+
+
+def test_embed_records_usage():
+    client = MagicMock(spec=OpenAI)
+    client.base_url = "https://example.openai.azure.com/openai/v1/"
+    client.embeddings.create.return_value = _mock_embedding_response()
+    aclient = MagicMock(spec=AsyncOpenAI)
+    driver = OpenAIEmbeddingDriver(
+        client,
+        aclient,
+        OpenAIEmbeddingGeneratorConfig(
+            model="embedding-deployment",
+            openai_model="text-embedding-3-large",
+        ),
+    )
+    created = create_usage_tracker({"report_usage": True})
+    assert created is not None
+    report, tracker = created
+
+    with usage_tracking(tracker), usage_operation("inspect:embed"):
+        driver.embed("hello")
+
+    call = report["calls"][0]
+    assert call["provider"] == "azure"
+    assert call["operation"] == "inspect:embed"
+    assert call["usage"] == {"input_tokens": 12, "total_tokens": 12}
 
 
 @pytest.mark.asyncio

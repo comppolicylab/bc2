@@ -6,6 +6,20 @@ import pytest
 from .pipeline import Pipeline, PipelineConfig
 
 
+def test_pipeline_usage_reporting_runtime_flag():
+    ctx = Pipeline.create([]).run({"report_usage": True})
+
+    assert ctx.usage == {
+        "calls": [],
+        "totals": {
+            "calls": 0,
+            "estimated_cost": 0.0,
+            "estimated_calls": 0,
+            "unpriced_calls": 0,
+        },
+    }
+
+
 def test_pipeline_simple_debug():
     cfg = PipelineConfig.model_validate(
         {

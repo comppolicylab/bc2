@@ -15,6 +15,7 @@ from .openai import (
     OpenAIChatTurn,
     OpenAIClientConfig,
 )
+from .usage import create_usage_tracker, usage_operation, usage_tracking
 
 
 def test_fix_azure_endpoint():
@@ -217,7 +218,21 @@ def _mock_response(
     response = MagicMock()
     response.status = status
     response.output_text = output_text
-    response.usage = type("Usage", (), {"output_tokens": output_tokens})()
+    response.usage = type(
+        "Usage",
+        (),
+        {
+            "input_tokens": 20,
+            "output_tokens": output_tokens,
+            "total_tokens": 20 + output_tokens,
+            "input_tokens_details": type("InputDetails", (), {"cached_tokens": 5})(),
+            "output_tokens_details": type(
+                "OutputDetails", (), {"reasoning_tokens": 3}
+            )(),
+        },
+    )()
+    response.id = "resp_test"
+    response.model = "gpt-4.1-2025-04-14"
     if incomplete_reason is None:
         response.incomplete_details = None
     else:
@@ -296,6 +311,36 @@ def test_invoke_completed_response_is_not_truncated():
     assert result.content == "full answer"
     assert result.truncated is False
     assert result.is_truncated is False
+
+
+def test_invoke_records_response_usage():
+    cfg = _build_chat_config()
+    client = MagicMock()
+    client.base_url = "https://example.openai.azure.com/openai/v1/"
+    client.responses.create.return_value = _mock_response(
+        status="completed",
+        output_text="full answer",
+        output_tokens=42,
+    )
+    created = create_usage_tracker({"report_usage": True})
+    assert created is not None
+    report, tracker = created
+
+    with usage_tracking(tracker), usage_operation("parse:openai"):
+        cfg.invoke(client, "go")
+
+    call = report["calls"][0]
+    assert call["provider"] == "azure"
+    assert call["service"] == "responses"
+    assert call["operation"] == "parse:openai"
+    assert call["response_id"] == "resp_test"
+    assert call["usage"] == {
+        "input_tokens": 20,
+        "output_tokens": 42,
+        "total_tokens": 62,
+        "cached_input_tokens": 5,
+        "reasoning_output_tokens": 3,
+    }
 
 
 def test_chat_output_is_truncated_inferred_from_token_match():

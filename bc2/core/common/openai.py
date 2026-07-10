@@ -24,6 +24,7 @@ from .datafile import DataType, load_data_file, load_data_file_from_path
 from .image import ImageUrl
 from .openai_metadata import ModelNotFound, get_chat_model_meta
 from .template import TemplateEngine, get_formatter
+from .usage import record_usage
 
 logger = logging.getLogger(__name__)
 
@@ -527,6 +528,8 @@ class OpenAIChatConfig(BaseModel, Generic[TResult]):
         else:
             response = client.responses.create(**call_params)
 
+        _record_response_usage(client, self, response)
+
         # Interpret response
         stop_reason = response.incomplete_details and response.incomplete_details.reason
         truncated = False
@@ -563,6 +566,49 @@ class OpenAIChatConfig(BaseModel, Generic[TResult]):
             parsed=getattr(response, "output_parsed", None),
             truncated=truncated,
         )
+
+
+def _record_response_usage(
+    client: OpenAI, config: OpenAIChatConfig, response: Any
+) -> None:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return
+
+    token_usage = {
+        "input_tokens": getattr(usage, "input_tokens", None),
+        "output_tokens": getattr(usage, "output_tokens", None),
+        "total_tokens": getattr(usage, "total_tokens", None),
+    }
+    input_details = getattr(usage, "input_tokens_details", None)
+    output_details = getattr(usage, "output_tokens_details", None)
+    token_usage["cached_input_tokens"] = getattr(input_details, "cached_tokens", None)
+    token_usage["reasoning_output_tokens"] = getattr(
+        output_details, "reasoning_tokens", None
+    )
+    token_usage = {k: v for k, v in token_usage.items() if isinstance(v, int)}
+
+    provider = _openai_provider(client)
+    reported_model = getattr(response, "model", None)
+    record_usage(
+        {
+            "provider": provider,
+            "service": "responses",
+            "model": config.openai_model
+            or (reported_model if isinstance(reported_model, str) else config.model),
+            "deployment": config.model if provider == "azure" else None,
+            "response_id": getattr(response, "id", None),
+            "status": getattr(response, "status", None),
+            "usage": token_usage,
+        }
+    )
+
+
+def _openai_provider(client: OpenAI | AsyncOpenAI) -> str:
+    base_url = str(getattr(client, "base_url", ""))
+    if "/openai/" in base_url or ".openai.azure.com" in base_url:
+        return "azure"
+    return "openai"
 
 
 class OpenAIConfig(BaseModel):
