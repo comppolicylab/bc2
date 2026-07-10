@@ -15,6 +15,7 @@ from ..common.type_util import (
     inspect_required_params,
     inspect_return_type,
 )
+from ..common.usage import usage_operation
 from ..parse import ParseConfig
 from ..redact import RedactConfig
 from .compose import ComposeConfig
@@ -139,7 +140,8 @@ class ChunkDriver(Generic[T]):
 
             # Run the processor on the current chunk
             filtered_kwargs = get_bindable_parameters(f, runtime_config or {})
-            new_output = cast(T, f(remainder, context, **filtered_kwargs))
+            with usage_operation(self.config.processor.engine):
+                new_output = cast(T, f(remainder, context, **filtered_kwargs))
             sep = " " if not context.debug else "\n\n\n|CHUNK BOUNDARY|\n\n\n"
             output = self._merge_output(output, new_output, separator=sep)
 

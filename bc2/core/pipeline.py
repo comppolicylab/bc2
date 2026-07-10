@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from .common.context import Context
 from .common.runtime import RuntimeConfig
+from .common.usage import create_usage_tracker, usage_tracking
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,10 @@ class Pipeline:
         ctx = Context()
         ctx.debug = runtime_config.get("debug", False)
         ctx.errors = list[Exception]()
+        usage = create_usage_tracker(runtime_config)
+        tracker = None
+        if usage is not None:
+            ctx.usage, tracker = usage
         if ctx.debug:
             # Set the global logger to info mode.
             logging.getLogger().setLevel(logging.INFO)
@@ -61,7 +66,8 @@ class Pipeline:
             logger.debug("Debug mode enabled.")
         runtime_config["context"] = ctx
 
-        output = self.pipeline(None, ctx, runtime_config)
+        with usage_tracking(tracker):
+            output = self.pipeline(None, ctx, runtime_config)
 
         # The final pipe value is validated as None via type-checking.
         # It's not an error if the final pipe is not None, but we should log it.

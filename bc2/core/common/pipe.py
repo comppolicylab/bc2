@@ -4,6 +4,7 @@ from typing import Any, Tuple, Type
 from .all import AnyConfig
 from .context import Context
 from .type_util import inspect_all_params, inspect_required_params, inspect_return_type
+from .usage import usage_operation
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +154,8 @@ def run_pipe(
         # NOTE(jnu): mypy can't validate the kwarg types, but we've effectively
         # done this at runtime anyway so just hush the error.
         try:
-            output = config.driver(*args, **kwargs)  # type: ignore[arg-type]
+            with usage_operation(config.engine):
+                output = config.driver(*args, **kwargs)  # type: ignore[arg-type]
         except Exception as e:
             logger.error(f"Error in step {i} ({config.engine}): {e}")
             ctx.errors.append(e)

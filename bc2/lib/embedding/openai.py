@@ -6,13 +6,14 @@ from openai import AsyncOpenAI, AzureOpenAI, OpenAI
 from openai.types import CreateEmbeddingResponse
 from pydantic import BaseModel, Field, PositiveInt
 
-from bc2.core.common.openai import OpenAIClientConfig
+from bc2.core.common.openai import OpenAIClientConfig, _openai_provider
 from bc2.core.common.openai_metadata import (
     EmbeddingModelMeta,
     ModelNotFound,
     get_embedding_model_meta,
     get_encoding_for_model,
 )
+from bc2.core.common.usage import record_usage
 
 from .base import BaseEmbeddingDriver
 from .embedding import Embedding
@@ -170,6 +171,27 @@ class OpenAIEmbeddingDriver(BaseEmbeddingDriver):
             version = result_model
             if self.config.model_version:
                 version += f"@{self.config.model_version}"
+
+        usage = getattr(result, "usage", None)
+        if usage is not None:
+            input_tokens = getattr(usage, "prompt_tokens", None)
+            total_tokens = getattr(usage, "total_tokens", None)
+            record_usage(
+                {
+                    "provider": _openai_provider(self.client),
+                    "service": "embeddings",
+                    "model": self.config.openai_model or result_model,
+                    "deployment": self.config.model,
+                    "usage": {
+                        k: v
+                        for k, v in {
+                            "input_tokens": input_tokens,
+                            "total_tokens": total_tokens,
+                        }.items()
+                        if isinstance(v, int)
+                    },
+                }
+            )
 
         return Embedding(
             result.data[0].embedding,
