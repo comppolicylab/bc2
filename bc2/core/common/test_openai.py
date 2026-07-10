@@ -14,8 +14,23 @@ from .openai import (
     OpenAIChatPromptInline,
     OpenAIChatTurn,
     OpenAIClientConfig,
+    _openai_provider,
 )
 from .usage import create_usage_tracker, usage_operation, usage_tracking
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "https://example.openai.azure.com/",
+        "https://example.openai.azure.us/",
+    ],
+)
+def test_openai_provider_recognizes_azure_clouds(base_url):
+    client = MagicMock()
+    client.base_url = base_url
+
+    assert _openai_provider(client) == "azure"
 
 
 def test_fix_azure_endpoint():
