@@ -609,7 +609,11 @@ def _openai_provider(client: OpenAI | AsyncOpenAI) -> str:
     base_url = str(getattr(client, "base_url", ""))
     parsed = urlparse(base_url)
     host = (parsed.hostname or "").lower()
-    if "/openai/" in parsed.path or host == "openai.azure.com" or host.endswith(".openai.azure.com"):
+    if (
+        "/openai/" in parsed.path
+        or host == "openai.azure.com"
+        or host.endswith(".openai.azure.com")
+    ):
         return "azure"
     return "openai"
 
