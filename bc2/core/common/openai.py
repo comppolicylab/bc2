@@ -611,8 +611,8 @@ def _openai_provider(client: OpenAI | AsyncOpenAI) -> str:
     host = (parsed.hostname or "").lower()
     if (
         "/openai/" in parsed.path
-        or host == "openai.azure.com"
-        or host.endswith(".openai.azure.com")
+        or host in ("openai.azure.com", "openai.azure.us")
+        or host.endswith((".openai.azure.com", ".openai.azure.us"))
     ):
         return "azure"
     return "openai"

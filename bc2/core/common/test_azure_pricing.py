@@ -82,6 +82,33 @@ def test_estimate_document_intelligence_read_cost(monkeypatch):
     assert estimate["estimated_cost"] == pytest.approx(0.0375)
 
 
+def test_estimate_document_intelligence_layout_cost(monkeypatch):
+    pricing = AzureRetailPricing()
+    meter = {
+        "skuName": "S0",
+        "meterName": "S0 Pre-built Pages",
+        "retailPrice": 10.0,
+        "unitOfMeasure": "1K",
+        "tierMinimumUnits": 0,
+        "type": "Consumption",
+    }
+    monkeypatch.setattr(
+        pricing, "_get_prices", lambda _: ([meter], "2026-07-10T00:00:00+00:00")
+    )
+
+    estimate = pricing.estimate(
+        {
+            "service": "document_intelligence",
+            "model": "prebuilt-layout",
+            "features": [],
+            "usage": {"pages": 25},
+        },
+        {"azure_region": "eastus"},
+    )
+
+    assert estimate["estimated_cost"] == pytest.approx(0.25)
+
+
 def test_estimate_embedding_cost(monkeypatch):
     pricing = AzureRetailPricing()
     meter = _meter("text-embedding-3-large-glbl", 0.00013, "1K")
