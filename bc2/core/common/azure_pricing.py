@@ -136,7 +136,12 @@ class AzureRetailPricing:
     ) -> dict[str, Any]:
         model = str(call.get("model") or "")
         features = call.get("features") or []
-        if model != "prebuilt-read":
+        meter_names = {
+            "prebuilt-read": "S0 Read Pages",
+            "prebuilt-layout": "S0 Pre-built Pages",
+        }
+        meter_name = meter_names.get(model)
+        if meter_name is None:
             raise AzurePricingUnavailable(
                 f"unsupported Document Intelligence model: {model or '<unknown>'}"
             )
@@ -158,11 +163,11 @@ class AzureRetailPricing:
         matches = [
             item
             for item in items
-            if item.get("meterName") == "S0 Read Pages"
+            if item.get("meterName") == meter_name
             and item.get("type") == "Consumption"
             and float(item.get("tierMinimumUnits") or 0) == 0
         ]
-        meter = _select_unique_price(matches, "S0 Read Pages")
+        meter = _select_unique_price(matches, meter_name)
         component = _price_quantity(pages, meter, "pages")
         return _cost_result([component], fetched_at)
 
