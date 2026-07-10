@@ -7,6 +7,7 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, Generic, Literal, Sequence, Type, TypeVar, cast
+from urllib.parse import urlparse
 
 from openai import AsyncOpenAI, OpenAI
 from openai.types.responses import (
@@ -606,7 +607,9 @@ def _record_response_usage(
 
 def _openai_provider(client: OpenAI | AsyncOpenAI) -> str:
     base_url = str(getattr(client, "base_url", ""))
-    if "/openai/" in base_url or ".openai.azure.com" in base_url:
+    parsed = urlparse(base_url)
+    host = (parsed.hostname or "").lower()
+    if "/openai/" in parsed.path or host == "openai.azure.com" or host.endswith(".openai.azure.com"):
         return "azure"
     return "openai"
 
