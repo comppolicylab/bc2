@@ -10,7 +10,7 @@ dependencies = [
     "pydantic-settings==2.14.2",
     "click>=8.4.2,<9.0.0",
     "tqdm==4.68.3",
-    "pypdf==6.13.3",
+    "pypdf==6.14.2",
     "openai>=2.43.0",
     "reportlab==4.5.1",
     "azure-storage-blob==12.30.0",
