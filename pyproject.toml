@@ -11,7 +11,7 @@ dependencies = [
     "click>=8.4.2,<9.0.0",
     "tqdm==4.68.3",
     "pypdf==6.13.3",
-    "openai>=2.43.0",
+    "openai>=2.44.0",
     "reportlab==4.5.1",
     "azure-storage-blob==12.30.0",
     "azure-identity==1.25.3",
