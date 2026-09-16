@@ -6,6 +6,7 @@ from typing import Literal
 from azure.ai.documentintelligence import DocumentIntelligenceClient
 from azure.ai.documentintelligence.models import AnalyzeResult, DocumentAnalysisFeature
 from azure.core.credentials import AzureKeyCredential
+from azure.identity import DefaultAzureCredential
 from pydantic import BaseModel, Field
 
 from ..common.file import MemoryFile
@@ -22,7 +23,7 @@ class AzureDIAnalyzeConfig(BaseModel):
 
     engine: Literal["analyze:azuredi"] = "analyze:azuredi"
     endpoint: str
-    api_key: str
+    api_key: str = Field("")
     api_version: str = Field("2024-11-30")
     document_model: str = Field("prebuilt-read")
     locale: str = Field("en-US")
@@ -37,9 +38,14 @@ class AzureDIAnalyzeConfig(BaseModel):
 class AzureDIAnalyze(BaseAnalyzeDriver):
     def __init__(self, config: AzureDIAnalyzeConfig):
         self.config = config
+        credential = (
+            AzureKeyCredential(config.api_key)
+            if config.api_key
+            else DefaultAzureCredential()
+        )
         self.di_client = DocumentIntelligenceClient(
             endpoint=config.endpoint,
-            credential=AzureKeyCredential(config.api_key),
+            credential=credential,
             api_version=config.api_version,
         )
 
