@@ -9,6 +9,7 @@ from functools import cached_property
 from typing import Any, Generic, Literal, Sequence, Type, TypeVar, cast
 from urllib.parse import urlparse
 
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from openai import AsyncOpenAI, OpenAI
 from openai.types.responses import (
     EasyInputMessageParam as _OpenAIEasyInputMessageParam,
@@ -32,6 +33,9 @@ logger = logging.getLogger(__name__)
 
 TResult = TypeVar("TResult")
 
+_AZURE_COGNITIVE_SCOPE = "https://cognitiveservices.azure.com/.default"
+_AZURE_GOV_COGNITIVE_SCOPE = "https://cognitiveservices.azure.us/.default"
+
 
 class FilteredContentError(Exception):
     """Error we throw when OpenAI content moderation is triggered."""
@@ -39,10 +43,18 @@ class FilteredContentError(Exception):
     pass
 
 
+def _azure_cognitive_scope(endpoint: str) -> str:
+    """Return the Entra ID scope for Azure Cognitive Services."""
+    host = (urlparse(endpoint).hostname or "").lower()
+    if host == "azure.us" or host.endswith(".azure.us"):
+        return _AZURE_GOV_COGNITIVE_SCOPE
+    return _AZURE_COGNITIVE_SCOPE
+
+
 class OpenAIClientConfig(BaseModel):
     """OpenAI API settings."""
 
-    api_key: str
+    api_key: str = Field("")
     organization: str | None = None
     project: str | None = None
     base_url: str | None = None
@@ -57,15 +69,14 @@ class OpenAIClientConfig(BaseModel):
         """Create an async OpenAI client."""
         return AsyncOpenAI(**self._get_client_params())
 
-    def _get_client_params(self) -> dict[str, str | None]:
-        if not self.api_key:
-            raise ValueError("API key is required.")
-
+    def _get_client_params(self) -> dict[str, Any]:
         if self.azure_endpoint:
             return self._get_azure_client_params()
+        if not self.api_key:
+            raise ValueError("API key is required.")
         return self._get_openai_client_params()
 
-    def _get_openai_client_params(self) -> dict[str, str | None]:
+    def _get_openai_client_params(self) -> dict[str, Any]:
         return {
             "api_key": self.api_key,
             "organization": self.organization,
@@ -73,7 +84,7 @@ class OpenAIClientConfig(BaseModel):
             "base_url": self.base_url,
         }
 
-    def _get_azure_client_params(self) -> dict[str, str | None]:
+    def _get_azure_client_params(self) -> dict[str, Any]:
         # Ensure endpoint ends with `openai/v1/`
         if not self.azure_endpoint:
             raise AssertionError("Azure endpoint is required.")
@@ -89,8 +100,14 @@ class OpenAIClientConfig(BaseModel):
             logger.debug(
                 f"Azure API version {self.api_version} is set but will be ignored."
             )
+        api_key: Any = self.api_key
+        if not api_key:
+            api_key = get_bearer_token_provider(
+                DefaultAzureCredential(),
+                _azure_cognitive_scope(azure_endpoint),
+            )
         return {
-            "api_key": self.api_key,
+            "api_key": api_key,
             "organization": self.organization,
             "base_url": azure_endpoint,
         }
