@@ -14,6 +14,7 @@ from .openai import (
     OpenAIChatPromptInline,
     OpenAIChatTurn,
     OpenAIClientConfig,
+    _azure_cognitive_scope,
     _openai_provider,
 )
 from .usage import create_usage_tracker, usage_operation, usage_tracking
@@ -33,6 +34,23 @@ def test_openai_provider_recognizes_azure_clouds(base_url):
     assert _openai_provider(client) == "azure"
 
 
+@pytest.mark.parametrize(
+    ("endpoint", "expected_scope"),
+    [
+        (
+            "https://example.openai.azure.com/openai/v1/",
+            "https://cognitiveservices.azure.com/.default",
+        ),
+        (
+            "https://example.openai.azure.us/openai/v1/",
+            "https://cognitiveservices.azure.us/.default",
+        ),
+    ],
+)
+def test_azure_cognitive_scope(endpoint, expected_scope):
+    assert _azure_cognitive_scope(endpoint) == expected_scope
+
+
 def test_fix_azure_endpoint():
     cfg = OpenAIClientConfig(
         api_key="my-api-key",
@@ -42,6 +60,65 @@ def test_fix_azure_endpoint():
     assert cfg.azure_endpoint == "https://my-azure-endpoint.com/"
     client = cfg.init()
     assert client.base_url == "https://my-azure-endpoint.com/openai/v1/"
+
+
+def test_azure_endpoint_uses_identity_when_api_key_missing(monkeypatch):
+    token_provider = MagicMock(return_value="fake-token")
+    credential = MagicMock(name="DefaultAzureCredential")
+    get_provider = MagicMock(return_value=token_provider)
+
+    monkeypatch.setattr(
+        "bc2.core.common.openai.DefaultAzureCredential",
+        MagicMock(return_value=credential),
+    )
+    monkeypatch.setattr(
+        "bc2.core.common.openai.get_bearer_token_provider",
+        get_provider,
+    )
+
+    cfg = OpenAIClientConfig(
+        azure_endpoint="https://example.openai.azure.com/",
+    )
+    params = cfg._get_client_params()
+
+    assert params["base_url"] == "https://example.openai.azure.com/openai/v1/"
+    assert params["api_key"] is token_provider
+    get_provider.assert_called_once_with(
+        credential,
+        "https://cognitiveservices.azure.com/.default",
+    )
+
+
+def test_azure_gov_endpoint_uses_gov_scope_for_identity(monkeypatch):
+    token_provider = MagicMock(return_value="fake-token")
+    credential = MagicMock(name="DefaultAzureCredential")
+    get_provider = MagicMock(return_value=token_provider)
+
+    monkeypatch.setattr(
+        "bc2.core.common.openai.DefaultAzureCredential",
+        MagicMock(return_value=credential),
+    )
+    monkeypatch.setattr(
+        "bc2.core.common.openai.get_bearer_token_provider",
+        get_provider,
+    )
+
+    cfg = OpenAIClientConfig(
+        azure_endpoint="https://example.openai.azure.us/",
+    )
+    params = cfg._get_client_params()
+
+    assert params["api_key"] is token_provider
+    get_provider.assert_called_once_with(
+        credential,
+        "https://cognitiveservices.azure.us/.default",
+    )
+
+
+def test_openai_requires_api_key_without_azure_endpoint():
+    cfg = OpenAIClientConfig()
+    with pytest.raises(ValueError, match="API key is required"):
+        cfg.init()
 
 
 def test_chat_prompt_builtin_serialize():

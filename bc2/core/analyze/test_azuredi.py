@@ -1,5 +1,8 @@
 from io import BytesIO
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+
+from azure.core.credentials import AzureKeyCredential
+from azure.identity import DefaultAzureCredential
 
 from ..common.usage import (
     create_usage_tracker,
@@ -34,3 +37,34 @@ def test_document_intelligence_records_page_usage():
     assert call["operation"] == "analyze:azuredi"
     assert call["model"] == "prebuilt-read"
     assert call["usage"] == {"pages": 3}
+
+
+def test_document_intelligence_uses_api_key_credential():
+    with patch("bc2.core.analyze.azuredi.DocumentIntelligenceClient") as client_cls:
+        AzureDIAnalyze(
+            AzureDIAnalyzeConfig(
+                endpoint="https://example.cognitiveservices.azure.com",
+                api_key="test-key",
+            )
+        )
+
+    _, kwargs = client_cls.call_args
+    assert isinstance(kwargs["credential"], AzureKeyCredential)
+
+
+def test_document_intelligence_uses_identity_when_api_key_missing():
+    with (
+        patch("bc2.core.analyze.azuredi.DefaultAzureCredential") as cred_cls,
+        patch("bc2.core.analyze.azuredi.DocumentIntelligenceClient") as client_cls,
+    ):
+        credential = MagicMock(spec=DefaultAzureCredential)
+        cred_cls.return_value = credential
+        AzureDIAnalyze(
+            AzureDIAnalyzeConfig(
+                endpoint="https://example.cognitiveservices.azure.com",
+            )
+        )
+
+    cred_cls.assert_called_once_with()
+    _, kwargs = client_cls.call_args
+    assert kwargs["credential"] is credential
