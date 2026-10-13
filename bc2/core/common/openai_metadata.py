@@ -34,6 +34,10 @@ _MODELS = {
     # NOTE(jnu): ADD NEW MODELS HERE AS WE SUPPORT THEM.
     ##########################################################
     for meta in [
+        # NOTE(jnu): as of 2026-10-13 tiktoken doesn't have info for gpt-6* tokenizers.
+        # It appears they use the same as 5-series, our current default 200k_base.
+        # https://github.com/openai/tiktoken/issues/608#issuecomment-6071803831
+        ChatModelMeta(name="gpt-6.1-sol-2026-09-29", context=1_047_576, output=128_000),
         ChatModelMeta(name="gpt-5.5-2026-04-23", context=1_047_576, output=128_000),
         ChatModelMeta(name="gpt-4.1-2025-04-14", context=1_047_576, output=16_384),
         ChatModelMeta(name="gpt-4o-2024-05-13", context=128_000, output=4_096),
