@@ -76,12 +76,8 @@ class AzureRetailPricing:
             raise AzurePricingUnavailable("OpenAI model was not reported")
 
         is_embedding = call.get("service") == "embeddings"
-        search_term = "embedding" if is_embedding else _model_search_term(model)
-        odata_filter = (
-            "contains(productName, 'OpenAI') "
-            f"and armRegionName eq '{_odata_escape(region)}' "
-            f"and contains(skuName, '{_odata_escape(search_term)}')"
-        )
+        search_terms = ["embedding"] if is_embedding else _model_search_terms(model)
+        odata_filter = _openai_price_filter(region, search_terms)
         items, fetched_at = self._get_prices(odata_filter)
         deployment_type = runtime_config.get("azure_deployment_type", "global")
         context_tier = runtime_config.get("azure_context_tier", "short")
@@ -209,11 +205,33 @@ class AzureRetailPricing:
         return items, fetched_at
 
 
-def _model_search_term(model: str) -> str:
+def _model_search_terms(model: str) -> list[str]:
+    """Return SKU substrings that may identify this model in retail prices.
+
+    Azure names some models with hyphens (``6.1-sol``) and others with spaces
+    (``5.6 luna``). Search both so either catalog spelling can match.
+    """
     normalized = re.sub(r"-\d{4}-\d{2}-\d{2}$", "", model.lower())
     if normalized.startswith("gpt-"):
-        return normalized.removeprefix("gpt-")
-    return normalized
+        normalized = normalized.removeprefix("gpt-")
+    terms = [normalized]
+    spaced = normalized.replace("-", " ")
+    if spaced != normalized:
+        terms.append(spaced)
+    return terms
+
+
+def _openai_price_filter(region: str, search_terms: list[str]) -> str:
+    sku_match = " or ".join(
+        f"contains(skuName, '{_odata_escape(term)}')" for term in search_terms
+    )
+    if len(search_terms) > 1:
+        sku_match = f"({sku_match})"
+    return (
+        "contains(productName, 'OpenAI') "
+        f"and armRegionName eq '{_odata_escape(region)}' "
+        f"and {sku_match}"
+    )
 
 
 def _odata_escape(value: str) -> str:

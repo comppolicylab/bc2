@@ -55,6 +55,46 @@ def test_estimate_openai_response_cost(monkeypatch):
     assert len(estimate["components"]) == 3
 
 
+def test_estimate_spaced_sku_name(monkeypatch):
+    pricing = AzureRetailPricing()
+    meters = [
+        _meter("5.6 luna ShortCo Inp Std Gl", 0.2),
+        _meter("5.6 luna ShortCo Cd Inp Std Gl", 0.02),
+        _meter("5.6 luna ShortCo Opt Std Gl", 1.2),
+        _meter("5.6 luna ShortCo Inp PP Gl", 0.4),
+        _meter("56luna ShCo Inp Fl Gl", 0.1),
+    ]
+    filters = []
+
+    def fake_get_prices(odata_filter):
+        filters.append(odata_filter)
+        return meters, "2026-07-10T00:00:00+00:00"
+
+    monkeypatch.setattr(pricing, "_get_prices", fake_get_prices)
+
+    estimate = pricing.estimate(
+        {
+            "service": "responses",
+            "model": "gpt-5.6-luna-2026-07-09",
+            "usage": {
+                "input_tokens": 3_027,
+                "cached_input_tokens": 0,
+                "output_tokens": 1_053,
+            },
+        },
+        {
+            "azure_region": "eastus",
+            "azure_deployment_type": "global",
+            "azure_context_tier": "short",
+        },
+    )
+
+    assert "contains(skuName, '5.6 luna')" in filters[0]
+    assert "contains(skuName, '5.6-luna')" in filters[0]
+    # 3027 * $0.20 / 1M + 1053 * $1.20 / 1M
+    assert estimate["estimated_cost"] == pytest.approx(0.001869)
+
+
 def test_estimate_ignores_flex_meters(monkeypatch):
     pricing = AzureRetailPricing()
     meters = [
