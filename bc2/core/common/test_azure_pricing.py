@@ -55,6 +55,42 @@ def test_estimate_openai_response_cost(monkeypatch):
     assert len(estimate["components"]) == 3
 
 
+def test_estimate_ignores_flex_meters(monkeypatch):
+    pricing = AzureRetailPricing()
+    meters = [
+        _meter("6.1-sol ShortCo Inp Std Gl", 2.0),
+        _meter("6.1-sol ShortCo Inp Flex Gl", 1.0),
+        _meter("6.1-sol ShortCo Cd Inp Std Gl", 0.1),
+        _meter("6.1-sol ShortCo Cd Inp Flex Gl", 0.05),
+        _meter("6.1-sol ShortCo Cd Wr Std Gl", 2.5),
+        _meter("6.1-sol ShortCo Opt Std Gl", 10.0),
+        _meter("6.1-sol ShortCo Opt Flex Gl", 5.0),
+    ]
+    monkeypatch.setattr(
+        pricing, "_get_prices", lambda _: (meters, "2026-07-10T00:00:00+00:00")
+    )
+
+    estimate = pricing.estimate(
+        {
+            "service": "responses",
+            "model": "gpt-6.1-sol",
+            "usage": {
+                "input_tokens": 1_000_000,
+                "cached_input_tokens": 200_000,
+                "output_tokens": 100_000,
+            },
+        },
+        {
+            "azure_region": "eastus",
+            "azure_deployment_type": "global",
+            "azure_context_tier": "short",
+        },
+    )
+
+    assert estimate["estimated_cost"] == pytest.approx(2.62)
+    assert all("Std" in c["meter_name"] for c in estimate["components"])
+
+
 def test_estimate_document_intelligence_read_cost(monkeypatch):
     pricing = AzureRetailPricing()
     meter = {

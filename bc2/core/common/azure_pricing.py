@@ -233,7 +233,7 @@ def _select_openai_meter(
         if item.get("type") != "Consumption":
             continue
         name = f"{item.get('skuName', '')} {item.get('meterName', '')}".lower()
-        if "batch" in name or re.search(r"\bpp\b", name):
+        if "batch" in name or re.search(r"\b(pp|flex|fl)\b", name):
             continue
         if not _matches_model_variant(name, model):
             continue

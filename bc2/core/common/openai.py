@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from abc import abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
@@ -433,6 +434,12 @@ class OpenAIChatConfig(BaseModel, Generic[TResult]):
     )
 
     @property
+    def supports_temperature(self) -> bool:
+        """Whether the model accepts `temperature` (only gpt-3 and gpt-4 series)."""
+        model_name = (self.openai_model or self.model).lower()
+        return re.match(r"gpt-?(35|3|4)(?![0-9])", model_name) is not None
+
+    @property
     def model_completion_tokens(self) -> int | None:
         """Get the completion tokens for the model."""
         model_name = self.openai_model or self.model
@@ -505,10 +512,16 @@ class OpenAIChatConfig(BaseModel, Generic[TResult]):
         openai_api_params = {
             "model",
             "seed",
-            "temperature",
             "top_p",
             "reasoning_effort",
         }
+
+        # Only older models (4-series and earlier) support `temperature`.
+        # TODO(jnu): technically the same is true for `seed`.
+        if self.supports_temperature:
+            openai_api_params.add("temperature")
+        else:
+            unsupported_openai_params.add("temperature")
 
         # Only keep populated settings that are in the OpenAI API params list.
         # Note that `max_tokens` is determined and applied separate from these params.
